@@ -4,7 +4,14 @@
 
  ## Usage
 
- ### Common shortcuts
+### SAM model
+
+1. Download  `ViT-H` SAM model from `https://github.com/facebookresearch/segment-anything#model-checkpoints`
+2. Place model to the `/sam_models`
+3. Create python venv and install requirements from `requirements.txt` as `pip install -r requirements.txt` 
+4. run `ai_annotator.py`
+
+### Common shortcuts
 
 **S** -  draw a new label  
 **D** - delete current label    
