@@ -19,6 +19,7 @@ from utils import help_functions as hf
 from utils.sam_predictor import load_model, mask_to_seg, predict_by_points, predict_by_box, predictor_set_image
 from utils import config
 from utils.predictor import SAMImageSetter
+from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection
 
 from ui.settings_window import SettingsWindow
 from ui.ask_del_polygon import AskDelWindow
@@ -47,6 +48,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.polygon_end_drawing.on_end_drawing.connect(self.on_polygon_end_draw)
         self.view.mask_end_drawing.on_mask_end_drawing.connect(self.ai_mask_end_drawing)
 
+        self.im_panel_count_conn = ImagesPanelCountConnection()
+        self.labels_count_conn = LabelsPanelCountConnection()
+
         self.on_theme_change_connection = ThemeChangeConnection()
 
         self.start_gif(is_prog_load=True)
@@ -61,6 +65,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.is_dark_theme = True
 
         self.setWindowTitle("AI Annotator")
+        self.settings_set = False
+        self.init_settings()
 
         # создаем меню и тулбар
         self.createActions()
@@ -70,8 +76,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Принтер
         self.printer = QPrinter()
         self.scaleFactor = 1.0
-        self.settings_set = False
-        self.init_settings()
+
         self.project_data = ProjectHandler()
         self.ann_type = "Polygon"
         self.loaded_proj_name = None
@@ -91,7 +96,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.queue_to_image_setter = []
 
         self.splash.finish(self)
-        self.statusBar().showMessage("Загрузите проект или набор изображений")
+        self.statusBar().showMessage(
+            "Загрузите проект или набор изображений" if self.settings_['lang'] == 'RU' else "Load dataset or project")
 
     def set_movie_gif(self):
         """
@@ -127,52 +133,86 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Задать действия
         """
-        self.openAct = QAction("Загрузить набор изображений", self, shortcut="Ctrl+O", triggered=self.open)
-        self.openProjAct = QAction("Загрузить проект", self, triggered=self.open_project)
-        self.saveProjAsAct = QAction("Сохранить проект как...", self, triggered=self.save_project_as)
-        self.saveProjAct = QAction("Сохранить проект", self, shortcut="Ctrl+S", triggered=self.save_project)
+        self.openAct = QAction("Загрузить набор изображений" if self.settings_['lang'] == 'RU' else "Load dataset",
+                               self,
+                               shortcut="Ctrl+O", triggered=self.open)
+        self.openProjAct = QAction("Загрузить проект" if self.settings_['lang'] == 'RU' else "Load Project", self,
+                                   triggered=self.open_project)
+        self.saveProjAsAct = QAction(
+            "Сохранить проект как..." if self.settings_['lang'] == 'RU' else "Save project as...",
+            self, triggered=self.save_project_as)
+        self.saveProjAct = QAction("Сохранить проект" if self.settings_['lang'] == 'RU' else "Save project", self,
+                                   shortcut="Ctrl+S", triggered=self.save_project)
 
-        self.printAct = QAction("Печать...", self, shortcut="Ctrl+P", enabled=False, triggered=self.print_)
-        self.exitAct = QAction("Выход", self, shortcut="Ctrl+Q", triggered=self.close)
-        self.zoomInAct = QAction("Увеличить на (25%)", self, shortcut="Ctrl++", enabled=False,
+        self.printAct = QAction("Печать" if self.settings_['lang'] == 'RU' else "Print", self, shortcut="Ctrl+P",
+                                enabled=False, triggered=self.print_)
+        self.exitAct = QAction("Выход" if self.settings_['lang'] == 'RU' else "Exit", self, shortcut="Ctrl+Q",
+                               triggered=self.close)
+        self.zoomInAct = QAction("Увеличить" if self.settings_['lang'] == 'RU' else "Zoom In", self, shortcut="Ctrl++",
+                                 enabled=False,
                                  triggered=self.zoomIn)
-        self.zoomOutAct = QAction("Уменьшить на (25%)", self, shortcut="Ctrl+-", enabled=False,
+        self.zoomOutAct = QAction("Уменьшить" if self.settings_['lang'] == 'RU' else "Zoom Out", self,
+                                  shortcut="Ctrl+-",
+                                  enabled=False,
                                   triggered=self.zoomOut)
 
-        self.fitToWindowAct = QAction("Подогнать под размер окна", self, enabled=False,
-                                      shortcut="Ctrl+F",
-                                      triggered=self.fitToWindow)
-        self.aboutAct = QAction("О модуле", self, triggered=self.about)
-        self.tutorialAct = QAction("Горячие клавиши", self, triggered=self.show_tutorial)
+        self.fitToWindowAct = QAction(
+            "Подогнать под размер окна" if self.settings_['lang'] == 'RU' else "Fit to window size",
+            self, enabled=False,
+            shortcut="Ctrl+F",
+            triggered=self.fitToWindow)
+        self.aboutAct = QAction("О модуле" if self.settings_['lang'] == 'RU' else "About", self, triggered=self.about)
+        self.tutorialAct = QAction("Горячие клавиши" if self.settings_['lang'] == 'RU' else "Shortcuts", self,
+                                   triggered=self.show_tutorial)
 
-        self.settingsAct = QAction("Настройки приложения", self, enabled=True, triggered=self.showSettings)
+        self.settingsAct = QAction("Настройки приложения" if self.settings_['lang'] == 'RU' else "Settings", self,
+                                   enabled=True, triggered=self.showSettings)
 
         # Annotators
-        self.polygonAct = QAction("Полигон", self, enabled=False, triggered=self.polygon_tool_pressed, checkable=True)
-        self.circleAct = QAction("Эллипс", self, enabled=False, triggered=self.circle_pressed, checkable=True)
-        self.squareAct = QAction("Прямоугольник (Box)", self, enabled=False, triggered=self.square_pressed,
+        self.polygonAct = QAction("Полигон" if self.settings_['lang'] == 'RU' else "Polygon", self, enabled=False,
+                                  triggered=self.polygon_tool_pressed, checkable=True)
+        self.circleAct = QAction("Эллипс" if self.settings_['lang'] == 'RU' else "Ellips", self, enabled=False,
+                                 triggered=self.circle_pressed, checkable=True)
+        self.squareAct = QAction("Прямоугольник" if self.settings_['lang'] == 'RU' else "Box", self, enabled=False,
+                                 triggered=self.square_pressed,
                                  checkable=True)
-        self.aiAnnotatorPointsAct = QAction("Сегментация по точкам", self, enabled=False,
-                                            triggered=self.ai_points_pressed,
-                                            checkable=True)
-        self.aiAnnotatorMaskAct = QAction("Сегментация внутри бокса", self, enabled=False,
-                                          triggered=self.ai_mask_pressed,
-                                          checkable=True)
+        self.aiAnnotatorPointsAct = QAction(
+            "Сегментация по точкам" if self.settings_['lang'] == 'RU' else "SAM by points",
+            self, enabled=False,
+            triggered=self.ai_points_pressed,
+            checkable=True)
+        self.aiAnnotatorMaskAct = QAction(
+            "Сегментация внутри бокса" if self.settings_['lang'] == 'RU' else "SAM by box", self,
+            enabled=False,
+            triggered=self.ai_mask_pressed,
+            checkable=True)
 
         # Export
-        self.exportAnnToYoloBoxAct = QAction("Экспорт в формат YOLO (Box)", self, enabled=False,
-                                             triggered=self.exportToYOLOBox)
-        self.exportAnnToYoloSegAct = QAction("Экспорт в формат YOLO (Seg)", self, enabled=False,
-                                             triggered=self.exportToYOLOSeg)
-        self.exportAnnToCOCOAct = QAction("Экспорт в формат COCO", self, enabled=False,
-                                          triggered=self.exportToCOCO)
+        self.exportAnnToYoloBoxAct = QAction(
+            "YOLO (Box)" if self.settings_['lang'] == 'RU' else "YOLO (Boxes)", self,
+            enabled=False,
+            triggered=self.exportToYOLOBox)
+        self.exportAnnToYoloSegAct = QAction(
+            "YOLO (Seg)" if self.settings_['lang'] == 'RU' else "YOLO (Seg)", self,
+            enabled=False,
+            triggered=self.exportToYOLOSeg)
+        self.exportAnnToCOCOAct = QAction(
+            "COCO" if self.settings_['lang'] == 'RU' else "COCO", self, enabled=False,
+            triggered=self.exportToCOCO)
 
         # Labels
-        self.add_label = QAction("Добавить новый класс", self, enabled=True, triggered=self.add_label_button_clicked)
-        self.del_label = QAction("Удалить текущий класс", self, enabled=True, triggered=self.del_label_button_clicked)
-        self.change_label_color = QAction("Изменить цвет разметки для текущего класса", self, enabled=True,
-                                          triggered=self.change_label_color_button_clicked)
-        self.rename_label = QAction("Изменить имя класса", self, enabled=True,
+        self.add_label = QAction("Добавить новый класс" if self.settings_['lang'] == 'RU' else "Add new label", self,
+                                 enabled=True, triggered=self.add_label_button_clicked)
+        self.del_label = QAction("Удалить текущий класс" if self.settings_['lang'] == 'RU' else "Delete current label",
+                                 self,
+                                 enabled=True, triggered=self.del_label_button_clicked)
+        self.change_label_color = QAction(
+            "Изменить цвет разметки для текущего класса" if self.settings_['lang'] == 'RU' else "Change label color",
+            self,
+            enabled=True,
+            triggered=self.change_label_color_button_clicked)
+        self.rename_label = QAction("Изменить имя класса" if self.settings_['lang'] == 'RU' else "Rename", self,
+                                    enabled=True,
                                     triggered=self.rename_label_button_clicked)
 
         self.set_icons()
@@ -183,7 +223,7 @@ class MainWindow(QtWidgets.QMainWindow):
         Создание меню
         """
 
-        self.fileMenu = QMenu("&Файл", self)
+        self.fileMenu = QMenu("&Файл" if self.settings_['lang'] == 'RU' else "&File", self)
         self.fileMenu.addAction(self.openAct)
         self.fileMenu.addAction(self.openProjAct)
         self.fileMenu.addAction(self.saveProjAct)
@@ -193,15 +233,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.fileMenu.addSeparator()
         self.fileMenu.addAction(self.exitAct)
         #
-        self.viewMenu = QMenu("&Изображение", self)
+        self.viewMenu = QMenu("&Изображение" if self.settings_['lang'] == 'RU' else "&View", self)
         self.viewMenu.addAction(self.zoomInAct)
         self.viewMenu.addAction(self.zoomOutAct)
         self.viewMenu.addSeparator()
         self.viewMenu.addAction(self.fitToWindowAct)
         #
-        self.annotatorMenu = QMenu("&Аннотация", self)
-        self.AnnotatorMethodMenu = QMenu("Способ выделения", self)
-        self.aiAnnotatorMethodMenu = QMenu("Сегментация", self)
+        self.annotatorMenu = QMenu("&Аннотация" if self.settings_['lang'] == 'RU' else "&Labeling", self)
+        self.AnnotatorMethodMenu = QMenu("Способ выделения" if self.settings_['lang'] == 'RU' else "Method", self)
+        self.aiAnnotatorMethodMenu = QMenu("Сегментация" if self.settings_['lang'] == 'RU' else "SAM", self)
         self.aiAnnotatorMethodMenu.setIcon(QIcon(self.icon_folder + "/ai.png"))
 
         self.AnnotatorMethodMenu.addAction(self.polygonAct)
@@ -214,16 +254,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.AnnotatorMethodMenu.addMenu(self.aiAnnotatorMethodMenu)
         self.annotatorMenu.addMenu(self.AnnotatorMethodMenu)
 
-        self.annotatorExportMenu = QMenu("Экспорт", self)
+        self.annotatorExportMenu = QMenu("Экспорт" if self.settings_['lang'] == 'RU' else "Export", self)
         self.annotatorExportMenu.addAction(self.exportAnnToYoloBoxAct)
         self.annotatorExportMenu.addAction(self.exportAnnToYoloSegAct)
         self.annotatorExportMenu.addAction(self.exportAnnToCOCOAct)
         self.annotatorMenu.addMenu(self.annotatorExportMenu)
         #
-        self.settingsMenu = QMenu("Настройки", self)
+        self.settingsMenu = QMenu("Настройки" if self.settings_['lang'] == 'RU' else "Settings", self)
         self.settingsMenu.addAction(self.settingsAct)
         #
-        self.helpMenu = QMenu("&Помощь", self)
+        self.helpMenu = QMenu("&Помощь" if self.settings_['lang'] == 'RU' else "Help", self)
         self.helpMenu.addAction(self.aboutAct)
         self.helpMenu.addAction(self.tutorialAct)
 
@@ -241,7 +281,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Слева
 
-        toolBar = QToolBar("Панель инструментов", self)
+        toolBar = QToolBar("Панель инструментов" if self.settings_['lang'] == 'RU' else "ToolBar", self)
         toolBar.addAction(self.openAct)
         toolBar.addSeparator()
         toolBar.addAction(self.zoomInAct)
@@ -264,10 +304,11 @@ class MainWindow(QtWidgets.QMainWindow):
         # toolBar.addAction(self.printAct)
         # toolBar.addAction(self.exitAct)
 
-        labelSettingsToolBar = QToolBar("Настройки разметки", self)
+        labelSettingsToolBar = QToolBar("Настройки разметки" if self.settings_['lang'] == 'RU' else "Current Label Bar",
+                                        self)
         self.cls_combo = QComboBox()
 
-        label = QLabel("Текущий класс:   ")
+        label = QLabel("Текущий класс:   " if self.settings_['lang'] == 'RU' else "Current label:   ")
         cls_names = np.array(['no name'])
         self.cls_combo.addItems(cls_names)
         self.cls_combo.setMinimumWidth(150)
@@ -285,11 +326,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.toolBarLeft = toolBar
 
         # Правая панель
-        self.toolBarRight = QToolBar("Менеджер разметок", self)
+        self.toolBarRight = QToolBar("Менеджер разметок" if self.settings_['lang'] == 'RU' else "Labeling Bar", self)
 
         # # Панель меток - заголовок
         self.toolBarRight.addWidget(LabelsPanel(self, self.break_drawing, self.icon_folder,
-                                                on_color_change_signal=self.on_theme_change_connection.on_theme_change))
+                                                on_color_change_signal=self.on_theme_change_connection.on_theme_change,
+                                                on_labels_count_change=self.labels_count_conn.on_labels_count_change))
 
         # Панель меток - список
         self.labels_on_tek_image = QListWidget()
@@ -299,7 +341,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # Панель изображений - заголовок
         self.toolBarRight.addWidget(
             ImagesPanel(self, self.add_im_to_proj_clicked, self.del_im_from_proj_clicked, self.icon_folder,
-                        on_color_change_signal=self.on_theme_change_connection.on_theme_change))
+                        on_color_change_signal=self.on_theme_change_connection.on_theme_change,
+                        on_images_list_change=self.im_panel_count_conn.on_image_count_change))
 
         # Панель изображений - список
         self.images_list_widget = QListWidget()
@@ -315,7 +358,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def add_im_to_proj_clicked(self):
 
         if self.dataset_dir:
-            images, _ = QFileDialog.getOpenFileNames(self, 'Загрузка изображений в проект', 'images',
+            images, _ = QFileDialog.getOpenFileNames(self,
+                                                     'Загрузка изображений в проект' if self.settings_[
+                                                                                            'lang'] == 'RU' else "Loading dataset",
+                                                     'images',
                                                      'Images Files (*.jpeg *.png *.jpg *.tiff)')
             if images:
                 for im in images:
@@ -332,9 +378,15 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.open()
 
+        self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
+
     def del_im_from_proj_clicked(self):
 
         if self.tek_image_name:
+
+            current_idx = self.images_list_widget.currentRow()
+            print(current_idx)
+
             tek_im_name = self.tek_image_name
             os.remove(os.path.join(self.dataset_dir, tek_im_name))
 
@@ -354,6 +406,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.dataset_images = [image for image in self.dataset_images if image != tek_im_name]
 
             self.fill_images_label(self.dataset_images)
+
+            self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
+
+            self.images_list_widget.setCurrentRow(current_idx)
+
+            self.fill_labels_on_tek_image_list_widget()
 
     def fill_labels_on_tek_image_list_widget(self):
 
@@ -383,6 +441,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tek_image_path = os.path.join(self.dataset_dir, self.tek_image_name)
         self.open_image(self.tek_image_path)
         self.load_image_data(self.tek_image_name)
+        self.fill_labels_on_tek_image_list_widget()
         self.view.setFocus()
 
     def labels_on_tek_image_clicked(self, item):
@@ -391,7 +450,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def exportToYOLOBox(self):
         self.save_project()
-        export_dir = QFileDialog.getExistingDirectory(self, 'Выберите папку для сохранения разметки',
+        export_dir = QFileDialog.getExistingDirectory(self,
+                                                      'Выберите папку для сохранения разметки' if self.settings_[
+                                                                                                      'lang'] == 'RU' else "Set folder",
                                                       'images')
         if export_dir:
             self.project_data.exportToYOLOBox(export_dir)
@@ -399,7 +460,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def exportToYOLOSeg(self):
         self.save_project()
-        export_dir = QFileDialog.getExistingDirectory(self, 'Выберите папку для сохранения разметки',
+        export_dir = QFileDialog.getExistingDirectory(self,
+                                                      'Выберите папку для сохранения разметки' if self.settings_[
+                                                                                                      'lang'] == 'RU' else "Set folder",
                                                       'images')
         if export_dir:
             self.project_data.exportToYOLOSeg(export_dir)
@@ -407,7 +470,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def exportToCOCO(self):
         self.save_project()
-        export_сoco_file, _ = QFileDialog.getSaveFileName(self, 'Выберите имя сохраняемого файла', 'images',
+        export_сoco_file, _ = QFileDialog.getSaveFileName(self,
+                                                          'Выберите имя сохраняемого файла' if self.settings_[
+                                                                                                   'lang'] == 'RU' else "Set export file name",
+                                                          'images',
                                                           'JSON File (*.json)')
 
         if export_сoco_file:
@@ -422,7 +488,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def on_project_export(self, export_format="YOLO Seg"):
         msgbox = QMessageBox()
         msgbox.setIcon(QMessageBox.Information)
-        msgbox.setText(f"Экспорт в формат {export_format} завершен успешно")
+        msgbox.setText(
+            f"Экспорт в формат {export_format} завершен успешно" if self.settings_[
+                                                                        'lang'] == 'RU' else f"Export to {export_format} was successful")
         msgbox.setWindowTitle("Экспорт завершен")
         msgbox.exec()
 
@@ -440,8 +508,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def add_label_button_clicked(self):
 
-        self.input_dialog = CustomInputDialog(self, title_name="Добавление нового класса",
-                                              question_name="Введите имя класса:")
+        self.input_dialog = CustomInputDialog(self,
+                                              title_name="Добавление нового класса" if self.settings_[
+                                                                                           'lang'] == 'RU' else "New label",
+                                              question_name="Введите имя класса:" if self.settings_[
+                                                                                         'lang'] == 'RU' else "Enter label name:")
         self.input_dialog.okBtn.clicked.connect(self.add_label_ok_clicked)
         self.input_dialog.show()
         self.input_dialog.edit.setFocus()
@@ -456,9 +527,12 @@ class MainWindow(QtWidgets.QMainWindow):
             if new_name in cls_names:
                 msgbox = QMessageBox()
                 msgbox.setIcon(QMessageBox.Information)
-                msgbox.setText(f"Ошибка добавления класса")
-                msgbox.setWindowTitle("Ошибка добавления класса")
-                msgbox.setInformativeText(f"Класс с именем {new_name} уже существует")
+                msgbox.setText(
+                    f"Ошибка добавления класса" if self.settings_['lang'] == 'RU' else "Error in setting new label")
+                msgbox.setWindowTitle("Ошибка добавления класса" if self.settings_['lang'] == 'RU' else "Error")
+                msgbox.setInformativeText(
+                    f"Класс с именем {new_name} уже существует" if self.settings_[
+                                                                       'lang'] == 'RU' else f"Label with name {new_name} is already exist. Try again")
                 msgbox.exec()
                 return
 
@@ -483,9 +557,11 @@ class MainWindow(QtWidgets.QMainWindow):
         if len(cls_names) <= 1:
             msgbox = QMessageBox()
             msgbox.setIcon(QMessageBox.Information)
-            msgbox.setText(f"Ошибка удаления класса")
-            msgbox.setWindowTitle(f"Ошибка удаления класса")
-            msgbox.setInformativeText("Количество классов должно быть хотя бы 2 для удаления текущего")
+            msgbox.setText(f"Ошибка удаления класса" if self.settings_['lang'] == 'RU' else "Error in deleting label")
+            msgbox.setWindowTitle(f"Ошибка удаления класса" if self.settings_['lang'] == 'RU' else "Error")
+            msgbox.setInformativeText(
+                "Количество классов должно быть хотя бы 2 для удаления текущего" if self.settings_[
+                                                                                        'lang'] == 'RU' else "The last label left. If you don't like the name - just rename it")
             msgbox.exec()
             return
 
@@ -610,7 +686,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         color_dialog = QColorDialog()
         cls_txt = self.cls_combo.currentText()
-        color_dialog.setWindowTitle(f"Выберите цвет для класса {cls_txt}")
+        color_dialog.setWindowTitle(
+            f"Выберите цвет для класса {cls_txt}" if self.settings_[
+                                                         'lang'] == 'RU' else f"Enter color to label {cls_txt}")
         current_color = self.project_data.get_label_color(cls_txt)
         if not current_color:
             current_color = config.COLORS[self.cls_combo.currentIndex()]
@@ -633,8 +711,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.write_scene_to_project_data()
 
         cls_name = self.cls_combo.currentText()
-        self.input_dialog = CustomInputDialog(self, title_name=f"Редактирование имени класса {cls_name}",
-                                              question_name="Введите новое имя класса:")
+        self.input_dialog = CustomInputDialog(self,
+                                              title_name=f"Редактирование имени класса {cls_name}" if self.settings_[
+                                                                                                          'lang'] == 'RU' else f"Rename label {cls_name}",
+                                              question_name="Введите новое имя класса:" if self.settings_[
+                                                                                               'lang'] == 'RU' else "Enter new label name:")
 
         self.input_dialog.okBtn.clicked.connect(self.rename_label_ok_clicked)
         self.input_dialog.show()
@@ -720,14 +801,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_setter.set_image(self.cv2_image)
 
         if not self.image_setter.isRunning():
-            self.statusBar().showMessage("Начинаю загружать изображение в нейросеть SAM...", 3000)
+            self.statusBar().showMessage(
+                "Начинаю загружать изображение в нейросеть SAM..." if self.settings_[
+                                                                          'lang'] == 'RU' else "Start loading image to SAM...",
+                3000)
             self.image_setter.start()
         else:
             image_copy = cv2.imread(image_name)
             image_copy = cv2.cvtColor(image_copy, cv2.COLOR_BGR2RGB)
             self.queue_to_image_setter.append(image_copy)
+
             self.statusBar().showMessage(
-                f"Изображение {os.path.split(image_name)[-1]} добавлено в очередь на обработку.", 3000)
+                f"Изображение {os.path.split(image_name)[-1]} добавлено в очередь на обработку." if self.settings_[
+                                                                                                        'lang'] == 'RU' else f"Image {os.path.split(image_name)[-1]} is added to queue...",
+                3000)
 
     def on_image_setted(self):
         if len(self.queue_to_image_setter) != 0:
@@ -735,11 +822,15 @@ class MainWindow(QtWidgets.QMainWindow):
             self.image_setted = False
             self.image_setter.set_image(self.cv2_image)
             self.queue_to_image_setter = []
-            self.statusBar().showMessage("Нейросеть SAM еще не готова. Подождите секунду...", 3000)
+            self.statusBar().showMessage(
+                "Нейросеть SAM еще не готова. Подождите секунду..." if self.settings_[
+                                                                           'lang'] == 'RU' else "SAM is loading. Please wait...",
+                3000)
             self.image_setter.start()
 
         else:
-            self.statusBar().showMessage("Нейросеть SAM готова к сегментации", 3000)
+            self.statusBar().showMessage(
+                "Нейросеть SAM готова к сегментации" if self.settings_['lang'] == 'RU' else "SAM ready to work", 3000)
             self.image_setted = True
 
     def print_(self):
@@ -762,7 +853,9 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         QMessageBox.about(self, "AI Annotator",
                           "<p><b>AI Annotator</b></p>"
-                          "<p>Программа для разметки изображений с поддержкой автоматической сегментации</p>")
+                          "<p>Программа для разметки изображений с поддержкой автоматической сегментации</p>" if
+                          self.settings_[
+                              'lang'] == 'RU' else "<p>Labeling Data for Object Detection and Instance Segmentation with The Segment Anything Model (SAM).</p>")
 
     def filter_images_names(self, file_names):
         im_names_valid = []
@@ -778,7 +871,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def open(self):
 
-        dataset_dir = QFileDialog.getExistingDirectory(self, 'Выберите папку с изображениями для разметки',
+        dataset_dir = QFileDialog.getExistingDirectory(self,
+                                                       'Выберите папку с изображениями для разметки' if self.settings_[
+                                                                                                            'lang'] == 'RU' else "Set dataset folder",
                                                        'images')
 
         if dataset_dir:
@@ -808,11 +903,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 self.splash.finish(self)
 
+                self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
+                self.images_list_widget.setCurrentRow(0)
+
                 self.statusBar().showMessage(
-                    f"Число загруженны в проект изображений: {len(self.dataset_images)}", 3000)
+                    f"Число загруженны в проект изображений: {len(self.dataset_images)}" if self.settings_[
+                                                                                                'lang'] == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
+                    3000)
             else:
                 self.statusBar().showMessage(
-                    f"В указанной папке изображений не обнаружено", 3000)
+                    f"В указанной папке изображений не обнаружено" if self.settings_[
+                                                                          'lang'] == 'RU' else "Folder is empty",
+                    3000)
 
     def fill_images_label(self, image_names):
 
@@ -824,7 +926,10 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Загрузка проекта
         """
-        loaded_proj_name, _ = QFileDialog.getOpenFileName(self, 'Загрузка проекта', 'projects',
+        loaded_proj_name, _ = QFileDialog.getOpenFileName(self,
+                                                          'Загрузка проекта' if self.settings_[
+                                                                                    'lang'] == 'RU' else "Loading project",
+                                                          'projects',
                                                           'JSON Proj File (*.json)')
 
         if loaded_proj_name:
@@ -834,11 +939,18 @@ class MainWindow(QtWidgets.QMainWindow):
             if not is_success:
                 msgbox = QMessageBox()
                 msgbox.setIcon(QMessageBox.Information)
-                msgbox.setText(f"Ошибка открытия файла {self.loaded_proj_name}")
-                msgbox.setInformativeText(
-                    f"Файл {self.loaded_proj_name} должен быть в формате .json и содержать поля:\n\t"
-                    f"path_to_images\n\timages\n\t\tfilename\n\t\tshapes\n\t")
-                msgbox.setWindowTitle(f"Ошибка открытия файла {self.loaded_proj_name}")
+                msgbox.setText(
+                    f"Ошибка открытия файла {self.loaded_proj_name}" if self.settings_[
+                                                                            'lang'] == 'RU' else f"Error in opening file {self.loaded_proj_name}")
+                if self.settings_['lang'] == 'RU':
+                    msgbox.setInformativeText(
+                        f"Файл {self.loaded_proj_name} должен быть в формате .json и содержать поля:\n\t"
+                        f"path_to_images\n\timages\n\t\tfilename\n\t\tshapes\n\t")
+                else:
+                    msgbox.setInformativeText(
+                        f"File {self.loaded_proj_name} not in project format")
+                msgbox.setWindowTitle(
+                    f"Ошибка открытия файла {self.loaded_proj_name}" if self.settings_['lang'] == 'RU' else "Error")
                 msgbox.exec()
 
             else:
@@ -867,8 +979,13 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.fill_labels_on_tek_image_list_widget()
                     self.fill_images_label(self.dataset_images)
 
+                    self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
+                    self.images_list_widget.setCurrentRow(0)
+
                 self.statusBar().showMessage(
-                    f"Число загруженны в проект изображений: {len(self.dataset_images)}", 3000)
+                    f"Число загруженны в проект изображений: {len(self.dataset_images)}" if self.settings_[
+                                                                                                'lang'] == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
+                    3000)
 
     def on_polygon_end_draw(self, is_end_draw):
         if is_end_draw:
@@ -896,7 +1013,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.fill_project_labels()
 
             self.statusBar().showMessage(
-                f"Проект успешно сохранен", 3000)
+                f"Проект успешно сохранен" if self.settings_['lang'] == 'RU' else "Project is saved", 3000)
 
         else:
             self.save_project_as()
@@ -919,7 +1036,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.loaded_proj_name = proj_name
 
             self.statusBar().showMessage(
-                f"Проект успешно сохранен", 3000)
+                f"Проект успешно сохранен" if self.settings_['lang'] == 'RU' else "Project is saved", 3000)
 
     def zoomIn(self):
         """
@@ -972,22 +1089,33 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         self.settings_ = {}
         self.settings_["theme"] = self.theme_str
-        self.settings_['is_fit_window'] = True
 
         self.settings_["alpha"] = 50
         self.settings_["fat_width"] = 50
+        self.settings_['lang'] = config.LANGUAGE
 
         if cuda.is_available():
             print("CUDA is available")
-            self.statusBar().showMessage(
-                "Найдено устройство NVIDIA CUDA. Нейросеть будет использовать ее для ускорения", 3000)
+            if self.settings_['lang'] == 'RU':
+                self.statusBar().showMessage(
+                    "Найдено устройство NVIDIA CUDA. Нейросеть будет использовать ее для ускорения", 3000)
+            else:
+                self.statusBar().showMessage(
+                    "NVIDIA CUDA is found. SAM will use it for acceleration", 3000)
             self.settings_['platform'] = "cuda"
         else:
-            self.statusBar().showMessage(
-                "Не найдено устройство NVIDIA CUDA. Нейросеть будет использовать ресурсы процессора", 3000)
+            if self.settings_['lang'] == 'RU':
+                self.statusBar().showMessage(
+                    "Не найдено устройство NVIDIA CUDA. Нейросеть будет использовать ресурсы процессора", 3000)
+            else:
+                self.statusBar().showMessage(
+                    "Cant't find NVIDIA CUDA. SAM will use CPU", 3000)
+
             self.settings_['platform'] = "cpu"
 
         self.settings_["labels_color"] = {}
+
+        self.settings_['density'] = config.DENSITY_SCALE
 
         self.settings_set = True
 
@@ -1001,7 +1129,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if 'light' in theme_str:
             primary_color = "#000000"
 
-        extra = {'density_scale': config.DENSITY_SCALE,
+        density = hf.density_slider_to_value(self.settings_["density"])
+        # print(f'Density: {self.settings_["density"]} -> {density}')
+
+        extra = {'density_scale': density,
                  # 'font_size': '14px',
                  'primaryTextColor': primary_color}
 
@@ -1021,30 +1152,44 @@ class MainWindow(QtWidgets.QMainWindow):
         """
 
         if len(self.settings_window.settings) != 0:
+            density_old = self.settings_['density']
+            lang_old = self.settings_['lang']
+
             self.settings_ = self.settings_window.settings
             self.settings_set = True
 
-            str_settings = "Настройки сохранены.\n"
+            str_settings = "Настройки сохранены.\n" if self.settings_['lang'] == 'RU' else "Setting is saved\n"
 
             if self.settings_['platform'] == 'Auto':
                 if cuda.is_available():
-                    self.statusBar().showMessage(
-                        "Найдено устройство NVIDIA CUDA. Нейросеть будет использовать ее для ускорения", 3000)
+                    if self.settings_['lang'] == 'RU':
+                        self.statusBar().showMessage(
+                            "Найдено устройство NVIDIA CUDA. Нейросеть будет использовать ее для ускорения", 3000)
+                    else:
+                        self.statusBar().showMessage(
+                            "NVIDIA CUDA is found. SAM will use it for acceleration", 3000)
+
                     if self.settings_['platform'] == 'cpu':
                         self.settings_['platform'] = "cuda"
                         self.sam = load_model(self.sam_model_path, model_type="vit_h",
                                               device=self.settings_['platform'])
                 else:
-                    self.statusBar().showMessage(
-                        "Не найдено устройство NVIDIA CUDA. Нейросеть будет использовать ресурсы процессора", 3000)
+                    if self.settings_['lang'] == 'RU':
+                        self.statusBar().showMessage(
+                            "Не найдено устройство NVIDIA CUDA. Нейросеть будет использовать ресурсы процессора", 3000)
+                    else:
+                        self.statusBar().showMessage(
+                            "Cant't find NVIDIA CUDA. SAM will use CPU", 3000)
+
                     if self.settings_['platform'] == 'cuda':
                         self.settings_['platform'] = "cpu"
                         self.sam = load_model(self.sam_model_path, model_type="vit_h",
                                               device=self.settings_['platform'])
 
-            if self.settings_['theme'] != self.theme_str:
+            if self.settings_['theme'] != self.theme_str or self.settings_['density'] != density_old or lang_old != \
+                    self.settings_['lang']:
                 self.statusBar().showMessage(
-                    "Тема приложения изменена", 3000)
+                    "Тема приложения изменена" if self.settings_['lang'] == 'RU' else "Theme is changed", 3000)
                 self.theme_str = self.settings_['theme']
                 self.change_theme(self.settings_['theme'])
                 self.set_icons()
@@ -1053,11 +1198,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self.settings_["fat_width"] = self.settings_window.settings["fat_width"]
             self.view.set_fat_width(self.settings_["fat_width"])
 
-            QMessageBox.about(self, "Сохранение настроек приложения",
+            QMessageBox.about(self, "Сохранение настроек приложения" if self.settings_['lang'] == 'RU' else "Settings",
                               str_settings)
 
             self.statusBar().showMessage(
-                f"Настройки проекта изменены", 3000)
+                f"Настройки проекта изменены" if self.settings_['lang'] == 'RU' else "Settings is saved", 3000)
 
     def ai_points_pressed(self):
         self.ann_type = "AiPoints"
@@ -1214,8 +1359,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.write_scene_to_project_data()
                 self.fill_labels_on_tek_image_list_widget()
             else:
-                self.statusBar().showMessage(
-                    f"Метку сделать не удалось. Площадь маски слишком мала {area}. Попробуйте еще раз", 3000)
+                if self.settings_['lang'] == 'RU':
+                    self.statusBar().showMessage(
+                        f"Метку сделать не удалось. Площадь маски слишком мала {area:0.3f}. Попробуйте еще раз", 3000)
+                else:
+                    self.statusBar().showMessage(
+                        f"Can't create label. Area of label is too small {area:0.3f}. Try again", 3000)
+
                 self.view.remove_label_id(id)
                 self.write_scene_to_project_data()
                 self.fill_labels_on_tek_image_list_widget()
@@ -1223,6 +1373,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.view.remove_label_id(id)
             self.write_scene_to_project_data()
             self.fill_labels_on_tek_image_list_widget()
+
+        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
     def ai_mask_end_drawing(self):
 
@@ -1266,6 +1418,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.write_scene_to_project_data()
         self.fill_labels_on_tek_image_list_widget()
 
+        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+
     def start_drawing(self):
         self.set_labels_color()
         cls_txt = self.cls_combo.currentText()
@@ -1291,6 +1445,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.write_scene_to_project_data()
             self.fill_labels_on_tek_image_list_widget()
 
+        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+
     def reload_image(self):
         self.open_image(self.tek_image_path)
         self.load_image_data(self.tek_image_name)
@@ -1312,32 +1468,44 @@ class MainWindow(QtWidgets.QMainWindow):
             modifierName += 'Ctrl'
 
         if e.key() == 83 or e.key() == 1067:  # start poly
+            # S
             self.start_drawing()
 
         elif e.key() == 32:  # end poly
+            # Space
             self.end_drawing()
 
         elif e.key() == 44 or e.key() == 1041:
+            # <<< Before image
             self.write_scene_to_project_data()
 
+            current_idx = self.images_list_widget.currentRow()
+            next_idx = current_idx - 1 if current_idx > 0 else self.images_list_widget.count() - 1
             if self.get_before_image_name():
                 self.reload_image()
+                self.images_list_widget.setCurrentRow(next_idx)
 
         elif e.key() == 46 or e.key() == 1070:
-
+            # >>> Next image
             self.write_scene_to_project_data()
+
+            current_idx = self.images_list_widget.currentRow()
+            next_idx = current_idx + 1 if current_idx < self.images_list_widget.count() - 1 else 0
             if self.get_next_image_name():
                 self.reload_image()
+                self.images_list_widget.setCurrentRow(next_idx)
 
         elif e.key() == 68 or e.key() == 1042:
-
+            # D
             self.break_drawing()
 
         elif (e.key() == 67 or e.key() == 1057) and 'Ctrl' in modifierName:
+            # Ctrl + C
             self.view.copy_active_item_to_buffer()
             # self.write_scene_to_project_data()
 
         elif (e.key() == 86 or e.key() == 1052) and 'Ctrl' in modifierName:
+            # Ctrl + V
             self.view.paste_buffer()
             self.write_scene_to_project_data()
             self.fill_labels_on_tek_image_list_widget()
@@ -1349,7 +1517,7 @@ if __name__ == '__main__':
     from qt_material import apply_stylesheet
 
     app = QtWidgets.QApplication(sys.argv)
-    extra = {'density_scale': config.DENSITY_SCALE,
+    extra = {'density_scale': hf.density_slider_to_value(config.DENSITY_SCALE),
              # 'font_size': '14px',
              'primaryTextColor': '#ffffff'}
 

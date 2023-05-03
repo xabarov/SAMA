@@ -2,7 +2,7 @@ import numpy as np
 import math
 from PyQt5 import QtCore
 import matplotlib as mpl
-
+from utils import config
 
 def generate_set_of_label_colors():
     colors = []
@@ -65,6 +65,10 @@ def find_nearest_edge_of_polygon(polygon, point):
 
     return edge
 
+def density_slider_to_value(value, min_value=config.MIN_DENSITY_VALUE, max_value=config.MAX_DENSITY_VALUE):
+    b = 0.01*math.log(max_value/min_value)
+    return min_value*math.exp(b*value)
+
 
 def get_closest_to_line_point(point, p1_line, p2_line):
     a, b, c = calc_abc(p1_line, p2_line)
@@ -115,4 +119,4 @@ def convert_image_name_to_txt_name(image_name):
 
 
 if __name__ == '__main__':
-    print(generate_set_of_label_colors())
+    print(density_slider_to_value(10))

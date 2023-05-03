@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QLabel, QWidget, QVBoxLayout, QPushButton, QLineEdit
 from PyQt5.QtCore import Qt
-
+from utils import config
 
 class CustomInputDialog(QWidget):
     def __init__(self, parent, title_name, question_name, width=400, height=200):
@@ -14,7 +14,7 @@ class CustomInputDialog(QWidget):
 
         btnLayout = QVBoxLayout()
 
-        self.okBtn = QPushButton('Ввести', self)
+        self.okBtn = QPushButton('Ввести' if config.LANGUAGE == 'RU' else "OK", self)
 
         btnLayout.addWidget(self.okBtn)
 
