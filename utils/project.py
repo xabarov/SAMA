@@ -309,7 +309,7 @@ class ProjectHandler:
             label_names = [d["name"] for d in data["categories"]]
 
         label_colors = hf.get_label_colors(label_names, alpha=alpha)
-        
+
         project = {'path_to_images': os.path.dirname(data["images"][0]["coco_url"]),
                    "images": [], 'labels': label_names, 'labels_color': label_colors}
         id_num = 0

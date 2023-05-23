@@ -1,6 +1,3 @@
-import os
-import cv2
-
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QMovie, QPainter, QIcon, QColor, QCursor
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
@@ -11,12 +8,8 @@ from PyQt5.QtWidgets import QApplication
 
 from torch import cuda
 
-import numpy as np
-import json
-import datetime
-
 from utils import help_functions as hf
-from utils.sam_predictor import load_model, mask_to_seg, predict_by_points, predict_by_box, predictor_set_image
+from utils.sam_predictor import load_model, mask_to_seg, predict_by_points, predict_by_box
 from utils import config
 from utils.predictor import SAMImageSetter
 from utils.project import ProjectHandler
@@ -28,11 +21,14 @@ from ui.view import GraphicsView
 from ui.input_dialog import CustomInputDialog
 from ui.tutorial_window import Tutorial
 from ui.panels import ImagesPanel, LabelsPanel
-from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection
-from ui.signals_and_slots import ThemeChangeConnection
+from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection, ThemeChangeConnection
 from ui.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog
 
 from shapely import Polygon
+
+import cv2
+import numpy as np
+import os
 import shutil
 
 
@@ -555,7 +551,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.load_project(proj_path)
 
         self.import_dialog.hide()
-
 
     def set_color_to_cls(self, cls_name):
 

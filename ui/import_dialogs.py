@@ -1,8 +1,9 @@
 from PyQt5.QtWidgets import QLabel, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QCheckBox, QProgressBar, \
     QComboBox, QFileDialog
 from PyQt5.QtCore import Qt
-from utils import config
 from PyQt5.QtGui import QIcon
+
+from utils import config
 
 import numpy as np
 import yaml

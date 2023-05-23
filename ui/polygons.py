@@ -1,9 +1,10 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QPolygonF, QColor, QPen
+
 from utils import config
+from utils import help_functions as hf
 
 import math
-from utils import help_functions as hf
 
 
 class GrEllipsLabel(QtWidgets.QGraphicsEllipseItem):
@@ -121,4 +122,3 @@ class GrPolygonLabel(QtWidgets.QGraphicsPolygonItem):
         for p in pol:
             txt += f"({p.x()}, {p.y()}) "
         return txt
-
