@@ -304,12 +304,14 @@ class ProjectHandler:
 
         return False
 
-    def import_from_coco(self, data, alpha=120):
-        labels_names = [supercategory['name'] for supercategory in data['categories']]
-        label_colors = hf.get_label_colors(labels_names, alpha=alpha)
+    def import_from_coco(self, data, alpha=120, label_names=None):
+        if not label_names:
+            label_names = [d["name"] for d in data["categories"]]
 
+        label_colors = hf.get_label_colors(label_names, alpha=alpha)
+        
         project = {'path_to_images': os.path.dirname(data["images"][0]["coco_url"]),
-                   "images": [], 'labels': [d["name"] for d in data["categories"]], 'labels_color': label_colors}
+                   "images": [], 'labels': label_names, 'labels_color': label_colors}
         id_num = 0
         for i, im in enumerate(data["images"]):
             im_id = im["id"]

@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 
+
 class ImportFromYOLODialog(QWidget):
     def __init__(self, parent, width=480, height=200, on_ok_clicked=None,
                  theme='dark_blue.xml'):
@@ -284,6 +285,43 @@ class ImportFromCOCODialog(QWidget):
             widget.setVisible(False)
             save_images_edit_button_layout.addWidget(widget)
 
+        # label names?
+        self.is_label_names = False
+
+        self.label_names_checkbox = QCheckBox()
+        self.label_names_checkbox.setChecked(False)
+        self.label_names_checkbox.clicked.connect(self.on_label_names_checkbox_clicked)
+
+        label_names_layout = QHBoxLayout()
+        label_names_layout.addWidget(QLabel('Задать файл с именами классов'))
+        label_names_layout.addWidget(self.label_names_checkbox)
+
+        # label_names edit + button
+
+        self.label_names_button = QPushButton(self)
+        theme_type = theme.split('.')[0]
+        self.icon_folder = "ui/icons/" + theme_type
+
+        self.label_names_widgets = []
+
+        self.label_names_edit_button_layout = QHBoxLayout()
+        self.label_names_label = QLabel('Открыть файл' if config.LANGUAGE == 'RU' else "Open file")
+        self.label_names_widgets.append(self.label_names_label)
+        self.labels.append(self.label_names_label)
+
+        self.label_names_edit = QLineEdit()
+        self.label_names_widgets.append(self.label_names_edit)
+
+        self.label_names_button.setIcon(QIcon(self.icon_folder + "/folder.png"))
+        self.label_names_button.clicked.connect(self.on_label_names_button_clicked)
+        self.label_names_widgets.append(self.label_names_button)
+
+        label_names_edit_button_layout = QHBoxLayout()
+
+        for widget in self.label_names_widgets:
+            widget.setVisible(False)
+            label_names_edit_button_layout.addWidget(widget)
+
         # Buttons layout:
         btnLayout = QHBoxLayout()
 
@@ -302,8 +340,12 @@ class ImportFromCOCODialog(QWidget):
 
         self.mainLayout = QVBoxLayout()
         self.mainLayout.addLayout(layout)
+
         self.mainLayout.addLayout(save_images_layout)
         self.mainLayout.addLayout(save_images_edit_button_layout)
+
+        self.mainLayout.addLayout(label_names_layout)
+        self.mainLayout.addLayout(label_names_edit_button_layout)
 
         self.mainLayout.addLayout(btnLayout)
         self.mainLayout.addWidget(self.progress_bar)
@@ -322,9 +364,21 @@ class ImportFromCOCODialog(QWidget):
         if self.is_copy_images:
             # change paths
             images = []
+            print(self.coco_name)
+
             for i, im in enumerate(self.data["images"]):
                 im_copy = im
-                shutil.copy(os.path.join(im['flickr_url']), os.path.join(self.save_images_edit.text(), im["file_name"]))
+                # make sense copy from real folder, not from flickr_url
+                if os.path.exists(im['flickr_url']):
+
+                    shutil.copy(im['flickr_url'], os.path.join(self.save_images_edit.text(), im["file_name"]))
+
+                elif os.path.exists(os.path.join(os.path.dirname(self.coco_name), im["file_name"])):
+                    shutil.copy(os.path.join(os.path.dirname(self.coco_name), im["file_name"]),
+                                os.path.join(self.save_images_edit.text(), im["file_name"]))
+                else:
+                    continue
+
                 im_copy['flickr_url'] = os.path.join(self.save_images_edit.text(), im["file_name"])
                 im_copy['coco_url'] = os.path.join(self.save_images_edit.text(), im["file_name"])
                 images.append(im_copy)
@@ -340,12 +394,20 @@ class ImportFromCOCODialog(QWidget):
         for widget in self.save_images_widgets:
             widget.setVisible(self.is_copy_images)
 
+    def on_label_names_checkbox_clicked(self):
+        self.is_label_names = self.label_names_checkbox.isChecked()
+        for widget in self.label_names_widgets:
+            widget.setVisible(self.is_label_names)
+
     def on_cancel_clicked(self):
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
         self.hide()
 
     def on_coco_button_clicked(self):
+        """
+        Задаем путь к файлу с разметкой в формате COCO
+        """
         coco_name, _ = QFileDialog.getOpenFileName(self,
                                                    'Открытие файла json датасета COCO' if config.LANGUAGE == 'RU' else "Open COCO json file",
                                                    'projects',
@@ -358,15 +420,42 @@ class ImportFromCOCODialog(QWidget):
                 data = json.load(f)
                 if self.check_coco(data):
                     self.data = data
+                    self.coco_name = coco_name
                 else:
                     self.data = None
 
     def on_save_images_button_clicked(self):
+        """
+        Задаем путь куда будем сохранять изображения
+        """
         images_dir = QFileDialog.getExistingDirectory(self,
                                                       'Выберите папку для сохранения изображений' if config.LANGUAGE == 'RU' else "Set images folder",
                                                       'images')
         if images_dir:
             self.save_images_edit.setText(images_dir)
+
+    def on_label_names_button_clicked(self):
+        """
+        Задаем файл с именами
+        """
+        label_names_file, _ = QFileDialog.getOpenFileName(self,
+                                                          'Открытие файла с именами классов' if config.LANGUAGE == 'RU' else "Open file with label names",
+                                                          'projects',
+                                                          'txt File (*.txt)')
+        if label_names_file:
+            self.label_names_edit.setText(label_names_file)
+
+    def get_label_names(self):
+
+        if self.label_names_edit.text():
+            if os.path.exists(self.label_names_edit.text()):
+                with open(self.label_names_edit.text(), 'r') as f:
+                    label_names = []
+                    for line in f:
+                        label_names.append(line.strip())
+
+                    return label_names
+        return
 
     def check_coco(self, data):
         coco_keys = ['info', 'licenses', 'images', 'annotations', 'categories']

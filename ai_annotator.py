@@ -545,7 +545,10 @@ class MainWindow(QtWidgets.QMainWindow):
         proj_data = self.import_dialog.getData()
         if proj_data:
             self.project_data.load_percent_conn.percent.connect(self.on_import_percent_change)
-            self.project_data.import_from_coco(proj_data, alpha=self.settings_['alpha'])
+
+            label_names = self.import_dialog.get_label_names()
+
+            self.project_data.import_from_coco(proj_data, alpha=self.settings_['alpha'], label_names=label_names)
 
             proj_path = os.path.join(os.getcwd(), 'projects', 'saved.json')
             self.project_data.save(proj_path)
