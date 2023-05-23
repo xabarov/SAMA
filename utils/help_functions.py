@@ -1,8 +1,11 @@
-import numpy as np
-import math
 from PyQt5 import QtCore
-import matplotlib as mpl
 from utils import config
+
+import math
+import matplotlib as mpl
+import numpy as np
+import yaml
+
 
 def generate_set_of_label_colors():
     colors = []
@@ -14,6 +17,35 @@ def generate_set_of_label_colors():
             color_rgba.append(255)
             colors.append(tuple(color_rgba))
     return colors
+
+
+def get_label_colors(names, alpha=120):
+    colors = {}
+    if not alpha:
+        alpha = 255
+
+    for name in names:
+        selected_color = config.COLORS[0]
+        tek_color_num = 0
+        is_break = False
+        while selected_color in colors.values():
+            tek_color_num += 1
+            if tek_color_num == len(config.COLORS) - 1:
+                is_break = True
+                break
+            selected_color = config.COLORS[tek_color_num]
+
+        if is_break:
+            selected_color = create_random_color(alpha)
+
+        colors[name] = selected_color
+
+    return colors
+
+def read_yolo_yaml(yolo_yaml):
+    with open(yolo_yaml, 'r') as f:
+        yaml_data = yaml.load(f, Loader=yaml.FullLoader)
+        return yaml_data
 
 
 def convert_percent_to_alpha(percent, alpha_min=15, alpha_max=200):
@@ -65,9 +97,10 @@ def find_nearest_edge_of_polygon(polygon, point):
 
     return edge
 
+
 def density_slider_to_value(value, min_value=config.MIN_DENSITY_VALUE, max_value=config.MAX_DENSITY_VALUE):
-    b = 0.01*math.log(max_value/min_value)
-    return min_value*math.exp(b*value)
+    b = 0.01 * math.log(max_value / min_value)
+    return min_value * math.exp(b * value)
 
 
 def get_closest_to_line_point(point, p1_line, p2_line):
@@ -90,6 +123,13 @@ def create_random_color(alpha):
         rgba[i] = np.random.randint(0, 256)
 
     return rgba
+
+
+def is_im_path(im_path, suffixes=['jpg', 'tiff', 'png', 'jpeg']):
+    for s in suffixes:
+        if im_path.endswith(s):
+            return True
+    return False
 
 
 def calc_ellips_point_coords(ellipse_rect, angle):
@@ -116,6 +156,15 @@ def convert_image_name_to_txt_name(image_name):
         txt_name += splitted_name[i]
 
     return txt_name + ".txt"
+
+
+def convert_text_name_to_image_name(text_name):
+    splitted_name = text_name.split('.')
+    img_name = ""
+    for i in range(len(splitted_name) - 1):
+        img_name += splitted_name[i]
+
+    return img_name + ".txt"
 
 
 if __name__ == '__main__':

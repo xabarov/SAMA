@@ -25,5 +25,10 @@ class ThemeChangeConnection(Ps2Core.QObject):
 class ImagesPanelCountConnection(Ps2Core.QObject):
     on_image_count_change = Signal(int)
 
+
 class LabelsPanelCountConnection(Ps2Core.QObject):
     on_labels_count_change = Signal(int)
+
+
+class LoadPercentConnection(Ps2Core.QObject):
+    percent = Signal(int)

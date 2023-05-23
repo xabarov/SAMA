@@ -19,7 +19,7 @@ from utils import help_functions as hf
 from utils.sam_predictor import load_model, mask_to_seg, predict_by_points, predict_by_box, predictor_set_image
 from utils import config
 from utils.predictor import SAMImageSetter
-from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection
+from utils.project import ProjectHandler
 
 from ui.settings_window import SettingsWindow
 from ui.ask_del_polygon import AskDelWindow
@@ -28,8 +28,9 @@ from ui.view import GraphicsView
 from ui.input_dialog import CustomInputDialog
 from ui.tutorial_window import Tutorial
 from ui.panels import ImagesPanel, LabelsPanel
-from utils.project import ProjectHandler
+from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection
 from ui.signals_and_slots import ThemeChangeConnection
+from ui.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog
 
 from shapely import Polygon
 import shutil
@@ -78,6 +79,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.scaleFactor = 1.0
 
         self.project_data = ProjectHandler()
+
         self.ann_type = "Polygon"
         self.loaded_proj_name = None
         self.labels_on_tek_image_ids = None
@@ -94,6 +96,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_setter.set_predictor(self.sam)
         self.image_setter.finished.connect(self.on_image_setted)
         self.queue_to_image_setter = []
+
+        # import settings
+        self.is_seg_import = False
 
         self.splash.finish(self)
         self.statusBar().showMessage(
@@ -200,6 +205,19 @@ class MainWindow(QtWidgets.QMainWindow):
             "COCO" if self.settings_['lang'] == 'RU' else "COCO", self, enabled=False,
             triggered=self.exportToCOCO)
 
+        # Import
+        self.importAnnFromYoloBoxAct = QAction(
+            "YOLO (Box)" if self.settings_['lang'] == 'RU' else "YOLO (Boxes)", self,
+            enabled=True,
+            triggered=self.importFromYOLOBox)
+        self.importAnnFromYoloSegAct = QAction(
+            "YOLO (Seg)" if self.settings_['lang'] == 'RU' else "YOLO (Seg)", self,
+            enabled=True,
+            triggered=self.importFromYOLOSeg)
+        self.importAnnFromCOCOAct = QAction(
+            "COCO" if self.settings_['lang'] == 'RU' else "COCO", self, enabled=True,
+            triggered=self.importFromCOCO)
+
         # Labels
         self.add_label = QAction("Добавить новый класс" if self.settings_['lang'] == 'RU' else "Add new label", self,
                                  enabled=True, triggered=self.add_label_button_clicked)
@@ -259,6 +277,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.annotatorExportMenu.addAction(self.exportAnnToYoloSegAct)
         self.annotatorExportMenu.addAction(self.exportAnnToCOCOAct)
         self.annotatorMenu.addMenu(self.annotatorExportMenu)
+
+        self.annotatorImportMenu = QMenu("Импорт" if self.settings_['lang'] == 'RU' else "Import", self)
+        self.annotatorImportMenu.addAction(self.importAnnFromYoloBoxAct)
+        self.annotatorImportMenu.addAction(self.importAnnFromYoloSegAct)
+        self.annotatorImportMenu.addAction(self.importAnnFromCOCOAct)
+        self.annotatorMenu.addMenu(self.annotatorImportMenu)
+
         #
         self.settingsMenu = QMenu("Настройки" if self.settings_['lang'] == 'RU' else "Settings", self)
         self.settingsMenu.addAction(self.settingsAct)
@@ -385,7 +410,6 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.tek_image_name:
 
             current_idx = self.images_list_widget.currentRow()
-            print(current_idx)
 
             tek_im_name = self.tek_image_name
             os.remove(os.path.join(self.dataset_dir, tek_im_name))
@@ -480,6 +504,55 @@ class MainWindow(QtWidgets.QMainWindow):
             self.project_data.exportToCOCO(export_сoco_file)
 
             self.on_project_export(export_format="COCO")
+
+    def importFromYOLOBox(self):
+
+        self.import_dialog = ImportFromYOLODialog(self, on_ok_clicked=self.on_import_yolo_clicked)
+        self.is_seg_import = False
+        self.import_dialog.show()
+
+    def on_import_yolo_clicked(self):
+        yaml_data = self.import_dialog.getData()
+
+        copy_images_path = None
+        if yaml_data['is_copy_images']:
+            copy_images_path = yaml_data['save_images_dir']
+
+        self.project_data.load_percent_conn.percent.connect(self.on_import_percent_change)
+        self.project_data.import_from_yolo_yaml(yaml_path=yaml_data['yaml_path'],
+                                                dataset=yaml_data['selected_dataset'], is_seg=self.is_seg_import,
+                                                alpha=self.settings_["alpha"], copy_images_path=copy_images_path)
+
+        proj_path = os.path.join(os.getcwd(), 'projects', 'saved.json')
+
+        self.project_data.save(proj_path)
+        self.load_project(proj_path)
+        self.import_dialog.hide()
+
+    def on_import_percent_change(self, persent):
+        self.import_dialog.set_progress(persent)
+
+    def importFromYOLOSeg(self):
+        self.import_dialog = ImportFromYOLODialog(self, on_ok_clicked=self.on_import_yolo_clicked)
+        self.is_seg_import = True
+        self.import_dialog.show()
+
+    def importFromCOCO(self):
+        self.import_dialog = ImportFromCOCODialog(self, on_ok_clicked=self.on_import_coco_clicked)
+        self.import_dialog.show()
+
+    def on_import_coco_clicked(self):
+        proj_data = self.import_dialog.getData()
+        if proj_data:
+            self.project_data.load_percent_conn.percent.connect(self.on_import_percent_change)
+            self.project_data.import_from_coco(proj_data, alpha=self.settings_['alpha'])
+
+            proj_path = os.path.join(os.getcwd(), 'projects', 'saved.json')
+            self.project_data.save(proj_path)
+            self.load_project(proj_path)
+
+        self.import_dialog.hide()
+
 
     def set_color_to_cls(self, cls_name):
 
@@ -922,6 +995,61 @@ class MainWindow(QtWidgets.QMainWindow):
         for name in image_names:
             self.images_list_widget.addItem(name)
 
+    def load_project(self, project_name):
+        self.loaded_proj_name = project_name
+        is_success = self.project_data.load(self.loaded_proj_name)
+
+        if not is_success:
+            msgbox = QMessageBox()
+            msgbox.setIcon(QMessageBox.Information)
+            msgbox.setText(
+                f"Ошибка открытия файла {self.loaded_proj_name}" if self.settings_[
+                                                                        'lang'] == 'RU' else f"Error in opening file {self.loaded_proj_name}")
+            if self.settings_['lang'] == 'RU':
+                msgbox.setInformativeText(
+                    f"Файл {self.loaded_proj_name} должен быть в формате .json и содержать поля:\n\t"
+                    f"path_to_images\n\timages\n\t\tfilename\n\t\tshapes\n\t")
+            else:
+                msgbox.setInformativeText(
+                    f"File {self.loaded_proj_name} not in project format")
+            msgbox.setWindowTitle(
+                f"Ошибка открытия файла {self.loaded_proj_name}" if self.settings_['lang'] == 'RU' else "Error")
+            msgbox.exec()
+
+            return
+
+        self.dataset_dir = self.project_data.get_image_path()
+        self.dataset_images = self.filter_images_names(os.listdir(self.dataset_dir))
+
+        self.fill_labels_combo_from_project()
+
+        if self.dataset_images:
+            self.tek_image_name = self.dataset_images[0]
+            self.tek_image_path = os.path.join(self.dataset_dir, self.tek_image_name)
+
+            # Открытие изображения
+            self.open_image(self.tek_image_path)
+
+            self.fitToWindowAct.setEnabled(True)
+            self.zoomInAct.setEnabled(True)
+            self.zoomOutAct.setEnabled(True)
+
+            main_geom = self.geometry().getCoords()
+            self.scaleFactor = (main_geom[2] - main_geom[0]) / self.cv2_image.shape[1]
+
+            self.load_image_data(self.tek_image_name)
+            self.view.setMouseTracking(True)  # Starange
+            self.fill_labels_on_tek_image_list_widget()
+            self.fill_images_label(self.dataset_images)
+
+            self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
+            self.images_list_widget.setCurrentRow(0)
+
+        self.statusBar().showMessage(
+            f"Число загруженных в проект изображений: {len(self.dataset_images)}" if self.settings_[
+                                                                                         'lang'] == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
+            3000)
+
     def open_project(self):
         """
         Загрузка проекта
@@ -933,59 +1061,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                                           'JSON Proj File (*.json)')
 
         if loaded_proj_name:
-            self.loaded_proj_name = loaded_proj_name
-            is_success = self.project_data.load(self.loaded_proj_name)
-
-            if not is_success:
-                msgbox = QMessageBox()
-                msgbox.setIcon(QMessageBox.Information)
-                msgbox.setText(
-                    f"Ошибка открытия файла {self.loaded_proj_name}" if self.settings_[
-                                                                            'lang'] == 'RU' else f"Error in opening file {self.loaded_proj_name}")
-                if self.settings_['lang'] == 'RU':
-                    msgbox.setInformativeText(
-                        f"Файл {self.loaded_proj_name} должен быть в формате .json и содержать поля:\n\t"
-                        f"path_to_images\n\timages\n\t\tfilename\n\t\tshapes\n\t")
-                else:
-                    msgbox.setInformativeText(
-                        f"File {self.loaded_proj_name} not in project format")
-                msgbox.setWindowTitle(
-                    f"Ошибка открытия файла {self.loaded_proj_name}" if self.settings_['lang'] == 'RU' else "Error")
-                msgbox.exec()
-
-            else:
-
-                self.dataset_dir = self.project_data.get_image_path()
-                self.dataset_images = self.filter_images_names(os.listdir(self.dataset_dir))
-
-                self.fill_labels_combo_from_project()
-
-                if self.dataset_images:
-                    self.tek_image_name = self.dataset_images[0]
-                    self.tek_image_path = os.path.join(self.dataset_dir, self.tek_image_name)
-
-                    # Открытие изображения
-                    self.open_image(self.tek_image_path)
-
-                    self.fitToWindowAct.setEnabled(True)
-                    self.zoomInAct.setEnabled(True)
-                    self.zoomOutAct.setEnabled(True)
-
-                    main_geom = self.geometry().getCoords()
-                    self.scaleFactor = (main_geom[2] - main_geom[0]) / self.cv2_image.shape[1]
-
-                    self.load_image_data(self.tek_image_name)
-                    self.view.setMouseTracking(True)  # Starange
-                    self.fill_labels_on_tek_image_list_widget()
-                    self.fill_images_label(self.dataset_images)
-
-                    self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
-                    self.images_list_widget.setCurrentRow(0)
-
-                self.statusBar().showMessage(
-                    f"Число загруженны в проект изображений: {len(self.dataset_images)}" if self.settings_[
-                                                                                                'lang'] == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
-                    3000)
+            self.load_project(loaded_proj_name)
 
     def on_polygon_end_draw(self, is_end_draw):
         if is_end_draw:
