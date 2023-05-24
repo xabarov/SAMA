@@ -255,9 +255,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewMenu.addAction(self.fitToWindowAct)
         #
         self.annotatorMenu = QMenu("&Аннотация" if self.settings_['lang'] == 'RU' else "&Labeling", self)
+
         self.AnnotatorMethodMenu = QMenu("Способ выделения" if self.settings_['lang'] == 'RU' else "Method", self)
+        self.AnnotatorMethodMenu.setIcon(QIcon(self.icon_folder + "/label.png"))
+
         self.aiAnnotatorMethodMenu = QMenu("Сегментация" if self.settings_['lang'] == 'RU' else "SAM", self)
         self.aiAnnotatorMethodMenu.setIcon(QIcon(self.icon_folder + "/ai.png"))
+        self.aiAnnotatorMethodMenu.setEnabled(False)
 
         self.AnnotatorMethodMenu.addAction(self.polygonAct)
         self.AnnotatorMethodMenu.addAction(self.squareAct)
@@ -273,12 +277,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.annotatorExportMenu.addAction(self.exportAnnToYoloBoxAct)
         self.annotatorExportMenu.addAction(self.exportAnnToYoloSegAct)
         self.annotatorExportMenu.addAction(self.exportAnnToCOCOAct)
+        self.annotatorExportMenu.setIcon(QIcon(self.icon_folder + "/export.png"))
         self.annotatorMenu.addMenu(self.annotatorExportMenu)
+
 
         self.annotatorImportMenu = QMenu("Импорт" if self.settings_['lang'] == 'RU' else "Import", self)
         self.annotatorImportMenu.addAction(self.importAnnFromYoloBoxAct)
         self.annotatorImportMenu.addAction(self.importAnnFromYoloSegAct)
         self.annotatorImportMenu.addAction(self.importAnnFromCOCOAct)
+        self.annotatorImportMenu.setIcon(QIcon(self.icon_folder + "/import.png"))
         self.annotatorMenu.addMenu(self.annotatorImportMenu)
 
         #
@@ -845,6 +852,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.aboutAct.setIcon(QIcon(self.icon_folder + "/info.png"))
         self.settingsAct.setIcon(QIcon(self.icon_folder + "/settings.png"))
 
+        # save load
+        self.openProjAct.setIcon(QIcon(self.icon_folder + "/load.png"))
+        self.saveProjAsAct.setIcon(QIcon(self.icon_folder + "/save_project.png"))
+        self.saveProjAct.setIcon(QIcon(self.icon_folder + "/save.png"))
+
+        # export
+        self.exportAnnToYoloBoxAct.setIcon(QIcon(self.icon_folder + "/yolo.png"))
+        self.exportAnnToYoloSegAct.setIcon(QIcon(self.icon_folder + "/yolo_white.png"))
+        self.exportAnnToCOCOAct.setIcon(QIcon(self.icon_folder + "/coco.png"))
+
+        # import
+        self.importAnnFromYoloBoxAct.setIcon(QIcon(self.icon_folder + "/yolo.png"))
+        self.importAnnFromYoloSegAct.setIcon(QIcon(self.icon_folder + "/yolo_white.png"))
+        self.importAnnFromCOCOAct.setIcon(QIcon(self.icon_folder + "/coco.png"))
+
+        # tutorial
+        self.tutorialAct.setIcon(QIcon(self.icon_folder + "/keyboard.png"))
+
         self.polygonAct.setIcon(QIcon(self.icon_folder + "/polygon.png"))
         self.circleAct.setIcon(QIcon(self.icon_folder + "/circle.png"))
         self.squareAct.setIcon(QIcon(self.icon_folder + "/square.png"))
@@ -866,8 +891,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.polygonAct.setEnabled(True)
         self.circleAct.setEnabled(True)
         self.squareAct.setEnabled(True)
+
         self.aiAnnotatorPointsAct.setEnabled(True)
         self.aiAnnotatorMaskAct.setEnabled(True)
+        self.aiAnnotatorMethodMenu.setEnabled(True)
 
         self.exportAnnToYoloBoxAct.setEnabled(True)
         self.exportAnnToYoloSegAct.setEnabled(True)

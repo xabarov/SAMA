@@ -113,5 +113,5 @@ def create_icons(path_to_source_icon, source_color_rgba, save_path=None):
 
 if __name__ == "__main__":
     # create_icons('play-button.png', )
-    # create_icons('F:\python\\ai_annotator\\utils\\icons\\select.png', (0, 0, 0, 255))
-    create_icons_from_folder("/ui/icons\dark_amber", (255, 215, 64, 255), save_path="icons")
+    # create_icons('../ui/icons/label.png', (0, 0, 0, 255))
+    create_icons_from_folder("../ui/icons\dark_amber", (255, 215, 64, 255), save_path="icons")
