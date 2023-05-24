@@ -13,6 +13,7 @@ from utils.sam_predictor import load_model, mask_to_seg, predict_by_points, pred
 from utils import config
 from utils.predictor import SAMImageSetter
 from utils.project import ProjectHandler
+from utils.importer import Importer
 
 from ui.settings_window import SettingsWindow
 from ui.ask_del_polygon import AskDelWindow
@@ -514,16 +515,15 @@ class MainWindow(QtWidgets.QMainWindow):
         if yaml_data['is_copy_images']:
             copy_images_path = yaml_data['save_images_dir']
 
-        self.project_data.load_percent_conn.percent.connect(self.on_import_percent_change)
-        self.project_data.import_from_yolo_yaml(yaml_path=yaml_data['yaml_path'],
-                                                dataset=yaml_data['selected_dataset'], is_seg=self.is_seg_import,
-                                                alpha=self.settings_["alpha"], copy_images_path=copy_images_path)
+        self.importer = Importer(yaml_data=yaml_data, alpha=self.settings_['alpha'], is_seg=self.is_seg_import,
+                                 copy_images_path=copy_images_path, dataset=yaml_data["selected_dataset"],
+                                 is_coco=False)
 
-        proj_path = os.path.join(os.getcwd(), 'projects', 'saved.json')
+        self.importer.load_percent_conn.percent.connect(self.on_import_percent_change)
+        self.importer.finished.connect(self.on_import_finished)
 
-        self.project_data.save(proj_path)
-        self.load_project(proj_path)
-        self.import_dialog.hide()
+        if not self.importer.isRunning():
+            self.importer.start()
 
     def on_import_percent_change(self, persent):
         self.import_dialog.set_progress(persent)
@@ -540,15 +540,23 @@ class MainWindow(QtWidgets.QMainWindow):
     def on_import_coco_clicked(self):
         proj_data = self.import_dialog.getData()
         if proj_data:
-            self.project_data.load_percent_conn.percent.connect(self.on_import_percent_change)
-
             label_names = self.import_dialog.get_label_names()
+            self.importer = Importer(coco_data=proj_data, alpha=self.settings_['alpha'], label_names=label_names,
+                                     copy_images_path=self.import_dialog.get_copy_images_path(),
+                                     coco_name=self.import_dialog.get_coco_name(), is_coco=True)
 
-            self.project_data.import_from_coco(proj_data, alpha=self.settings_['alpha'], label_names=label_names)
+            self.importer.finished.connect(self.on_import_finished)
+            self.importer.load_percent_conn.percent.connect(self.on_import_percent_change)
 
-            proj_path = os.path.join(os.getcwd(), 'projects', 'saved.json')
-            self.project_data.save(proj_path)
-            self.load_project(proj_path)
+            if not self.importer.isRunning():
+                self.importer.start()
+
+    def on_import_finished(self):
+        self.project_data.set_data(self.importer.get_project())
+
+        proj_path = os.path.join(os.getcwd(), 'projects', 'saved.json')
+        self.project_data.save(proj_path)
+        self.load_project(proj_path)
 
         self.import_dialog.hide()
 
