@@ -155,3 +155,5 @@ cython_debug/
 .idea/
 .gitignore
 projects/*
+*.pdf
+*.docx
