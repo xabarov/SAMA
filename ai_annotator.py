@@ -20,7 +20,7 @@ from ui.ask_del_polygon import AskDelWindow
 from ui.splash_screen import MovieSplashScreen
 from ui.view import GraphicsView
 from ui.input_dialog import CustomInputDialog
-from ui.tutorial_window import Tutorial
+from ui.show_image_widget import ShowImgWindow
 from ui.panels import ImagesPanel, LabelsPanel
 from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection, ThemeChangeConnection
 from ui.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog
@@ -279,7 +279,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.annotatorExportMenu.addAction(self.exportAnnToCOCOAct)
         self.annotatorExportMenu.setIcon(QIcon(self.icon_folder + "/export.png"))
         self.annotatorMenu.addMenu(self.annotatorExportMenu)
-
 
         self.annotatorImportMenu = QMenu("Импорт" if self.settings_['lang'] == 'RU' else "Import", self)
         self.annotatorImportMenu.addAction(self.importAnnFromYoloBoxAct)
@@ -1563,7 +1562,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.clear_ai_points()
 
     def show_tutorial(self):
-        self.tutorial = Tutorial(self)
+        path_to_png = os.path.join(os.getcwd(), 'ui', 'tutorial', 'shortcuts.png')
+        print(path_to_png)
+        self.tutorial = ShowImgWindow(self, title='Горячие клавиши', img_file=path_to_png, icon_folder=self.icon_folder,
+                                      is_fit_button=False)
+        self.tutorial.scaleImage(0.4)
         self.tutorial.show()
 
     def keyPressEvent(self, e):
