@@ -1,5 +1,5 @@
 from PySide2 import QtCore
-from ui.signals_and_slots import LoadPercentConnection
+from ui.signals_and_slots import LoadPercentConnection, ErrorConnection, InfoConnection
 from utils import help_functions as hf
 
 import os
@@ -12,7 +12,11 @@ class Importer(QtCore.QThread):
     def __init__(self, coco_data=None, alpha=120, yaml_data=None, is_seg=False, copy_images_path=None, label_names=None,
                  is_coco=True, dataset="train", coco_name=None):
         super(Importer, self).__init__()
+
+        # SIGNALS
         self.load_percent_conn = LoadPercentConnection()
+        self.info_conn = InfoConnection()
+        self.err_conn = ErrorConnection()
 
         self.coco_data = coco_data
         self.project = None
@@ -49,7 +53,27 @@ class Importer(QtCore.QThread):
     def set_dataset_type(self, dataset_type):
         self.dataset = dataset_type
 
+    def filter_data_annotations_by_cls_size(self, data_annotations, cls_size):
+        """
+        Delete shapes from data if cls_num >= cls_size
+        """
+        data_annotations_new = []
+        """
+        seg = {"segmentation": all_points, "area": int(area), "bbox": bbox, "iscrowd": 0, "id": seg_id,
+                           "image_id": id_map[filename], "category_id": cls_num + 1}
+                    export_json["annotations"].append(seg)
+        """
+        for seg in data_annotations:
+            if seg["category_id"] < cls_size:
+                data_annotations_new.append(seg)
+            else:
+                self.info_conn.info_message.emit(f'Filtered seg with category_id {seg["category_id"]}')
+
+        return data_annotations_new
+
     def import_from_coco(self):
+
+        self.info_conn.info_message.emit(f"Start import data from {self.coco_name}")
         data = self.coco_data
         alpha = self.alpha
         label_names = self.label_names
@@ -63,6 +87,8 @@ class Importer(QtCore.QThread):
                     label_names_new.append(f'label {id_name}')
                     id_name += 1
             label_names = label_names_new
+
+        data["annotations"] = self.filter_data_annotations_by_cls_size(data["annotations"], len(label_names))
 
         label_colors = hf.get_label_colors(label_names, alpha=alpha)
 
@@ -91,12 +117,16 @@ class Importer(QtCore.QThread):
 
             data["images"] = images
 
-        project_path = data["images"][0]["coco_url"]
+        project_path = os.path.dirname(data["images"][0]["coco_url"])
         if not os.path.exists(project_path):
+            self.info_conn.info_message.emit(
+                f"Can't find images in {project_path} Try to find images in {os.path.dirname(self.coco_name)} ")
             project_path = os.path.dirname(self.coco_name)
             first_im_name = os.path.basename(data["images"][0]["coco_url"])
             if not os.path.exists(os.path.join(project_path, first_im_name)):
                 self.project = {}
+                self.err_conn.error_message.emit(
+                    f"Can't find images in {project_path}")
                 return
 
         project = {'path_to_images': project_path,
@@ -205,6 +235,7 @@ class Importer(QtCore.QThread):
 
             if not os.path.exists(os.path.join(path_to_labels, txt_name)):
                 self.load_percent_conn.percent.emit(int(i * 100.0 / len(images)))
+                self.info_conn.info_message.emit(f"Can't find labels for {im}")
                 continue
 
             with open(os.path.join(path_to_labels, txt_name), 'r') as f:

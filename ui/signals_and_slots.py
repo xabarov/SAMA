@@ -32,3 +32,11 @@ class LabelsPanelCountConnection(Ps2Core.QObject):
 
 class LoadPercentConnection(Ps2Core.QObject):
     percent = Signal(int)
+
+
+class ErrorConnection(Ps2Core.QObject):
+    error_message = Signal(str)
+
+
+class InfoConnection(Ps2Core.QObject):
+    info_message = Signal(str)

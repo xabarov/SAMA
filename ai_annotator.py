@@ -526,10 +526,16 @@ class MainWindow(QtWidgets.QMainWindow):
                                  is_coco=False)
 
         self.importer.load_percent_conn.percent.connect(self.on_import_percent_change)
+        self.importer.info_conn.info_message.connect(self.on_importer_message)
+        self.importer.err_conn.error_message.connect(self.on_importer_message)
+
         self.importer.finished.connect(self.on_import_finished)
 
         if not self.importer.isRunning():
             self.importer.start()
+            
+    def on_importer_message(self, message):
+        self.statusBar().showMessage(message, 3000)
 
     def on_import_percent_change(self, persent):
         self.import_dialog.set_progress(persent)

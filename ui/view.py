@@ -10,7 +10,7 @@ from ui.signals_and_slots import PolygonDeleteConnection, PolygonPressedConnecti
 from ui.polygons import GrPolygonLabel, GrEllipsLabel
 
 import numpy as np
-
+from shapely import geometry, Polygon, Point
 
 class GraphicsView(QtWidgets.QGraphicsView):
     """
@@ -139,7 +139,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         else:
             fat_scale = 0.3 + self.fat_width_default_percent / 50.0
 
-        self.fat_width = fat_scale * scale * 12 + 1
+        self.fat_width = fat_scale * scale * 8 + 1
 
         self.fat_area = config.FAT_AREA_AROUND
         self.line_width = int(self.fat_width / 8) + 1
@@ -183,6 +183,11 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if self.active_item:
             try:
                 pol = self.active_item.polygon()
+                # shapely_pol = Polygon([(p.x(), p.y()) for p in pol])
+                #
+                # if shapely_pol.contains(Point(lp.x(), lp.y())):
+                #     return True
+
                 size = len(pol)
                 for i in range(size - 1):
                     p1 = pol[i]
@@ -201,9 +206,15 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if self.active_item:
             try:
                 pol = self.active_item.polygon()
-                if pol.containsPoint(pressed_point, QtCore.Qt.OddEvenFill):
+                shapely_pol = Polygon([(p.x(), p.y()) for p in pol])
+
+                if shapely_pol.contains(Point(pressed_point.x(), pressed_point.y())):
                     self.polygon_clicked.id_pressed.emit(self.active_item.id)
                     return True
+
+                # if pol.containsPoint(pressed_point, QtCore.Qt.OddEvenFill):
+                #     self.polygon_clicked.id_pressed.emit(self.active_item.id)
+                #     return True
             except:
                 return False
 
