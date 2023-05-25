@@ -12,6 +12,7 @@ from ui.polygons import GrPolygonLabel, GrEllipsLabel
 import numpy as np
 from shapely import geometry, Polygon, Point
 
+
 class GraphicsView(QtWidgets.QGraphicsView):
     """
     Сцена для отображения текущей картинки и полигонов
@@ -125,7 +126,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         self.setFocus()
 
-
     def set_fat_width(self, fat_width_percent_new=None):
         """
         Определение и установка толщины граней активного полигона и эллипса узловой точки активного полигона
@@ -134,7 +134,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         scale = pixmap_width / 2000.0
 
         if fat_width_percent_new:
-            fat_scale = 0.3 + fat_width_percent_new/50.0
+            fat_scale = 0.3 + fat_width_percent_new / 50.0
             self.fat_width_default_percent = fat_width_percent_new
         else:
             fat_scale = 0.3 + self.fat_width_default_percent / 50.0
@@ -143,6 +143,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         self.fat_area = config.FAT_AREA_AROUND
         self.line_width = int(self.fat_width / 8) + 1
+        self.min_distance_to_lines = 3
 
         self.active_pen = QPen(QColor(*hf.set_alpha_to_max(self.active_color)), self.line_width, QtCore.Qt.SolidLine)
         self.fat_point_pen = QPen(QColor(*self.fat_point_color), self.line_width, QtCore.Qt.SolidLine)
@@ -194,7 +195,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     p2 = pol[i + 1]
 
                     d = hf.distance_from_point_to_line(lp, p1, p2)
-                    if d < (self.fat_width / scale):
+                    if d < self.min_distance_to_lines:
                         self.polygon_clicked.id_pressed.emit(self.active_item.id)
                         return True
             except:
@@ -307,6 +308,12 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         return None
 
+    def set_ids_from_project(self, project_data):
+        for im in project_data['images']:
+            for shape in im['shapes']:
+                if shape['id'] not in self.labels_ids:
+                    self.labels_ids.append(shape['id'])
+
     def get_unique_label_id(self):
         id_tek = 0
         while id_tek in self.labels_ids:
@@ -327,6 +334,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         if id == None:
             id = self.get_unique_label_id()
+
+        if id not in self.labels_ids:
+            self.labels_ids.append(id)
 
         polygon_new = GrPolygonLabel(None, color=color, cls_num=cls_num, alpha_percent=alpha, id=id)
 
@@ -409,13 +419,10 @@ class GraphicsView(QtWidgets.QGraphicsView):
             active_alpha = self.active_item.alpha_percent
             active_color = self.active_item.color
 
-            if self.buffer:
-                id = self.buffer.id
-            else:
-                id = self.get_unique_label_id()
+            copy_id = self.get_unique_label_id()
 
             polygon_new = GrPolygonLabel(None, color=active_color, cls_num=active_cls_num,
-                                         alpha_percent=active_alpha, id=id)
+                                         alpha_percent=active_alpha, id=copy_id)
             polygon_new.setPen(self.active_pen)
             polygon_new.setBrush(self.active_brush)
             poly = QPolygonF()
@@ -655,8 +662,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 self.fitInView(self.pixmap_item, QtCore.Qt.KeepAspectRatio)
             else:
                 self._zoom = 0
-
-        
 
     def scaleView(self, scaleFactor):
         factor = self.transform().scale(scaleFactor, scaleFactor).mapRect(QtCore.QRectF(0, 0, 1, 1)).width()

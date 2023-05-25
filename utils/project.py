@@ -30,6 +30,17 @@ class ProjectHandler:
                 return False
         return True
 
+    def calc_dataset_balance(self):
+        cls_nums = {}
+        for im in self.data['images']:
+            for shape in im['shapes']:
+                cls_num = shape['cls_num']
+                if cls_num not in cls_nums:
+                    cls_nums[cls_num] = 1
+                else:
+                    cls_nums[cls_num] += 1
+        return cls_nums
+
     def load(self, json_path):
         if os.path.exists(json_path):
             with open(json_path, 'r') as f:
@@ -39,9 +50,17 @@ class ProjectHandler:
                     return False
 
                 self.data = data
+                self.update_ids()
                 return True
 
         return False
+
+    def update_ids(self):
+        id_num = 0
+        for im in self.data['images']:
+            for shape in im['shapes']:
+                shape['id'] = id_num
+                id_num += 1
 
     def save(self, json_path):
 

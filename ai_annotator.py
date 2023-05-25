@@ -31,6 +31,7 @@ import cv2
 import numpy as np
 import os
 import shutil
+import matplotlib.pyplot as plt
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -170,6 +171,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settingsAct = QAction("Настройки приложения" if self.settings_['lang'] == 'RU' else "Settings", self,
                                    enabled=True, triggered=self.showSettings)
 
+        self.balanceAct = QAction("Информация о датасете" if self.settings_['lang'] == 'RU' else "Dataset info", self,
+                                  enabled=False, triggered=self.on_dataset_balance_clicked)
+
         # Annotators
         self.polygonAct = QAction("Полигон" if self.settings_['lang'] == 'RU' else "Polygon", self, enabled=False,
                                   triggered=self.polygon_tool_pressed, checkable=True)
@@ -286,6 +290,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.annotatorImportMenu.addAction(self.importAnnFromCOCOAct)
         self.annotatorImportMenu.setIcon(QIcon(self.icon_folder + "/import.png"))
         self.annotatorMenu.addMenu(self.annotatorImportMenu)
+        self.annotatorMenu.addAction(self.balanceAct)
 
         #
         self.settingsMenu = QMenu("Настройки" if self.settings_['lang'] == 'RU' else "Settings", self)
@@ -382,6 +387,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self.addToolBar(QtCore.Qt.TopToolBarArea, labelSettingsToolBar)
         self.addToolBar(QtCore.Qt.LeftToolBarArea, self.toolBarLeft)
         self.addToolBar(QtCore.Qt.RightToolBarArea, self.toolBarRight)
+
+    def on_dataset_balance_clicked(self):
+        balance_data = self.project_data.calc_dataset_balance()
+
+        labels = self.project_data.get_data()['labels']
+        values = list(balance_data.values())
+
+        fig = plt.figure(figsize=(10, 5))
+
+        plt.bar(labels, values, color='maroon',
+                width=0.4)
+
+        plt.xlabel("Label names")
+        plt.ylabel("No. of labels")
+        plt.title('Баланс меток')
+
+        plt.savefig('temp.jpg')
+        fileName = 'temp.jpg'
+        ShowImgWindow(self, title='Баланс меток', img_file=fileName, icon_folder=self.icon_folder)
 
     def add_im_to_proj_clicked(self):
 
@@ -533,7 +557,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if not self.importer.isRunning():
             self.importer.start()
-            
+
     def on_importer_message(self, message):
         self.statusBar().showMessage(message, 3000)
 
@@ -1004,6 +1028,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.fitToWindowAct.setEnabled(True)
                 self.zoomInAct.setEnabled(True)
                 self.zoomOutAct.setEnabled(True)
+                self.balanceAct.setEnabled(True)
 
                 main_geom = self.geometry().getCoords()
                 self.scaleFactor = (main_geom[2] - main_geom[0]) / self.cv2_image.shape[1]
@@ -1036,6 +1061,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def load_project(self, project_name):
         self.loaded_proj_name = project_name
         is_success = self.project_data.load(self.loaded_proj_name)
+        self.view.set_ids_from_project(self.project_data.get_data())
+        print(self.project_data.calc_dataset_balance())
+        self.balanceAct.setEnabled(True)
 
         if not is_success:
             msgbox = QMessageBox()
