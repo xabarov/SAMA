@@ -62,6 +62,7 @@ class ProjectHandler:
                 shape['id'] = id_num
                 id_num += 1
 
+
     def save(self, json_path):
 
         with open(json_path, 'w') as f:

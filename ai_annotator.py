@@ -14,12 +14,14 @@ from utils import config
 from utils.predictor import SAMImageSetter
 from utils.project import ProjectHandler
 from utils.importer import Importer
+from utils.edges_from_mask import yolo8masks2points
+from gd.gd_worker import GroundingSAMWorker
 
 from ui.settings_window import SettingsWindow
 from ui.ask_del_polygon import AskDelWindow
 from ui.splash_screen import MovieSplashScreen
 from ui.view import GraphicsView
-from ui.input_dialog import CustomInputDialog
+from ui.input_dialog import CustomInputDialog, PromptInputDialog
 from ui.show_image_widget import ShowImgWindow
 from ui.panels import ImagesPanel, LabelsPanel
 from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection, ThemeChangeConnection
@@ -193,6 +195,12 @@ class MainWindow(QtWidgets.QMainWindow):
             triggered=self.ai_mask_pressed,
             checkable=True)
 
+        self.GroundingDINOSamAct = QAction(
+            "GroundingDINO + SAM" if self.settings_['lang'] == 'RU' else "GroundingDINO + SAM", self,
+            enabled=False,
+            triggered=self.grounding_sam_pressed,
+            checkable=True)
+
         # Export
         self.exportAnnToYoloBoxAct = QAction(
             "YOLO (Box)" if self.settings_['lang'] == 'RU' else "YOLO (Boxes)", self,
@@ -263,7 +271,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.AnnotatorMethodMenu = QMenu("Способ выделения" if self.settings_['lang'] == 'RU' else "Method", self)
         self.AnnotatorMethodMenu.setIcon(QIcon(self.icon_folder + "/label.png"))
 
-        self.aiAnnotatorMethodMenu = QMenu("Сегментация" if self.settings_['lang'] == 'RU' else "SAM", self)
+        self.aiAnnotatorMethodMenu = QMenu("С помощью ИИ" if self.settings_['lang'] == 'RU' else "AI", self)
         self.aiAnnotatorMethodMenu.setIcon(QIcon(self.icon_folder + "/ai.png"))
         self.aiAnnotatorMethodMenu.setEnabled(False)
 
@@ -273,6 +281,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.aiAnnotatorMethodMenu.addAction(self.aiAnnotatorPointsAct)
         self.aiAnnotatorMethodMenu.addAction(self.aiAnnotatorMaskAct)
+        self.aiAnnotatorMethodMenu.addAction(self.GroundingDINOSamAct)
 
         self.AnnotatorMethodMenu.addMenu(self.aiAnnotatorMethodMenu)
         self.annotatorMenu.addMenu(self.AnnotatorMethodMenu)
@@ -388,19 +397,74 @@ class MainWindow(QtWidgets.QMainWindow):
         self.addToolBar(QtCore.Qt.LeftToolBarArea, self.toolBarLeft)
         self.addToolBar(QtCore.Qt.RightToolBarArea, self.toolBarRight)
 
+    def grounding_sam_pressed(self):
+        self.prompt_input_dialog = PromptInputDialog(self,
+                                                     class_names=self.project_data.get_labels(),
+                                                     on_ok_clicked=self.start_grounddino)
+        self.prompt_input_dialog.show()
+
+    def start_grounddino(self):
+        prompt = self.prompt_input_dialog.getPrompt()
+
+        self.prompt_cls_name = self.prompt_input_dialog.getClsName()
+        self.prompt_cls_num = self.prompt_input_dialog.getClsNumber()
+
+
+        if prompt:
+            config_file = os.path.join(os.getcwd(),
+                                       config.PATH_TO_GROUNDING_DINO_CONFIG)  # 'D:\python\\aia_git\\ai_annotator\gd\GroundingDINO\groundingdino\config\GroundingDINO_SwinT_OGC.py'
+            grounded_checkpoint = os.path.join(os.getcwd(),
+                                               config.PATH_TO_GROUNDING_DINO_CHECKPOINT)  # 'D:\python\\aia_git\\ai_annotator\gd\groundingdino_swint_ogc.pth'
+            sam_checkpoint = os.path.join(os.getcwd(), config.PATH_TO_SAM_CHECKPOINT)
+
+            self.gd_worker = GroundingSAMWorker(config_file=config_file, grounded_checkpoint=grounded_checkpoint,
+                                                sam_checkpoint=sam_checkpoint, tek_image_path=self.tek_image_path,
+                                                prompt=prompt)
+
+            self.prompt_input_dialog.set_progress(10)
+
+            self.gd_worker.finished.connect(self.on_gd_worker_finished)
+
+            if not self.gd_worker.isRunning():
+                self.statusBar().showMessage(
+                    f"Начинаю поиск {self.prompt_cls_name} на изображении..." if self.settings_[
+                                                                                     'lang'] == 'RU' else f"Start searching {self.prompt_cls_name} on image...",
+                    3000)
+                self.gd_worker.start()
+
+
+    def on_gd_worker_finished(self):
+        masks = self.gd_worker.getMasks()
+
+        shape = self.cv2_image.shape
+        for i, mask in enumerate(masks):
+            self.prompt_input_dialog.set_progress(10 + int(90.0*i/len(masks)))
+            points = yolo8masks2points(mask[0] * 255, simplify_factor=3, width=shape[1], height=shape[0])
+            if points:
+                self.view.add_polygon_to_scene(self.prompt_cls_num, points,
+                                               color=self.project_data.get_label_color(self.prompt_cls_name))
+
+        self.write_scene_to_project_data()
+        self.fill_labels_on_tek_image_list_widget()
+        self.prompt_input_dialog.close()
+
     def on_dataset_balance_clicked(self):
         balance_data = self.project_data.calc_dataset_balance()
 
-        labels = self.project_data.get_data()['labels']
+        label_names = self.project_data.get_data()['labels']
+        labels = list(balance_data.keys())
+        labels = [label_names[int(i)] for i in labels]
         values = list(balance_data.values())
 
-        fig = plt.figure(figsize=(10, 5))
+        fig, ax = plt.subplots(figsize=(10, 8))
 
-        plt.bar(labels, values, color='maroon',
-                width=0.4)
+        ax.bar(labels, values,
+               # color=config.THEMES_COLORS[self.theme_str],
+               width=0.8)
 
-        plt.xlabel("Label names")
-        plt.ylabel("No. of labels")
+        ax.set_xlabel("Label names")
+        ax.set_ylabel("No. of labels")
+        ax.tick_params(axis='x', rotation=70)
         plt.title('Баланс меток')
 
         plt.savefig('temp.jpg')
@@ -904,6 +968,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.squareAct.setIcon(QIcon(self.icon_folder + "/square.png"))
         self.aiAnnotatorPointsAct.setIcon(QIcon(self.icon_folder + "/mouse.png"))
         self.aiAnnotatorMaskAct.setIcon(QIcon(self.icon_folder + "/ai_select.png"))
+        self.GroundingDINOSamAct.setIcon(QIcon(self.icon_folder + "/ai_select.png"))
 
         # labeling
         self.add_label.setIcon((QIcon(self.icon_folder + "/add.png")))
@@ -924,6 +989,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.aiAnnotatorPointsAct.setEnabled(True)
         self.aiAnnotatorMaskAct.setEnabled(True)
         self.aiAnnotatorMethodMenu.setEnabled(True)
+        self.GroundingDINOSamAct.setEnabled(True)
 
         self.exportAnnToYoloBoxAct.setEnabled(True)
         self.exportAnnToYoloSegAct.setEnabled(True)
@@ -1062,7 +1128,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.loaded_proj_name = project_name
         is_success = self.project_data.load(self.loaded_proj_name)
         self.view.set_ids_from_project(self.project_data.get_data())
-        print(self.project_data.calc_dataset_balance())
         self.balanceAct.setEnabled(True)
 
         if not is_success:
