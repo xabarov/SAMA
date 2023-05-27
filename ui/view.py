@@ -152,7 +152,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         else:
             fat_scale = 0.3 + self.fat_width_default_percent / 50.0
 
-        self.fat_width = fat_scale * scale * 8 + 1
+        self.fat_width = fat_scale * scale * 12 + 1
 
         self.fat_area = config.FAT_AREA_AROUND
         self.line_width = int(self.fat_width / 8) + 1
@@ -207,7 +207,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     p1 = pol[i]
                     p2 = pol[i + 1]
 
-                    d = hf.distance_from_point_to_line(lp, p1, p2)
+                    d = hf.distance_from_point_to_segment(lp, p1, p2) # hf.distance_from_point_to_line(lp, p1, p2)
                     if d < self.min_distance_to_lines:
                         self.polygon_clicked.id_pressed.emit(self.active_item.id)
                         return True

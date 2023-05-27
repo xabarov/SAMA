@@ -42,6 +42,7 @@ def get_label_colors(names, alpha=120):
 
     return colors
 
+
 def read_yolo_yaml(yolo_yaml):
     with open(yolo_yaml, 'r') as f:
         yaml_data = yaml.load(f, Loader=yaml.FullLoader)
@@ -79,6 +80,30 @@ def distance_from_point_to_line(p, line_p1, line_p2):
     return 0
 
 
+def distance_from_point_to_segment(point, seg_a_point, seg_b_point):
+    A = point.x() - seg_a_point.x()
+    B = point.y() - seg_a_point.y()
+    C = seg_b_point.x() - seg_a_point.x()
+    D = seg_b_point.y() - seg_a_point.y()
+
+    dot = A * C + B * D
+    len_sq = C * C + D * D
+    param = -1
+    if len_sq != 0:
+        param = dot / len_sq
+
+    if param < 0 or param > 1:
+        return 1e10
+    else:
+        xx = seg_a_point.x() + param * C
+        yy = seg_a_point.y() + param * D
+
+    dx = point.x() - xx
+    dy = point.y() - yy
+
+    return math.sqrt(dx * dx + dy * dy)
+
+
 def find_nearest_edge_of_polygon(polygon, point):
     d_min = 1e12
     edge = None
@@ -90,7 +115,7 @@ def find_nearest_edge_of_polygon(polygon, point):
         else:
             p2 = polygon[i + 1]
         if p1 != p2:
-            d = distance_from_point_to_line(point, p1, p2)
+            d = distance_from_point_to_segment(point, p1, p2)  # distance_from_point_to_line(point, p1, p2)
             if d < d_min:
                 d_min = d
                 edge = p1, p2
