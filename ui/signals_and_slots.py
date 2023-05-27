@@ -40,3 +40,7 @@ class ErrorConnection(Ps2Core.QObject):
 
 class InfoConnection(Ps2Core.QObject):
     info_message = Signal(str)
+
+
+class PolygonChangeClsNumConnection(Ps2Core.QObject):
+    pol_cls_num_and_id = Signal(int, int)

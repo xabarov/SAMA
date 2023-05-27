@@ -4,12 +4,12 @@ from utils import config
 
 import numpy as np
 
+
 class CustomInputDialog(QWidget):
-    def __init__(self, parent, title_name, question_name, width=400, height=200):
+    def __init__(self, parent, title_name, question_name):
         super().__init__(parent)
         self.setWindowTitle(f"{title_name}")
         self.setWindowFlag(Qt.Tool)
-
 
         self.label = QLabel(f"{question_name}")
         self.edit = QLineEdit()
@@ -26,14 +26,51 @@ class CustomInputDialog(QWidget):
         self.mainLayout.addLayout(btnLayout)
         self.setLayout(self.mainLayout)
 
-        self.resize(int(width), int(height))
-
     def getText(self):
         return self.edit.text()
 
 
+class CustomComboDialog(QWidget):
+    def __init__(self, parent, title_name, question_name, width=400, height=200, variants=None, editable=False):
+        super().__init__(parent)
+        self.setWindowTitle(f"{title_name}")
+        self.setWindowFlag(Qt.Tool)
+
+        layout = QFormLayout()
+
+        self.label = QLabel(f"{question_name}")
+        self.combo = QComboBox()
+
+        if variants:
+            variants = np.array(variants)
+        else:
+            variants = np.array([""])
+
+        self.combo.addItems(variants)
+
+        self.combo.setEditable(editable)
+
+        layout.addRow(self.label, self.combo)
+
+        btnLayout = QVBoxLayout()
+
+        self.okBtn = QPushButton('Ввести' if config.LANGUAGE == 'RU' else "OK", self)
+
+        btnLayout.addWidget(self.okBtn)
+
+        self.mainLayout = QVBoxLayout()
+        self.mainLayout.addLayout(layout)
+        self.mainLayout.addLayout(btnLayout)
+        self.setLayout(self.mainLayout)
+
+        # self.resize(int(width), int(height))
+
+    def getText(self):
+        return self.combo.currentText()
+
+
 class PromptInputDialog(QWidget):
-    def __init__(self, parent, width=400, height=200, class_names=None, on_ok_clicked=None):
+    def __init__(self, parent, class_names=None, on_ok_clicked=None, prompts_variants=None):
         super().__init__(parent)
         self.setWindowTitle("Выделение объектов по ключевым словам" if
                             config.LANGUAGE == 'RU' else "Select objects by text prompt")
@@ -42,8 +79,17 @@ class PromptInputDialog(QWidget):
         prompt_layout = QFormLayout()
 
         self.prompt_label = QLabel("Что будем искать:" if config.LANGUAGE == 'RU' else "Prompt:")
-        self.prompt_edit = QLineEdit()
-        prompt_layout.addRow(self.prompt_label, self.prompt_edit)
+        self.prompt_combo = QComboBox()
+
+        if prompts_variants:
+            prompts_variants = np.array(prompts_variants)
+        else:
+            prompts_variants = np.array([""])
+
+        self.prompt_combo.addItems(prompts_variants)
+        self.prompt_combo.setEditable(True)
+
+        prompt_layout.addRow(self.prompt_label, self.prompt_combo)
 
         class_layout = QFormLayout()
 
@@ -78,18 +124,18 @@ class PromptInputDialog(QWidget):
 
         self.setLayout(self.mainLayout)
 
-        self.resize(int(width), int(height))
-
     def on_ok(self):
-        self.prompt_edit.setVisible(False)
+        self.prompt_combo.setVisible(False)
         self.prompt_label.setVisible(False)
         self.cls_combo.setVisible(False)
         self.class_label.setVisible(False)
+        self.okBtn.setVisible(False)
         self.okBtn.setEnabled(False)
 
         self.on_ok_clicked()
+
     def getPrompt(self):
-        return self.prompt_edit.text()
+        return self.prompt_combo.currentText()
 
     def getClsName(self):
         return self.cls_combo.currentText()

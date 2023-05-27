@@ -6,11 +6,12 @@ from PyQt5.QtWidgets import QApplication
 from utils import config
 from utils import help_functions as hf
 
-from ui.signals_and_slots import PolygonDeleteConnection, PolygonPressedConnection, PolygonEndDrawing, MaskEndDrawing
+from ui.signals_and_slots import PolygonDeleteConnection, PolygonPressedConnection, PolygonEndDrawing, MaskEndDrawing, \
+    PolygonChangeClsNumConnection
 from ui.polygons import GrPolygonLabel, GrEllipsLabel
 
 import numpy as np
-from shapely import geometry, Polygon, Point
+from shapely import Polygon, Point
 
 
 class GraphicsView(QtWidgets.QGraphicsView):
@@ -26,6 +27,12 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         super().__init__(parent)
         scene = QtWidgets.QGraphicsScene(self)
+
+        # SIGNALS
+        self.polygon_clicked = PolygonPressedConnection()
+        self.polygon_delete = PolygonDeleteConnection()
+        self.polygon_cls_num_change = PolygonChangeClsNumConnection()
+
         self.setScene(scene)
 
         self._pixmap_item = QtWidgets.QGraphicsPixmapItem()
@@ -57,8 +64,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.dragged_vertex = None
         self.ellips_start_point = None
         self.box_start_point = None
-        self.polygon_clicked = PolygonPressedConnection()
-        self.polygon_delete = PolygonDeleteConnection()
+
         self.polygon_end_drawing = PolygonEndDrawing()
         self.mask_end_drawing = MaskEndDrawing()
         self.min_ellips_size = 10
@@ -75,6 +81,13 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def create_actions(self):
         self.delPolyAct = QAction("Удалить полигон", self, enabled=True, triggered=self.del_polygon)
+        self.changeClsNumAct = QAction("Изменить имя метки", self, enabled=True, triggered=self.change_cls_num)
+
+    def change_cls_num(self):
+        if self.pressed_polygon:
+            change_id = self.pressed_polygon.id
+            cls_num = self.pressed_polygon.cls_num
+            self.polygon_cls_num_change.pol_cls_num_and_id.emit(cls_num, change_id)
 
     def del_polygon(self):
         if self.pressed_polygon:
@@ -1058,4 +1071,5 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     return
                 menu = QMenu(self)
                 menu.addAction(self.delPolyAct)
+                menu.addAction(self.changeClsNumAct)
                 menu.exec(event.globalPos())

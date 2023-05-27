@@ -21,7 +21,7 @@ from ui.settings_window import SettingsWindow
 from ui.ask_del_polygon import AskDelWindow
 from ui.splash_screen import MovieSplashScreen
 from ui.view import GraphicsView
-from ui.input_dialog import CustomInputDialog, PromptInputDialog
+from ui.input_dialog import CustomInputDialog, PromptInputDialog, CustomComboDialog
 from ui.show_image_widget import ShowImgWindow
 from ui.panels import ImagesPanel, LabelsPanel
 from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection, ThemeChangeConnection
@@ -48,6 +48,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.polygon_delete.id_delete.connect(self.on_polygon_delete)
         self.view.polygon_end_drawing.on_end_drawing.connect(self.on_polygon_end_draw)
         self.view.mask_end_drawing.on_mask_end_drawing.connect(self.ai_mask_end_drawing)
+        self.view.polygon_cls_num_change.pol_cls_num_and_id.connect(self.change_polygon_cls_num)
 
         self.im_panel_count_conn = ImagesPanelCountConnection()
         self.labels_count_conn = LabelsPanelCountConnection()
@@ -96,6 +97,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_setter.set_predictor(self.sam)
         self.image_setter.finished.connect(self.on_image_setted)
         self.queue_to_image_setter = []
+
+        # GroundingDINO saved promts
+        self.prompts = []
 
         # import settings
         self.is_seg_import = False
@@ -186,18 +190,18 @@ class MainWindow(QtWidgets.QMainWindow):
                                  checkable=True)
         self.aiAnnotatorPointsAct = QAction(
             "Сегментация по точкам" if self.settings_['lang'] == 'RU' else "SAM by points",
-            self, enabled=False,
+            self, enabled=False, shortcut="Ctrl+A",
             triggered=self.ai_points_pressed,
             checkable=True)
         self.aiAnnotatorMaskAct = QAction(
             "Сегментация внутри бокса" if self.settings_['lang'] == 'RU' else "SAM by box", self,
-            enabled=False,
+            enabled=False, shortcut="Ctrl+M",
             triggered=self.ai_mask_pressed,
             checkable=True)
 
         self.GroundingDINOSamAct = QAction(
             "GroundingDINO + SAM" if self.settings_['lang'] == 'RU' else "GroundingDINO + SAM", self,
-            enabled=False,
+            enabled=False, shortcut="Ctrl+G",
             triggered=self.grounding_sam_pressed,
             checkable=True)
 
@@ -397,28 +401,59 @@ class MainWindow(QtWidgets.QMainWindow):
         self.addToolBar(QtCore.Qt.LeftToolBarArea, self.toolBarLeft)
         self.addToolBar(QtCore.Qt.RightToolBarArea, self.toolBarRight)
 
+    def change_polygon_cls_num(self, cls_num, cls_id):
+        labels = self.project_data.get_labels()
+        self.combo_dialog = CustomComboDialog(self,
+                                              title_name="Изменение имени метки" if self.settings_[
+                                                                                        'lang'] == 'RU' else "Label name change",
+                                              question_name="Введите имя класса:" if self.settings_[
+                                                                                         'lang'] == 'RU' else "Enter label name:",
+                                              variants=[labels[i] for i in range(len(labels)) if i != cls_num])
+
+        self.combo_dialog.okBtn.clicked.connect(self.change_cls_num_ok_clicked)
+        self.combo_dialog.show()
+        self.changed_cls_num = cls_num
+        self.changed_cls_id = cls_id
+
+    def change_cls_num_ok_clicked(self):
+        new_cls_name = self.combo_dialog.getText()
+        labels = self.project_data.get_labels()
+        new_cls_num = 0
+        for i, lbl in enumerate(labels):
+            new_cls_num = i
+            if lbl == new_cls_name:
+                break
+
+        # print(f'cls_num: {self.changed_cls_num} -> {new_cls_num}, id {self.changed_cls_id}')
+        self.project_data.change_cls_num_by_id(self.changed_cls_id, new_cls_num)
+        self.reload_image()
+        self.combo_dialog.close()
+
     def grounding_sam_pressed(self):
         self.prompt_input_dialog = PromptInputDialog(self,
                                                      class_names=self.project_data.get_labels(),
-                                                     on_ok_clicked=self.start_grounddino)
+                                                     on_ok_clicked=self.start_grounddino, prompts_variants=self.prompts)
         self.prompt_input_dialog.show()
 
     def start_grounddino(self):
         prompt = self.prompt_input_dialog.getPrompt()
 
-        self.prompt_cls_name = self.prompt_input_dialog.getClsName()
-        self.prompt_cls_num = self.prompt_input_dialog.getClsNumber()
-
-
         if prompt:
+
+            self.prompt_cls_name = self.prompt_input_dialog.getClsName()
+            self.prompt_cls_num = self.prompt_input_dialog.getClsNumber()
+
+            if prompt not in self.prompts:
+                self.prompts.append(prompt)
+
             config_file = os.path.join(os.getcwd(),
                                        config.PATH_TO_GROUNDING_DINO_CONFIG)  # 'D:\python\\aia_git\\ai_annotator\gd\GroundingDINO\groundingdino\config\GroundingDINO_SwinT_OGC.py'
             grounded_checkpoint = os.path.join(os.getcwd(),
                                                config.PATH_TO_GROUNDING_DINO_CHECKPOINT)  # 'D:\python\\aia_git\\ai_annotator\gd\groundingdino_swint_ogc.pth'
-            sam_checkpoint = os.path.join(os.getcwd(), config.PATH_TO_SAM_CHECKPOINT)
+            # sam_checkpoint = os.path.join(os.getcwd(), config.PATH_TO_SAM_CHECKPOINT)
 
             self.gd_worker = GroundingSAMWorker(config_file=config_file, grounded_checkpoint=grounded_checkpoint,
-                                                sam_checkpoint=sam_checkpoint, tek_image_path=self.tek_image_path,
+                                                sam_predictor=self.sam, tek_image_path=self.tek_image_path,
                                                 prompt=prompt)
 
             self.prompt_input_dialog.set_progress(10)
@@ -432,13 +467,12 @@ class MainWindow(QtWidgets.QMainWindow):
                     3000)
                 self.gd_worker.start()
 
-
     def on_gd_worker_finished(self):
         masks = self.gd_worker.getMasks()
 
         shape = self.cv2_image.shape
         for i, mask in enumerate(masks):
-            self.prompt_input_dialog.set_progress(10 + int(90.0*i/len(masks)))
+            self.prompt_input_dialog.set_progress(10 + int(90.0 * i / len(masks)))
             points = yolo8masks2points(mask[0] * 255, simplify_factor=3, width=shape[1], height=shape[0])
             if points:
                 self.view.add_polygon_to_scene(self.prompt_cls_num, points,
@@ -446,6 +480,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.write_scene_to_project_data()
         self.fill_labels_on_tek_image_list_widget()
+        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
         self.prompt_input_dialog.close()
 
     def on_dataset_balance_clicked(self):
@@ -1600,6 +1635,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def end_drawing(self):
 
+        if not self.image_setted:
+            return
+
         if self.ann_type in ["Polygon", "Box", "Ellips"]:
             self.view.end_drawing()  # save it to
 
@@ -1628,6 +1666,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
     def start_drawing(self):
+        if not self.image_setted:
+            return
+
         self.set_labels_color()
         cls_txt = self.cls_combo.currentText()
         cls_num = self.cls_combo.currentIndex()
@@ -1640,6 +1681,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.clear_ai_points()
 
     def break_drawing(self):
+        if not self.image_setted:
+            return
+
         if self.ann_type == "AiPoints":
             self.view.clear_ai_points()
             self.view.remove_active()
@@ -1658,6 +1702,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.open_image(self.tek_image_path)
         self.load_image_data(self.tek_image_name)
         self.fill_labels_on_tek_image_list_widget()
+        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
         self.view.clear_ai_points()
 
     def show_tutorial(self):
@@ -1669,6 +1714,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tutorial.show()
 
     def keyPressEvent(self, e):
+        # e.accept()
         # print(e.key())
         modifierPressed = QApplication.keyboardModifiers()
         modifierName = ''
@@ -1687,6 +1733,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.end_drawing()
 
         elif e.key() == 44 or e.key() == 1041:
+
+            if not self.image_setted:
+                return
+
             # <<< Before image
             self.write_scene_to_project_data()
 
@@ -1697,6 +1747,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.images_list_widget.setCurrentRow(next_idx)
 
         elif e.key() == 46 or e.key() == 1070:
+
+            if not self.image_setted:
+                return
             # >>> Next image
             self.write_scene_to_project_data()
 
@@ -1708,15 +1761,20 @@ class MainWindow(QtWidgets.QMainWindow):
 
         elif e.key() == 68 or e.key() == 1042:
             # D
+
             self.break_drawing()
 
         elif (e.key() == 67 or e.key() == 1057) and 'Ctrl' in modifierName:
             # Ctrl + C
+
             self.view.copy_active_item_to_buffer()
             # self.write_scene_to_project_data()
 
         elif (e.key() == 86 or e.key() == 1052) and 'Ctrl' in modifierName:
             # Ctrl + V
+            if not self.image_setted:
+                return
+
             self.view.paste_buffer()
             self.write_scene_to_project_data()
             self.fill_labels_on_tek_image_list_widget()

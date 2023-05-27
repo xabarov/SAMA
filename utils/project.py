@@ -93,6 +93,24 @@ class ProjectHandler:
     def get_labels(self):
         return self.data["labels"]
 
+    def change_cls_num_by_id(self, lbl_id, new_cls_num):
+        new_images = []
+        for im in self.data['images']:
+            new_im = im
+            new_shapes = []
+            for shape in im['shapes']:
+                if lbl_id == shape['id']:
+                    new_shape = shape
+                    new_shape["cls_num"] = new_cls_num
+                    new_im['shapes']
+                    new_shapes.append(new_shape)
+                else:
+                    new_shapes.append(shape)
+            new_im['shapes'] = new_shapes
+            new_images.append(new_im)
+
+        self.data['images'] = new_images
+
     def get_image_path(self):
         return self.data["path_to_images"]
 
