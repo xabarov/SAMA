@@ -1003,7 +1003,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.squareAct.setIcon(QIcon(self.icon_folder + "/square.png"))
         self.aiAnnotatorPointsAct.setIcon(QIcon(self.icon_folder + "/mouse.png"))
         self.aiAnnotatorMaskAct.setIcon(QIcon(self.icon_folder + "/ai_select.png"))
-        self.GroundingDINOSamAct.setIcon(QIcon(self.icon_folder + "/ai_select.png"))
+        self.GroundingDINOSamAct.setIcon(QIcon(self.icon_folder + "/dino.png"))
+
+        self.balanceAct.setIcon(QIcon(self.icon_folder + "/bar-chart.png"))
 
         # labeling
         self.add_label.setIcon((QIcon(self.icon_folder + "/add.png")))
