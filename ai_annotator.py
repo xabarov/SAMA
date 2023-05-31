@@ -1186,7 +1186,27 @@ class MainWindow(QtWidgets.QMainWindow):
 
             return
 
-        self.dataset_dir = self.project_data.get_image_path()
+        dataset_dir = self.project_data.get_image_path()
+
+        if not os.path.exists(dataset_dir):
+            msgbox = QMessageBox()
+            msgbox.setIcon(QMessageBox.Information)
+            msgbox.setText(
+                f"Ошибка загрузки проекта. " if self.settings_['lang'] == 'RU' else f"Error in loading project")
+            if self.settings_['lang'] == 'RU':
+                msgbox.setInformativeText(
+                    f"Директория {dataset_dir} не существует"
+                    )
+            else:
+                msgbox.setInformativeText(
+                    f"Directory {dataset_dir} doesn't exist")
+            msgbox.setWindowTitle(
+                f"Ошибка загрузки проекта {self.loaded_proj_name}" if self.settings_['lang'] == 'RU' else "Error")
+            msgbox.exec()
+
+            return
+
+        self.dataset_dir = dataset_dir
         self.dataset_images = self.filter_images_names(os.listdir(self.dataset_dir))
 
         self.fill_labels_combo_from_project()

@@ -92,11 +92,14 @@ def distance_from_point_to_segment(point, seg_a_point, seg_b_point):
     if len_sq != 0:
         param = dot / len_sq
 
-    if param < 0 or param > 1:
-        return 1e10
-    else:
-        xx = seg_a_point.x() + param * C
-        yy = seg_a_point.y() + param * D
+    if param < 0:
+        return distance(point, seg_a_point)
+
+    if param > 1:
+        return distance(point, seg_b_point)
+
+    xx = seg_a_point.x() + param * C
+    yy = seg_a_point.y() + param * D
 
     dx = point.x() - xx
     dy = point.y() - yy
