@@ -3,6 +3,7 @@ from PyQt5.QtGui import QMovie, QPainter, QIcon, QColor, QCursor
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, QToolButton, QComboBox, QLabel, \
     QColorDialog, QListWidget
+from PyQt5.QtCore import QSettings, QPoint, QSize
 
 from PyQt5.QtWidgets import QApplication
 
@@ -26,6 +27,7 @@ from ui.show_image_widget import ShowImgWindow
 from ui.panels import ImagesPanel, LabelsPanel
 from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection, ThemeChangeConnection
 from ui.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog
+from ui.ok_cancel_dialog import OkCancelDialog
 
 from shapely import Polygon
 
@@ -64,6 +66,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Установка темы оформления
         self.theme_str = 'dark_blue.xml'
+        theme_type = self.theme_str.split('.')[0]
+        self.icon_folder = "ui/icons/" + theme_type
         self.is_dark_theme = True
 
         self.setWindowTitle("AI Annotator")
@@ -74,6 +78,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.createActions()
         self.createMenus()
         self.createToolbar()
+
+        self.set_icons()
 
         # Принтер
         self.printer = QPrinter()
@@ -88,6 +94,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tek_image_name = None
         self.dataset_dir = None
         self.dataset_images = []
+
+        self.gd_worker = None
 
         self.sam_model_path = os.path.join(os.getcwd(), "sam_models\sam_vit_h_4b8939.pth")
 
@@ -104,9 +112,33 @@ class MainWindow(QtWidgets.QMainWindow):
         # import settings
         self.is_seg_import = False
 
+        # close window flag
+        self.is_asked_before_close = False
+
+        self.qt_settings = QSettings("xabarov", "ai_annotator")
+        self.readSettings()
+
         self.splash.finish(self)
         self.statusBar().showMessage(
             "Загрузите проект или набор изображений" if self.settings_['lang'] == 'RU' else "Load dataset or project")
+
+    def writeSettings(self):
+
+        self.qt_settings.beginGroup("MainWindow")
+        self.qt_settings.setValue("size", self.size())
+        self.qt_settings.setValue("pos", self.pos())
+        self.qt_settings.endGroup()
+
+    def readSettings(self):
+
+        self.qt_settings.beginGroup("MainWindow")
+        size = self.qt_settings.value("size")
+        pos = self.qt_settings.value("pos")
+        print(size, pos)
+        if size and pos:
+            self.resize(self.qt_settings.value("size", QSize(1200, 800)))
+            self.move(self.qt_settings.value("pos", QPoint(50, 50)))
+        self.qt_settings.endGroup()
 
     def set_movie_gif(self):
         """
@@ -246,8 +278,6 @@ class MainWindow(QtWidgets.QMainWindow):
                                     enabled=True,
                                     triggered=self.rename_label_button_clicked)
 
-        self.set_icons()
-
     def createMenus(self):
 
         """
@@ -273,10 +303,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.annotatorMenu = QMenu("&Аннотация" if self.settings_['lang'] == 'RU' else "&Labeling", self)
 
         self.AnnotatorMethodMenu = QMenu("Способ выделения" if self.settings_['lang'] == 'RU' else "Method", self)
-        self.AnnotatorMethodMenu.setIcon(QIcon(self.icon_folder + "/label.png"))
 
         self.aiAnnotatorMethodMenu = QMenu("С помощью ИИ" if self.settings_['lang'] == 'RU' else "AI", self)
-        self.aiAnnotatorMethodMenu.setIcon(QIcon(self.icon_folder + "/ai.png"))
+
         self.aiAnnotatorMethodMenu.setEnabled(False)
 
         self.AnnotatorMethodMenu.addAction(self.polygonAct)
@@ -294,14 +323,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.annotatorExportMenu.addAction(self.exportAnnToYoloBoxAct)
         self.annotatorExportMenu.addAction(self.exportAnnToYoloSegAct)
         self.annotatorExportMenu.addAction(self.exportAnnToCOCOAct)
-        self.annotatorExportMenu.setIcon(QIcon(self.icon_folder + "/export.png"))
+
         self.annotatorMenu.addMenu(self.annotatorExportMenu)
 
         self.annotatorImportMenu = QMenu("Импорт" if self.settings_['lang'] == 'RU' else "Import", self)
         self.annotatorImportMenu.addAction(self.importAnnFromYoloBoxAct)
         self.annotatorImportMenu.addAction(self.importAnnFromYoloSegAct)
         self.annotatorImportMenu.addAction(self.importAnnFromCOCOAct)
-        self.annotatorImportMenu.setIcon(QIcon(self.icon_folder + "/import.png"))
+
         self.annotatorMenu.addMenu(self.annotatorImportMenu)
         self.annotatorMenu.addAction(self.balanceAct)
 
@@ -814,7 +843,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # 3. Убираем имя из комбобокса
         self.del_label_from_combobox(old_name)  # теперь в комбобоксе нет имени
-        # 4. Перезаписываем данные о именах классов в проекте
+        # 4. Перезаписываем данные об именах классов в проекте
         self.fill_project_labels()
 
         # 5. Обновляем все полигоны
@@ -967,7 +996,6 @@ class MainWindow(QtWidgets.QMainWindow):
         """
 
         theme_type = self.theme_str.split('.')[0]
-
         self.icon_folder = "ui/icons/" + theme_type
 
         self.setWindowIcon(QIcon(self.icon_folder + "/neural.png"))
@@ -1012,6 +1040,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.del_label.setIcon((QIcon(self.icon_folder + "/del.png")))
         self.change_label_color.setIcon((QIcon(self.icon_folder + "/color.png")))
         self.rename_label.setIcon((QIcon(self.icon_folder + "/rename.png")))
+
+        # menus
+
+        self.AnnotatorMethodMenu.setIcon(QIcon(self.icon_folder + "/label.png"))
+        self.aiAnnotatorMethodMenu.setIcon(QIcon(self.icon_folder + "/ai.png"))
+        self.annotatorExportMenu.setIcon(QIcon(self.icon_folder + "/export.png"))
+        self.annotatorImportMenu.setIcon(QIcon(self.icon_folder + "/import.png"))
 
     def open_image(self, image_name):
 
@@ -1093,7 +1128,8 @@ class MainWindow(QtWidgets.QMainWindow):
                           "<p><b>AI Annotator</b></p>"
                           "<p>Программа для разметки изображений с поддержкой автоматической сегментации</p>" if
                           self.settings_[
-                              'lang'] == 'RU' else "<p>Labeling Data for Object Detection and Instance Segmentation with The Segment Anything Model (SAM).</p>")
+                              'lang'] == 'RU' else "<p>Labeling Data for Object Detection and Instance Segmentation "
+                                                   "with Segment Anything Model (SAM) and GroundingDINO.</p>")
 
     def filter_images_names(self, file_names):
         im_names_valid = []
@@ -1196,7 +1232,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.settings_['lang'] == 'RU':
                 msgbox.setInformativeText(
                     f"Директория {dataset_dir} не существует"
-                    )
+                )
             else:
                 msgbox.setInformativeText(
                     f"Directory {dataset_dir} doesn't exist")
@@ -1801,6 +1837,30 @@ class MainWindow(QtWidgets.QMainWindow):
             self.write_scene_to_project_data()
             self.fill_labels_on_tek_image_list_widget()
             self.view.clear_ai_points()
+
+    def on_quit(self):
+        self.exit_box.hide()
+
+        self.writeSettings()
+
+        self.hide()  # Скрываем окно
+
+        if self.image_setter:
+            self.image_setter.running = False  # Изменяем флаг выполнения
+            self.image_setter.wait(5000)  # Даем время, чтобы закончить
+        if self.gd_worker:
+            self.gd_worker.running = False
+            self.gd_worker.wait(5000)
+
+        self.is_asked_before_close = True
+        self.close()
+
+    def closeEvent(self, event):
+        if self.is_asked_before_close:
+            event.accept()
+        else:
+            self.exit_box = OkCancelDialog(self, title='Quit', text='Are you really want to quit?', on_ok=self.on_quit)
+            event.ignore()
 
 
 if __name__ == '__main__':
