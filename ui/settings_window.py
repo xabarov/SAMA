@@ -1,50 +1,45 @@
-from PyQt5.QtWidgets import QLabel, QCheckBox, QWidget, QGroupBox, QFormLayout, QComboBox, QSpinBox, QVBoxLayout, \
-    QHBoxLayout, QPushButton, QDoubleSpinBox, QSlider
+from PyQt5.QtWidgets import QLabel, QWidget, QGroupBox, QFormLayout, QComboBox, QVBoxLayout, \
+    QHBoxLayout, QPushButton, QSlider
 from PyQt5.QtCore import Qt
 import numpy as np
-import utils.config as config
+
+from utils.settings_handler import AppSettings
 
 
 class SettingsWindow(QWidget):
-    def __init__(self, parent, settings=None):
+    def __init__(self, parent):
         super().__init__(parent)
-        self.setWindowTitle("Настройки приложения" if settings['lang'] == 'RU' else 'Settings')
+
+        self.settings = AppSettings()
+        self.lang = self.settings.read_lang()
+        self.setWindowTitle("Настройки приложения" if self.lang == 'RU' else 'Settings')
         self.setWindowFlag(Qt.Tool)
 
         # Настройки обнаружения
-        self.formGroupBox = QGroupBox("Настройки разметки" if settings['lang'] == 'RU' else 'Labeling')
-
-        self.settings = {}
+        self.formGroupBox = QGroupBox("Настройки разметки" if self.lang == 'RU' else 'Labeling')
 
         layout = QFormLayout()
 
         self.alpha_slider = QSlider(Qt.Orientation.Horizontal)
-        if settings["alpha"]:
-            self.alpha_slider.setValue(settings["alpha"])
-        else:
-            self.alpha_slider.setValue(50)
+        self.alpha_slider.setValue(self.settings.read_alpha())
 
-        layout.addRow(QLabel("Степень прозрачности масок" if settings['lang'] == 'RU' else 'Label transparency'),
+        layout.addRow(QLabel("Степень прозрачности масок" if self.lang == 'RU' else 'Label transparency'),
                       self.alpha_slider)
 
         self.fat_width_slider = QSlider(Qt.Orientation.Horizontal)
-        if settings["fat_width"]:
-            self.fat_width_slider.setValue(settings["fat_width"])
-        else:
-            self.fat_width_slider.setValue(50)
+        self.fat_width_slider.setValue(self.settings.read_fat_width())
 
-        layout.addRow(QLabel("Толщина граней разметки" if settings['lang'] == 'RU' else 'Edges width'),
+        layout.addRow(QLabel("Толщина граней разметки" if self.lang == 'RU' else 'Edges width'),
                       self.fat_width_slider)
 
         self.where_calc_combo = QComboBox()
         self.where_vars = np.array(["cpu", "cuda", 'Auto'])
         self.where_calc_combo.addItems(self.where_vars)
-        where_label = QLabel("Платформа для вычислений" if settings['lang'] == 'RU' else 'Platform for SAM')
+        where_label = QLabel("Платформа для вычислений" if self.lang == 'RU' else 'Platform for SAM')
 
-        if settings:
-            self.where_calc_combo.setCurrentIndex(0)
-            idx = np.where(self.where_vars == settings["platform"])[0][0]
-            self.where_calc_combo.setCurrentIndex(idx)
+        self.where_calc_combo.setCurrentIndex(0)
+        idx = np.where(self.where_vars == self.settings.read_platform())[0][0]
+        self.where_calc_combo.setCurrentIndex(idx)
 
         layout.addRow(where_label, self.where_calc_combo)
 
@@ -53,7 +48,7 @@ class SettingsWindow(QWidget):
         # настройки темы
 
         self.formGroupBoxGlobal = QGroupBox(
-            "Настройки приложения" if settings['lang'] == 'RU' else 'Appearance')
+            "Настройки приложения" if self.lang == 'RU' else 'Appearance')
 
         layout_global = QFormLayout()
 
@@ -85,7 +80,7 @@ class SettingsWindow(QWidget):
                                 'light_teal_500.xml',
                                 'light_yellow.xml'])
 
-        if settings['lang'] == 'RU':
+        if self.lang == 'RU':
 
             self.themes_for_display_names = np.array(['темно-янтарная',
                                                       'темно-синяя',
@@ -117,17 +112,17 @@ class SettingsWindow(QWidget):
             self.themes_for_display_names = [theme[0:-4] for theme in self.themes]
 
         self.theme_combo.addItems(self.themes_for_display_names)
-        theme_label = QLabel("Тема приложения:" if settings['lang'] == 'RU' else 'Theme:')
+        theme_label = QLabel("Тема приложения:" if self.lang == 'RU' else 'Theme:')
         layout_global.addRow(theme_label, self.theme_combo)
 
-        density_label = QLabel('Плотность расположения инструментов:' if settings['lang'] == 'RU' else 'Density:')
+        density_label = QLabel('Плотность расположения инструментов:' if self.lang == 'RU' else 'Density:')
         self.density_slider = QSlider(Qt.Orientation.Horizontal)
 
-        self.density_slider.setValue(settings["density"])
+        self.density_slider.setValue(self.settings.read_density())
 
         layout_global.addRow(density_label, self.density_slider)
 
-        # lang_label = QLabel('Язык' if settings['lang'] == 'RU' else 'Language')
+        # lang_label = QLabel('Язык' if self.lang == 'RU' else 'Language')
         # self.language_combo = QComboBox()
         # self.language_vars = np.array(["RU", "ENG"])
         # self.language_combo.addItems(self.language_vars)
@@ -139,18 +134,17 @@ class SettingsWindow(QWidget):
         #
         # layout_global.addRow(lang_label, self.language_combo)
 
-        if settings:
-            idx = np.where(self.themes == settings["theme"])[0][0]
-            self.theme_combo.setCurrentIndex(idx)
+        idx = np.where(self.themes == self.settings.read_theme())[0][0]
+        self.theme_combo.setCurrentIndex(idx)
 
         self.formGroupBoxGlobal.setLayout(layout_global)
 
         btnLayout = QHBoxLayout()
 
-        self.okBtn = QPushButton('Принять' if settings['lang'] == 'RU' else 'Apply', self)
+        self.okBtn = QPushButton('Принять' if self.lang == 'RU' else 'Apply', self)
         self.okBtn.clicked.connect(self.on_ok_clicked)
 
-        self.cancelBtn = QPushButton('Отменить' if settings['lang'] == 'RU' else 'Cancel', self)
+        self.cancelBtn = QPushButton('Отменить' if self.lang == 'RU' else 'Cancel', self)
         self.cancelBtn.clicked.connect(self.on_cancel_clicked)
 
         btnLayout.addWidget(self.okBtn)
@@ -165,16 +159,14 @@ class SettingsWindow(QWidget):
         self.resize(500, 500)
 
     def on_ok_clicked(self):
-        self.settings['theme'] = self.themes[self.theme_combo.currentIndex()]
+        self.settings.write_theme(self.themes[self.theme_combo.currentIndex()])
 
-        self.settings['platform'] = self.where_vars[self.where_calc_combo.currentIndex()]
-        self.settings['lang'] = config.LANGUAGE  # self.language_vars[self.language_combo.currentIndex()]
+        self.settings.write_platform(self.where_vars[self.where_calc_combo.currentIndex()])
 
-        self.settings["alpha"] = self.alpha_slider.value()
-        self.settings["fat_width"] = self.fat_width_slider.value()
-        self.settings['density'] = self.density_slider.value()
+        self.settings.write_alpha(100 - self.alpha_slider.value())  # Transparancy = 1 - alpha
+        self.settings.write_fat_width(self.fat_width_slider.value())
+        self.settings.write_density(self.density_slider.value())
         self.close()
 
     def on_cancel_clicked(self):
-        self.settings.clear()
         self.close()

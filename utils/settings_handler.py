@@ -1,0 +1,81 @@
+from utils import config
+from PyQt5.QtCore import QSettings, QPoint, QSize
+
+from torch import cuda
+
+import os
+
+
+class AppSettings:
+    def __init__(self):
+        self.qt_settings = QSettings(config.QT_SETTINGS_COMPANY, config.QT_SETTINGS_APP)
+
+    def write_size_pos_settings(self, size, pos):
+        self.qt_settings.beginGroup("main_window")
+        self.qt_settings.setValue("size", size)
+        self.qt_settings.setValue("pos", pos)
+        self.qt_settings.endGroup()
+
+    def read_size_pos_settings(self):
+        self.qt_settings.beginGroup("main_window")
+        size = self.qt_settings.value("size", QSize(1200, 800))
+        pos = self.qt_settings.value("pos", QPoint(50, 50))
+        self.qt_settings.endGroup()
+        return size, pos
+
+    def write_lang(self, lang):
+        self.qt_settings.setValue("main/lang", lang)
+
+    def read_lang(self):
+        return self.qt_settings.value("main/lang", 'ENG')
+
+    def write_theme(self, theme):
+
+        self.qt_settings.setValue("main/theme", theme)
+
+    def read_theme(self):
+        return self.qt_settings.value("main/theme", 'dark_blue.xml')
+
+    def get_icon_folder(self):
+        theme_str = self.read_theme()
+        theme_type = theme_str.split('.')[0]
+        return os.path.join("ui/icons/", theme_type)
+
+    def write_platform(self, platform):
+        if platform == 'Auto':
+            if cuda.is_available():
+                platform = 'cuda'
+            else:
+                platform = 'cpu'
+        self.qt_settings.setValue("main/platform", platform)
+
+    def read_platform(self):
+        platform = self.qt_settings.value("main/platform")
+        if not platform:
+            if cuda.is_available():
+                platform = 'cuda'
+            else:
+                platform = 'cpu'
+            self.write_platform(platform)
+            return platform
+
+        else:
+            return platform
+
+    def write_alpha(self, alpha):
+        self.qt_settings.setValue("main/alpha", alpha)
+
+    def read_alpha(self):
+        return self.qt_settings.value("main/alpha", 50)
+
+    def write_fat_width(self, fat_width):
+        self.qt_settings.setValue("main/fat_width", fat_width)
+
+    def read_fat_width(self):
+        return self.qt_settings.value("main/fat_width", 50)
+
+    def write_density(self, density):
+        self.qt_settings.setValue("main/density", density)
+
+    def read_density(self):
+        return self.qt_settings.value("main/density", 50)
