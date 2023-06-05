@@ -3,12 +3,11 @@ from PyQt5.QtGui import QMovie, QPainter, QIcon, QColor, QCursor
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, QToolButton, QComboBox, QLabel, \
     QColorDialog, QListWidget
-from PyQt5.QtCore import QSettings, QPoint, QSize
-
 from PyQt5.QtWidgets import QApplication
 
 from utils import help_functions as hf
-from utils.sam_predictor import load_model, mask_to_seg, predict_by_points, predict_by_box
+from utils.sam_predictor import load_model as sam_load_model
+from utils.sam_predictor import mask_to_seg, predict_by_points, predict_by_box
 from utils import config
 from utils.predictor import SAMImageSetter
 from utils.project import ProjectHandler
@@ -17,6 +16,7 @@ from utils.edges_from_mask import yolo8masks2points
 from utils.settings_handler import AppSettings
 
 from gd.gd_worker import GroundingSAMWorker
+from gd.gd_sam import load_model as gd_load_model
 
 from ui.settings_window import SettingsWindow
 from ui.ask_del_polygon import AskDelWindow
@@ -28,6 +28,7 @@ from ui.panels import ImagesPanel, LabelsPanel
 from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection, ThemeChangeConnection
 from ui.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog
 from ui.ok_cancel_dialog import OkCancelDialog
+from ui.progress import ProgressWindow
 
 from shapely import Polygon
 
@@ -44,22 +45,24 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.setWindowTitle("AI Annotator")
 
+        # Start on Loading Animation
+        self.start_gif(is_prog_load=True)
+
+        # GraphicsView
         self.view = GraphicsView()
         self.setCentralWidget(self.view)
 
-        # Signals
+        # Signals with View
         self.view.polygon_clicked.id_pressed.connect(self.polygon_pressed)
         self.view.polygon_delete.id_delete.connect(self.on_polygon_delete)
         self.view.polygon_end_drawing.on_end_drawing.connect(self.on_polygon_end_draw)
         self.view.mask_end_drawing.on_mask_end_drawing.connect(self.ai_mask_end_drawing)
         self.view.polygon_cls_num_change.pol_cls_num_and_id.connect(self.change_polygon_cls_num)
 
+        # Signals with Right Panels
         self.im_panel_count_conn = ImagesPanelCountConnection()
         self.labels_count_conn = LabelsPanelCountConnection()
-
         self.on_theme_change_connection = ThemeChangeConnection()
-
-        self.start_gif(is_prog_load=True)
 
         screen = app.primaryScreen()
         rect = screen.availableGeometry()
@@ -67,45 +70,40 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(int(0.8 * rect.width()), int(0.8 * rect.height()))
 
         # Settings
-        self.init_settings()
+        self.settings = AppSettings()
+        self.message_cuda_available()
         self.icon_folder = self.settings.get_icon_folder()
+        # last_ for not recreate if not change
         self.last_theme = self.settings.read_theme()
         self.last_platform = self.settings.read_platform()
 
-        # создаем меню и тулбар
+        # Menu and toolbars
         self.createActions()
         self.createMenus()
         self.createToolbar()
 
+        # Icons
         self.set_icons()
 
-        # Принтер
+        # Printer
         self.printer = QPrinter()
-        self.scaleFactor = 1.0
 
+        # Work with project
         self.project_data = ProjectHandler()
 
-        self.ann_type = "Polygon"
-        self.loaded_proj_name = None
-        self.labels_on_tek_image_ids = None
-        self.image_types = ['jpg', 'png', 'tiff', 'jpeg']
-        self.tek_image_name = None
-        self.dataset_dir = None
-        self.dataset_images = []
+        self.init_global_values()
 
-        self.gd_worker = None
-
-        self.sam_model_path = os.path.join(os.getcwd(), "sam_models\sam_vit_h_4b8939.pth")
-
-        self.sam = load_model(self.sam_model_path, model_type="vit_h", device=self.settings.read_platform())
+        # SAM
+        self.sam = self.load_sam()
         self.image_setted = False
         self.image_setter = SAMImageSetter()
         self.image_setter.set_predictor(self.sam)
         self.image_setter.finished.connect(self.on_image_setted)
         self.queue_to_image_setter = []
 
-        # GroundingDINO saved promts
+        # GroundingDINO
         self.prompts = []
+        self.gd_model = self.load_gd_model()
 
         # import settings
         self.is_seg_import = False
@@ -113,34 +111,69 @@ class MainWindow(QtWidgets.QMainWindow):
         # close window flag
         self.is_asked_before_close = False
 
-        self.qt_settings = QSettings(config.QT_SETTINGS_COMPANY, config.QT_SETTINGS_APP)
+        # Set window size and pos from last state
         self.read_size_pos()
 
         self.splash.finish(self)
         self.statusBar().showMessage(
             "Загрузите проект или набор изображений" if self.settings.read_lang() == 'RU' else "Load dataset or project")
 
+    def load_gd_model(self):
+        config_file = os.path.join(os.getcwd(),
+                                   config.PATH_TO_GROUNDING_DINO_CONFIG)
+        grounded_checkpoint = os.path.join(os.getcwd(),
+                                           config.PATH_TO_GROUNDING_DINO_CHECKPOINT)
+
+        return gd_load_model(config_file, grounded_checkpoint, device=self.settings.read_platform())
+
+    def load_sam(self):
+        sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_CHECKPOINT)
+        return sam_load_model(sam_model_path, model_type="vit_h", device=self.settings.read_platform())
+
+    def init_global_values(self):
+        """
+        Set some app global values
+        """
+
+        self.scaleFactor = 1.0
+        self.ann_type = "Polygon"
+
+        self.loaded_proj_name = None
+        self.labels_on_tek_image_ids = None
+        self.tek_image_name = None
+        self.dataset_dir = None
+        self.gd_worker = None
+
+        self.image_types = ['jpg', 'png', 'tiff', 'jpeg']
+
+        self.dataset_images = []
+
     def write_size_pos(self):
+        """
+        Save window pos and size
+        """
 
         self.settings.write_size_pos_settings(self.size(), self.pos())
 
     def read_size_pos(self):
+        """
+        Read saved window pos and size
+        """
 
         size, pos = self.settings.read_size_pos_settings()
 
-        print(size, pos)
         if size and pos:
             self.resize(size)
             self.move(pos)
 
     def set_movie_gif(self):
-        """
-        Установка гифки на заставку
-        """
         self.movie_gif = "ui/icons/15.gif"
         self.ai_gif = "ui/icons/15.gif"
 
     def start_gif(self, is_prog_load=False, mode="Loading"):
+        """
+        Show animation while do something
+        """
         self.set_movie_gif()
         if mode == "Loading":
             self.movie = QMovie(self.movie_gif)
@@ -155,18 +188,10 @@ class MainWindow(QtWidgets.QMainWindow):
             QtCore.Qt.WindowStaysOnTopHint | QtCore.Qt.FramelessWindowHint
         )
 
-        self.splash.showMessage(
-            "<h1><font color='red'></font></h1>",
-            QtCore.Qt.AlignTop | QtCore.Qt.AlignCenter,
-            QtCore.Qt.white,
-        )
-
         self.splash.show()
 
     def createActions(self):
-        """
-        Задать действия
-        """
+
         self.openAct = QAction("Загрузить набор изображений" if self.settings.read_lang() == 'RU' else "Load dataset",
                                self,
                                shortcut="Ctrl+O", triggered=self.open)
@@ -277,10 +302,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def createMenus(self):
 
-        """
-        Создание меню
-        """
-
         self.fileMenu = QMenu("&Файл" if self.settings.read_lang() == 'RU' else "&File", self)
         self.fileMenu.addAction(self.openAct)
         self.fileMenu.addAction(self.openProjAct)
@@ -347,11 +368,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def createToolbar(self):
 
-        """
-        Создание тулбаров
-        """
-
-        # Слева
+        # Left
 
         toolBar = QToolBar("Панель инструментов" if self.settings.read_lang() == 'RU' else "ToolBar", self)
         toolBar.addAction(self.openAct)
@@ -373,8 +390,6 @@ class MainWindow(QtWidgets.QMainWindow):
         toolBar.addSeparator()
         toolBar.addAction(self.settingsAct)
         toolBar.addSeparator()
-        # toolBar.addAction(self.printAct)
-        # toolBar.addAction(self.exitAct)
 
         labelSettingsToolBar = QToolBar(
             "Настройки разметки" if self.settings.read_lang() == 'RU' else "Current Label Bar",
@@ -398,32 +413,29 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.toolBarLeft = toolBar
 
-        # Правая панель
+        # Right toolbar
         self.toolBarRight = QToolBar("Менеджер разметок" if self.settings.read_lang() == 'RU' else "Labeling Bar", self)
 
-        # # Панель меток - заголовок
+        # Labels
         self.toolBarRight.addWidget(LabelsPanel(self, self.break_drawing, self.icon_folder,
                                                 on_color_change_signal=self.on_theme_change_connection.on_theme_change,
                                                 on_labels_count_change=self.labels_count_conn.on_labels_count_change))
 
-        # Панель меток - список
         self.labels_on_tek_image = QListWidget()
         self.labels_on_tek_image.itemClicked.connect(self.labels_on_tek_image_clicked)
         self.toolBarRight.addWidget(self.labels_on_tek_image)
 
-        # Панель изображений - заголовок
+        # Images
         self.toolBarRight.addWidget(
             ImagesPanel(self, self.add_im_to_proj_clicked, self.del_im_from_proj_clicked, self.icon_folder,
                         on_color_change_signal=self.on_theme_change_connection.on_theme_change,
                         on_images_list_change=self.im_panel_count_conn.on_image_count_change))
 
-        # Панель изображений - список
         self.images_list_widget = QListWidget()
         self.images_list_widget.itemClicked.connect(self.images_list_widget_clicked)
         self.toolBarRight.addWidget(self.images_list_widget)
 
-        # Устанавливаем layout в правую панель
-
+        # Add panels to toolbars
         self.addToolBar(QtCore.Qt.TopToolBarArea, labelSettingsToolBar)
         self.addToolBar(QtCore.Qt.LeftToolBarArea, self.toolBarLeft)
         self.addToolBar(QtCore.Qt.RightToolBarArea, self.toolBarRight)
@@ -449,7 +461,6 @@ class MainWindow(QtWidgets.QMainWindow):
             if lbl == new_cls_name:
                 break
 
-        # print(f'cls_num: {self.changed_cls_num} -> {new_cls_num}, id {self.changed_cls_id}')
         self.project_data.change_cls_num_by_id(self.changed_cls_id, new_cls_num)
         self.reload_image()
         self.combo_dialog.close()
@@ -472,13 +483,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.prompts.append(prompt)
 
             config_file = os.path.join(os.getcwd(),
-                                       config.PATH_TO_GROUNDING_DINO_CONFIG)  # 'D:\python\\aia_git\\ai_annotator\gd\GroundingDINO\groundingdino\config\GroundingDINO_SwinT_OGC.py'
+                                       config.PATH_TO_GROUNDING_DINO_CONFIG)
             grounded_checkpoint = os.path.join(os.getcwd(),
-                                               config.PATH_TO_GROUNDING_DINO_CHECKPOINT)  # 'D:\python\\aia_git\\ai_annotator\gd\groundingdino_swint_ogc.pth'
-            # sam_checkpoint = os.path.join(os.getcwd(), config.PATH_TO_SAM_CHECKPOINT)
+                                               config.PATH_TO_GROUNDING_DINO_CHECKPOINT)
 
             self.gd_worker = GroundingSAMWorker(config_file=config_file, grounded_checkpoint=grounded_checkpoint,
                                                 sam_predictor=self.sam, tek_image_path=self.tek_image_path,
+                                                grounding_dino_model=self.gd_model,
                                                 prompt=prompt)
 
             self.prompt_input_dialog.set_progress(10)
@@ -653,6 +664,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def importFromYOLOBox(self):
 
+        self.close_project()
+
         self.import_dialog = ImportFromYOLODialog(self, on_ok_clicked=self.on_import_yolo_clicked)
         self.is_seg_import = False
         self.import_dialog.show()
@@ -684,11 +697,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.import_dialog.set_progress(persent)
 
     def importFromYOLOSeg(self):
+        self.close_project()
+
         self.import_dialog = ImportFromYOLODialog(self, on_ok_clicked=self.on_import_yolo_clicked)
         self.is_seg_import = True
         self.import_dialog.show()
 
     def importFromCOCO(self):
+        self.close_project()
+
         self.import_dialog = ImportFromCOCODialog(self, on_ok_clicked=self.on_import_coco_clicked)
         self.import_dialog.show()
 
@@ -1133,7 +1150,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.dataset_images = self.filter_images_names(os.listdir(dataset_dir))
 
             if self.dataset_images:
-                self.start_gif(mode="Loading")
+                self.start_gif(is_prog_load=True)
 
                 self.dataset_dir = dataset_dir
                 self.project_data.set_path_to_images(dataset_dir)
@@ -1174,10 +1191,20 @@ class MainWindow(QtWidgets.QMainWindow):
         for name in image_names:
             self.images_list_widget.addItem(name)
 
+    def progress_bar_changed(self, percent):
+        self.progress_bar.set_progress(percent)
+
     def load_project(self, project_name):
+
         self.loaded_proj_name = project_name
         is_success = self.project_data.load(self.loaded_proj_name)
+
+        self.progress_bar = ProgressWindow(self,
+                                           title='Loading project...' if self.settings.read_lang() == 'RU' else 'Загрузка проекта...')
+        self.view.load_ids_conn.percent.connect(self.progress_bar_changed)
+
         self.view.set_ids_from_project(self.project_data.get_data())
+
         self.balanceAct.setEnabled(True)
 
         if not is_success:
@@ -1238,12 +1265,16 @@ class MainWindow(QtWidgets.QMainWindow):
             self.scaleFactor = (main_geom[2] - main_geom[0]) / self.cv2_image.shape[1]
 
             self.load_image_data(self.tek_image_name)
-            self.view.setMouseTracking(True)  # Starange
+
+
+            self.view.setMouseTracking(True)
             self.fill_labels_on_tek_image_list_widget()
             self.fill_images_label(self.dataset_images)
 
             self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
             self.images_list_widget.setCurrentRow(0)
+
+            self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
         self.statusBar().showMessage(
             f"Число загруженных в проект изображений: {len(self.dataset_images)}" if self.settings.read_lang() == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
@@ -1273,10 +1304,21 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cls_combo.clear()
         self.cls_combo.addItems(np.array(self.project_data.get_labels()))
 
+    def close_project(self):
+        if self.project_data.is_loaded:
+            # ASK TO SAVE
+            self.save_project()
+            self.project_data.clear()
+            self.cls_combo.clear()
+            self.labels_on_tek_image.clear()
+            self.images_list_widget.clear()
+            self.del_im_from_proj_clicked()
+
     def save_project(self):
         """
         Сохранение проекта
         """
+        self.start_gif(is_prog_load=True)
         if self.loaded_proj_name:
 
             self.set_labels_color()  # сохранение информации о цветах масок
@@ -1291,6 +1333,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         else:
             self.save_project_as()
+
+        self.splash.finish(self)
 
     def save_project_as(self):
         """
@@ -1354,11 +1398,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.settings_window.show()
 
-    def init_settings(self):
+    def message_cuda_available(self):
         """
         Инициализация настроек приложения
         """
-        self.settings = AppSettings()
         lang = self.settings.read_lang()
         platform = self.settings.read_platform()
 
@@ -1411,8 +1454,7 @@ class MainWindow(QtWidgets.QMainWindow):
         platform = self.settings.read_platform()
         lang = self.settings.read_lang()
         if platform != self.last_platform:
-            self.sam = load_model(self.sam_model_path, model_type="vit_h",
-                                  device=platform)
+            self.sam = self.load_sam()
             self.last_platform = platform
 
         if platform == 'cuda':
@@ -1422,7 +1464,6 @@ class MainWindow(QtWidgets.QMainWindow):
             else:
                 self.statusBar().showMessage(
                     "NVIDIA CUDA is found. SAM will use it for acceleration", 3000)
-
 
         else:
             if lang == 'RU':
@@ -1705,7 +1746,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def show_tutorial(self):
         path_to_png = os.path.join(os.getcwd(), 'ui', 'tutorial', 'shortcuts.png')
-        print(path_to_png)
         self.tutorial = ShowImgWindow(self, title='Горячие клавиши', img_file=path_to_png, icon_folder=self.icon_folder,
                                       is_fit_button=False)
         self.tutorial.scaleImage(0.4)

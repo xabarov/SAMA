@@ -7,11 +7,13 @@ from utils import config
 from utils import help_functions as hf
 
 from ui.signals_and_slots import PolygonDeleteConnection, PolygonPressedConnection, PolygonEndDrawing, MaskEndDrawing, \
-    PolygonChangeClsNumConnection
+    PolygonChangeClsNumConnection, LoadIdProgress
 from ui.polygons import GrPolygonLabel, GrEllipsLabel
 
 import numpy as np
 from shapely import Polygon, Point
+
+from utils.ids_worker import IdsSetterWorker
 
 
 class GraphicsView(QtWidgets.QGraphicsView):
@@ -32,6 +34,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.polygon_clicked = PolygonPressedConnection()
         self.polygon_delete = PolygonDeleteConnection()
         self.polygon_cls_num_change = PolygonChangeClsNumConnection()
+        self.load_ids_conn = LoadIdProgress()
 
         self.setScene(scene)
 
@@ -322,10 +325,30 @@ class GraphicsView(QtWidgets.QGraphicsView):
         return None
 
     def set_ids_from_project(self, project_data):
-        for im in project_data['images']:
-            for shape in im['shapes']:
-                if shape['id'] not in self.labels_ids:
-                    self.labels_ids.append(shape['id'])
+        self.ids_worker = IdsSetterWorker(images_data=project_data['images'])
+        self.ids_worker.load_ids_conn.percent.connect(self.on_load_percent_change)
+
+        self.ids_worker.finished.connect(self.on_ids_worker_finished)
+
+        if not self.ids_worker.isRunning():
+            self.ids_worker.start()
+        # self.labels_ids = []
+        # self.load_ids_conn.percent.emit(0)
+        # for i, im in enumerate(project_data['images']):
+        #     for shape in im['shapes']:
+        #         if shape['id'] not in self.labels_ids:
+        #             self.labels_ids.append(shape['id'])
+        #
+        #     self.load_ids_conn.percent.emit(int(100 * (i + 1) / len(project_data['images'])))
+        #
+        # self.load_ids_conn.percent.emit(100)
+
+    def on_load_percent_change(self, percent):
+        self.load_ids_conn.percent.emit(percent)
+
+    def on_ids_worker_finished(self):
+        print('Loading project finished')
+        self.labels_ids = self.ids_worker.get_labels_ids()
 
     def get_unique_label_id(self):
         id_tek = 0

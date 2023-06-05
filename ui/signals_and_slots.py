@@ -44,3 +44,6 @@ class InfoConnection(Ps2Core.QObject):
 
 class PolygonChangeClsNumConnection(Ps2Core.QObject):
     pol_cls_num_and_id = Signal(int, int)
+
+class LoadIdProgress(Ps2Core.QObject):
+    percent = Signal(int)

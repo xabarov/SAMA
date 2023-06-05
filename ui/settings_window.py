@@ -1,9 +1,10 @@
 from PyQt5.QtWidgets import QLabel, QWidget, QGroupBox, QFormLayout, QComboBox, QVBoxLayout, \
     QHBoxLayout, QPushButton, QSlider
 from PyQt5.QtCore import Qt
-import numpy as np
 
 from utils.settings_handler import AppSettings
+
+import numpy as np
 
 
 class SettingsWindow(QWidget):

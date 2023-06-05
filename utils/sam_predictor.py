@@ -1,12 +1,12 @@
+from rasterio import features
+from segment_anything import sam_model_registry, SamPredictor
+
 import numpy as np
-import torch
 import matplotlib.pyplot as plt
 import cv2
-from segment_anything import sam_model_registry, SamPredictor
 import rasterio
-from rasterio import features
 import shapely
-from shapely.geometry import Point, Polygon
+
 
 def show_mask(mask, ax, random_color=False):
     if random_color:

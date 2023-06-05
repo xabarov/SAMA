@@ -5,12 +5,13 @@ from .gd_sam import predict
 class GroundingSAMWorker(QtCore.QThread):
 
     def __init__(self, config_file=None, grounded_checkpoint=None,
-                 sam_predictor=None,
+                 sam_predictor=None, grounding_dino_model=None,
                  tek_image_path=None,
                  prompt=None):
         super(GroundingSAMWorker, self).__init__()
         self.config_file = config_file
         self.grounded_checkpoint = grounded_checkpoint
+        self.gd_model = grounding_dino_model
         self.sam_predictor = sam_predictor
         self.tek_image_path = tek_image_path
         self.prompt = prompt
@@ -33,7 +34,7 @@ class GroundingSAMWorker(QtCore.QThread):
 
     def run(self):
         self.masks = predict(self.tek_image_path, self.prompt, config_file=self.config_file,
-                             grounded_checkpoint=self.grounded_checkpoint,
+                             grounded_checkpoint=self.grounded_checkpoint, model=self.gd_model,
                              sam_predictor=self.sam_predictor
                              )
 

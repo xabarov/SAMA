@@ -18,17 +18,24 @@ class ProjectHandler:
     """
 
     def __init__(self):
-        self.data = dict()
-        self.data["path_to_images"] = ""
-        self.data["images"] = []
-        self.data["labels"] = []
-        self.data["labels_color"] = {}
+        self.init()
 
     def check_json(self, json_project_data):
         for field in ["path_to_images", "images", "labels", "labels_color"]:
             if field not in json_project_data:
                 return False
         return True
+
+    def clear(self):
+        self.init()
+
+    def init(self):
+        self.data = dict()
+        self.data["path_to_images"] = ""
+        self.data["images"] = []
+        self.data["labels"] = []
+        self.data["labels_color"] = {}
+        self.is_loaded = False
 
     def calc_dataset_balance(self):
         cls_nums = {}
@@ -51,6 +58,7 @@ class ProjectHandler:
 
                 self.data = data
                 self.update_ids()
+                self.is_loaded = True
                 return True
 
         return False
@@ -62,7 +70,6 @@ class ProjectHandler:
                 shape['id'] = id_num
                 id_num += 1
 
-
     def save(self, json_path):
 
         with open(json_path, 'w') as f:
@@ -70,6 +77,7 @@ class ProjectHandler:
 
     def set_data(self, data):
         self.data = data
+        self.is_loaded = True
 
     def get_data(self):
         return self.data
@@ -363,7 +371,6 @@ class ProjectHandler:
 
                     width, height = Image.open(fullname).size
                     im_shape = [height, width]
-
 
                     with open(os.path.join(export_dir, txt_yolo_name), 'w') as f:
                         for shape in image["shapes"]:
