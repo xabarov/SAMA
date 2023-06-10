@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, 
 from PyQt5.QtWidgets import QApplication
 
 from ultralytics import YOLO
+from torch import cuda
 
 from utils import help_functions as hf
 from utils.sam_predictor import load_model as sam_load_model
@@ -43,6 +44,7 @@ import numpy as np
 import os
 import shutil
 import matplotlib.pyplot as plt
+import gc
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -132,6 +134,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.splash.finish(self)
         self.statusBar().showMessage(
             "Загрузите проект или набор изображений" if self.settings.read_lang() == 'RU' else "Load dataset or project")
+
+    def free_memory(self, current_model):
+
+        if not current_model:
+            return
+
+        if current_model == 'SAM':
+            del self.sam
+
+        elif current_model == 'OD':
+            del self.yolo
+
+        elif current_model == 'GD':
+            del self.gd_model
+
+        gc.collect()
 
     def queue_image_to_sam(self, image_name):
 
@@ -247,18 +265,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def createActions(self):
 
-        self.createNewProjectAct = QAction(
-            "Создать новый проект" if self.settings.read_lang() == 'RU' else "Create new project",
-            self,
-            shortcut="Ctrl+N", triggered=self.createNewProject)
+        self.openAct = QAction("Загрузить набор изображений" if self.settings.read_lang() == 'RU' else "Load dataset",
+                               self,
+                               shortcut="Ctrl+O", triggered=self.open)
         self.openProjAct = QAction("Загрузить проект" if self.settings.read_lang() == 'RU' else "Load Project", self,
-                                   shortcut='Ctrl+O',
                                    triggered=self.open_project)
         self.saveProjAsAct = QAction(
             "Сохранить проект как..." if self.settings.read_lang() == 'RU' else "Save project as...",
-            self, triggered=self.save_project_as, enabled=False)
+            self, triggered=self.save_project_as)
         self.saveProjAct = QAction("Сохранить проект" if self.settings.read_lang() == 'RU' else "Save project", self,
-                                   shortcut="Ctrl+S", triggered=self.save_project, enabled=False)
+                                   shortcut="Ctrl+S", triggered=self.save_project)
 
         self.printAct = QAction("Печать" if self.settings.read_lang() == 'RU' else "Print", self, shortcut="Ctrl+P",
                                 enabled=False, triggered=self.print_)
@@ -376,7 +392,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def createMenus(self):
 
         self.fileMenu = QMenu("&Файл" if self.settings.read_lang() == 'RU' else "&File", self)
-        self.fileMenu.addAction(self.createNewProjectAct)
+        self.fileMenu.addAction(self.openAct)
         self.fileMenu.addAction(self.openProjAct)
         self.fileMenu.addAction(self.saveProjAct)
         self.fileMenu.addAction(self.saveProjAsAct)
@@ -452,7 +468,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Left
 
         toolBar = QToolBar("Панель инструментов" if self.settings.read_lang() == 'RU' else "ToolBar", self)
-        toolBar.addAction(self.createNewProjectAct)
+        toolBar.addAction(self.openAct)
         toolBar.addSeparator()
         toolBar.addAction(self.zoomInAct)
         toolBar.addAction(self.zoomOutAct)
@@ -718,7 +734,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.fill_images_label(self.dataset_images)
 
         else:
-            self.createNewProject()
+            self.open()
 
         self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
 
@@ -883,9 +899,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def on_import_finished(self):
         self.project_data.set_data(self.importer.get_project())
 
-        if self.loaded_proj_name:
-            self.project_data.save(self.loaded_proj_name)
-            self.load_project(self.loaded_proj_name)
+        proj_path = os.path.join(os.getcwd(), 'projects', 'saved.json')
+        self.project_data.save(proj_path)
+        self.load_project(proj_path)
 
         self.import_dialog.hide()
 
@@ -1128,7 +1144,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.icon_folder = self.settings.get_icon_folder()
 
         self.setWindowIcon(QIcon(self.icon_folder + "/neural.png"))
-        self.createNewProjectAct.setIcon(QIcon(self.icon_folder + "/folder.png"))
+        self.openAct.setIcon(QIcon(self.icon_folder + "/folder.png"))
         self.printAct.setIcon(QIcon(self.icon_folder + "/printer.png"))
         self.exitAct.setIcon(QIcon(self.icon_folder + "/logout.png"))
         self.zoomInAct.setIcon(QIcon(self.icon_folder + "/zoom-in.png"))
@@ -1265,7 +1281,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     im_names_valid.append(f)
         return im_names_valid
 
-    def createNewProject(self):
+    def open(self):
 
         dataset_dir = QFileDialog.getExistingDirectory(self,
                                                        'Выберите папку с изображениями для разметки' if self.settings.read_lang() == 'RU' else "Set dataset folder",
@@ -1275,6 +1291,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.dataset_images = self.filter_images_names(os.listdir(dataset_dir))
 
             if self.dataset_images:
+                self.start_gif(is_prog_load=True)
 
                 self.dataset_dir = dataset_dir
                 self.project_data.set_path_to_images(dataset_dir)
@@ -1285,6 +1302,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 self.save_project_as()
                 self.load_project(self.loaded_proj_name)
+
+                self.splash.finish(self)
 
             else:
                 self.statusBar().showMessage(
@@ -1355,8 +1374,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.selectAreaAct.setEnabled(True)
             self.detectAct.setEnabled(True)
             self.detectScanAct.setEnabled(True)
-            self.saveProjAct.setEnabled(True)
-            self.saveProjAsAct.setEnabled(True)
 
             main_geom = self.geometry().getCoords()
             self.scaleFactor = (main_geom[2] - main_geom[0]) / self.cv2_image.shape[1]
@@ -1476,9 +1493,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Сохранение проекта как...
         """
-        proj_name, _ = QFileDialog.getSaveFileName(self,
-                                                   'Выберите имя нового проекта' if self.settings.read_lang == 'RU' else 'Type new project name',
-                                                   'projects',
+        proj_name, _ = QFileDialog.getSaveFileName(self, 'QFileDialog.getOpenFileName()', 'projects',
                                                    'JSON Proj File (*.json)')
 
         if proj_name:

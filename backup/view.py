@@ -5,7 +5,6 @@ from PyQt5.QtWidgets import QApplication
 
 from utils import config
 from utils import help_functions as hf
-from utils.ids_worker import IdsSetterWorker
 
 from ui.signals_and_slots import PolygonDeleteConnection, PolygonPressedConnection, PolygonEndDrawing, MaskEndDrawing, \
     PolygonChangeClsNumConnection, LoadIdProgress
@@ -13,6 +12,8 @@ from ui.polygons import GrPolygonLabel, GrEllipsLabel
 
 import numpy as np
 from shapely import Polygon, Point
+
+from utils.ids_worker import IdsSetterWorker
 
 
 class GraphicsView(QtWidgets.QGraphicsView):
@@ -34,20 +35,16 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.polygon_delete = PolygonDeleteConnection()
         self.polygon_cls_num_change = PolygonChangeClsNumConnection()
         self.load_ids_conn = LoadIdProgress()
-        if on_rubber_band_mode:
-            # connect SIGNAL on_rubber_band_mode TO SLOT
-            on_rubber_band_mode.connect(self.on_rb_mode_change)
-        self.polygon_end_drawing = PolygonEndDrawing()
-        self.mask_end_drawing = MaskEndDrawing()
 
         self.setScene(scene)
 
         self._pixmap_item = QtWidgets.QGraphicsPixmapItem()
         scene.addItem(self._pixmap_item)
 
+        on_rubber_band_mode.connect(self.on_rb_mode_change)
         self.is_rubber_mode = False
-        self.is_drawing = False
 
+        self.is_drawing = False
         self.drawing_type = "Polygon"
         self.active_item = None
         self.labels_ids = []
@@ -62,19 +59,21 @@ class GraphicsView(QtWidgets.QGraphicsView):
         else:
             self.fat_point_color = fat_point_color
 
-        # Кисти
-        self.set_brushes()
+        self.active_brush = QtGui.QBrush(QColor(*self.active_color), QtCore.Qt.SolidPattern)
+        self.fat_point_brush = QtGui.QBrush(QColor(*self.fat_point_color), QtCore.Qt.SolidPattern)
+        self.positive_point_brush = QtGui.QBrush(QColor(*config.POSITIVE_POINT_COLOR), QtCore.Qt.SolidPattern)
+        self.negative_point_brush = QtGui.QBrush(QColor(*config.NEGATIVE_POINT_COLOR), QtCore.Qt.SolidPattern)
 
         self.setMouseTracking(False)
         self.fat_point = None
         self.drag_mode = "No"
         self.dragged_vertex = None
-        self.ellipse_start_point = None
+        self.ellips_start_point = None
         self.box_start_point = None
-        self.buffer = None
-        self.pressed_polygon = None
 
-        self.min_ellipse_size = 10
+        self.polygon_end_drawing = PolygonEndDrawing()
+        self.mask_end_drawing = MaskEndDrawing()
+        self.min_ellips_size = 10
         self._zoom = 0
         self.fat_width_default_percent = 50
 
@@ -82,27 +81,21 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.positive_points = []
         self.right_clicked_points = []
         self.left_clicked_points = []
-
+        self.buffer = None
+        self.pressed_polygon = None
         self.create_actions()
 
-    def set_brushes(self):
-        # Кисти для активного элемента, узла, позитивного и негативного промпта SAM
-        self.active_brush = QtGui.QBrush(QColor(*self.active_color), QtCore.Qt.SolidPattern)
-        self.fat_point_brush = QtGui.QBrush(QColor(*self.fat_point_color), QtCore.Qt.SolidPattern)
-        self.positive_point_brush = QtGui.QBrush(QColor(*config.POSITIVE_POINT_COLOR), QtCore.Qt.SolidPattern)
-        self.negative_point_brush = QtGui.QBrush(QColor(*config.NEGATIVE_POINT_COLOR), QtCore.Qt.SolidPattern)
-
     def create_actions(self):
-        self.delPolyAct = QAction("Удалить полигон", self, enabled=True, triggered=self.on_del_polygon)
-        self.changeClsNumAct = QAction("Изменить имя метки", self, enabled=True, triggered=self.on_change_cls_num)
+        self.delPolyAct = QAction("Удалить полигон", self, enabled=True, triggered=self.del_polygon)
+        self.changeClsNumAct = QAction("Изменить имя метки", self, enabled=True, triggered=self.change_cls_num)
 
-    def on_change_cls_num(self):
+    def change_cls_num(self):
         if self.pressed_polygon:
             change_id = self.pressed_polygon.id
             cls_num = self.pressed_polygon.cls_num
             self.polygon_cls_num_change.pol_cls_num_and_id.emit(cls_num, change_id)
 
-    def on_del_polygon(self):
+    def del_polygon(self):
         if self.pressed_polygon:
             deleted_id = self.pressed_polygon.id
             self.remove_item(self.pressed_polygon, is_delete_id=True)
@@ -123,9 +116,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
         scene.addItem(self._pixmap_item)
         self.pixmap_item.setPixmap(pixmap)
         self.set_fat_width()
-
-        if self.is_rubber_mode:
-            self.on_rb_mode_change(False)
 
     def clearScene(self):
         """
@@ -179,15 +169,15 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.positive_point_pen = QPen(QColor(*config.POSITIVE_POINT_COLOR), self.line_width, QtCore.Qt.SolidLine)
         self.negative_point_pen = QPen(QColor(*config.NEGATIVE_POINT_COLOR), self.line_width, QtCore.Qt.SolidLine)
 
-        self.min_ellipse_size = self.fat_width
+        self.min_ellips_size = self.fat_width
         self._zoom = 0
 
         return self.fat_width
 
     def toggle(self, item):
         if item.brush().color().getRgb() == self.active_brush.color().getRgb():
-            item.setBrush(QtGui.QBrush(QColor(*item.color), QtCore.Qt.SolidPattern))
-            item.setPen(QPen(QColor(*hf.set_alpha_to_max(item.color)), self.line_width, QtCore.Qt.SolidLine))
+                item.setBrush(QtGui.QBrush(QColor(*item.color), QtCore.Qt.SolidPattern))
+                item.setPen(QPen(QColor(*hf.set_alpha_to_max(item.color)), self.line_width, QtCore.Qt.SolidLine))
         else:
             item.setBrush(self.active_brush)
             item.setPen(self.active_pen)
@@ -209,9 +199,14 @@ class GraphicsView(QtWidgets.QGraphicsView):
         return False
 
     def check_near_by_active_pressed(self, lp):
+        scale = self._zoom / 3.0 + 1
         if self.active_item:
             try:
                 pol = self.active_item.polygon()
+                # shapely_pol = Polygon([(p.x(), p.y()) for p in pol])
+                #
+                # if shapely_pol.contains(Point(lp.x(), lp.y())):
+                #     return True
 
                 size = len(pol)
                 for i in range(size - 1):
@@ -237,6 +232,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     self.polygon_clicked.id_pressed.emit(self.active_item.id)
                     return True
 
+                # if pol.containsPoint(pressed_point, QtCore.Qt.OddEvenFill):
+                #     self.polygon_clicked.id_pressed.emit(self.active_item.id)
+                #     return True
             except:
                 return False
 
@@ -337,6 +335,16 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         if not self.ids_worker.isRunning():
             self.ids_worker.start()
+        # self.labels_ids = []
+        # self.load_ids_conn.percent.emit(0)
+        # for i, im in enumerate(project_data['images']):
+        #     for shape in im['shapes']:
+        #         if shape['id'] not in self.labels_ids:
+        #             self.labels_ids.append(shape['id'])
+        #
+        #     self.load_ids_conn.percent.emit(int(100 * (i + 1) / len(project_data['images'])))
+        #
+        # self.load_ids_conn.percent.emit(100)
 
     def on_load_percent_change(self, percent):
         self.load_ids_conn.percent.emit(percent)
@@ -513,15 +521,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
         sp = self.mapToScene(event.pos())
         lp = self.pixmap_item.mapFromScene(sp)
 
-        if self.is_rubber_mode:
-
-            if not self.box_start_point:
-                self.drag_mode = "RubberBandStartDrawMode"
-                self.box_start_point = lp
-                self.setMouseTracking(True)
-
-            return
-
         if self.is_drawing:
 
             if self.drawing_type == "Polygon":
@@ -537,9 +536,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
                 # Режим рисования, добавляем точки к текущему полигону
 
-                if not self.ellipse_start_point:
+                if not self.ellips_start_point:
                     self.drag_mode = "EllipsStartDrawMode"
-                    self.ellipse_start_point = lp
+                    self.ellips_start_point = lp
                     self.setMouseTracking(True)
 
             elif self.drawing_type == "Box":
@@ -665,7 +664,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.scene().addItem(negative_point)
 
     def clear_ai_points(self):
-        
         for p in self.negative_points:
             self.remove_item(p, is_delete_id=False)
         for p in self.positive_points:
@@ -717,38 +715,18 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def mouseMoveEvent(self, event: QtGui.QMouseEvent):
 
-        if self.is_rubber_mode:
-            if self.drag_mode == "RubberBandStartDrawMode" or self.drag_mode == "RubberBandContinueDrawMode":
-                sp = self.mapToScene(event.pos())
-                lp = self.pixmap_item.mapFromScene(sp)
-
-                width = abs(lp.x() - self.box_start_point.x())
-                height = abs(lp.y() - self.box_start_point.y())
-
-                polygon = QPolygonF()
-                polygon.append(self.box_start_point)
-                polygon.append(QtCore.QPointF(self.box_start_point.x() + width, self.box_start_point.y()))
-                polygon.append(lp)
-                polygon.append(QtCore.QPointF(self.box_start_point.x(), self.box_start_point.y() + height))
-
-                self.active_item.setPolygon(polygon)
-
-                self.drag_mode = "RubberBandContinueDrawMode"
-
-            return
-
         if self.active_item:
 
-            if self.drag_mode == "EllipsStartDrawMode" or self.drag_mode == "EllipseContinueDrawMode":
+            if self.drag_mode == "EllipsStartDrawMode" or self.drag_mode == "EllipsContinueDrawMode":
                 sp = self.mapToScene(event.pos())
                 lp = self.pixmap_item.mapFromScene(sp)
 
-                width = abs(lp.x() - self.ellipse_start_point.x())
-                height = abs(lp.y() - self.ellipse_start_point.y())
+                width = abs(lp.x() - self.ellips_start_point.x())
+                height = abs(lp.y() - self.ellips_start_point.y())
 
-                self.active_item.setRect(self.ellipse_start_point.x(), self.ellipse_start_point.y(), width, height)
+                self.active_item.setRect(self.ellips_start_point.x(), self.ellips_start_point.y(), width, height)
 
-                self.drag_mode = "EllipseContinueDrawMode"
+                self.drag_mode = "EllipsContinueDrawMode"
 
             elif self.drag_mode == "BoxStartDrawMode" or self.drag_mode == "BoxContinueDrawMode":
                 sp = self.mapToScene(event.pos())
@@ -810,28 +788,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.active_item.setPolygon(poly)
         self.crop_by_pixmap_size(self.active_item)
 
-    def get_rubber_band_polygon(self):
-        if self.is_rubber_mode and self.active_item and self.active_item.cls_num == -1:
-            points = []
-            for p in self.active_item.polygon():
-                points.append([p.x(), p.y()])
-            return points
-
     def mouseReleaseEvent(self, event: QtGui.QMouseEvent):
-
-        if self.is_rubber_mode:
-            if self.drag_mode == "RubberBandContinueDrawMode":
-
-                self.setMouseTracking(True)
-                self.is_drawing = False
-                self.box_start_point = None
-                self.drag_mode = "No"
-
-                if self.active_item:
-                    if self.active_item.check_polygon(min_width=self.min_ellipse_size,
-                                                      min_height=self.min_ellipse_size):
-                        self.crop_by_pixmap_size(self.active_item)
-            return
 
         if self.drag_mode == "PolygonVertexMove":
 
@@ -863,14 +820,14 @@ class GraphicsView(QtWidgets.QGraphicsView):
             self.drag_mode = "No"
             self.setMouseTracking(True)
 
-        elif self.drag_mode == "EllipseContinueDrawMode":
+        elif self.drag_mode == "EllipsContinueDrawMode":
             self.setMouseTracking(True)
             self.is_drawing = False
-            self.ellipse_start_point = None
+            self.ellips_start_point = None
             self.drag_mode = "No"
 
             if self.active_item:
-                if self.active_item.check_ellips(min_width=self.min_ellipse_size, min_height=self.min_ellipse_size):
+                if self.active_item.check_ellips(min_width=self.min_ellips_size, min_height=self.min_ellips_size):
                     polygon_new = self.active_item.convert_to_polygon(points_count=30)
                     self.crop_by_pixmap_size(polygon_new)
 
@@ -890,8 +847,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
             self.drag_mode = "No"
 
             if self.active_item:
-                if self.active_item.check_polygon(min_width=self.min_ellipse_size,
-                                                  min_height=self.min_ellipse_size):
+                if self.active_item.check_polygon(min_width=self.min_ellips_size,
+                                                  min_height=self.min_ellips_size):
                     self.crop_by_pixmap_size(self.active_item)
                     if self.drawing_type != "AiMask":
                         self.polygon_end_drawing.on_end_drawing.emit(True)
@@ -1084,11 +1041,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
             self.active_item = GrPolygonLabel(None, color=color, cls_num=cls_num, alpha_percent=alpha,
                                               id=id)
 
-            self.add_item_to_scene_as_active(self.active_item)
-
-        elif type == "RubberBand":
-            self.active_item = GrPolygonLabel(None, color=color, cls_num=-1, alpha_percent=alpha,
-                                              id=-1)
             self.add_item_to_scene_as_active(self.active_item)
 
     def get_sam_input_points_and_labels(self):

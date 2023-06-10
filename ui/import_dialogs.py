@@ -165,7 +165,7 @@ class ImportFromCOCODialog(QWidget):
         self.labels = []
 
         # COCO file layout:
-        placeholder = "Путь к json файлу" if config.LANGUAGE == 'RU' else "Path to JSON file"
+        placeholder = "Путь к файлу с разметкой COCO" if config.LANGUAGE == 'RU' else "Path to COCO file"
 
         dialog_text = 'Открытие файла в формате COCO' if config.LANGUAGE == 'RU' else 'Open file in COCO format'
         self.coco_edit_with_button = EditWithButton(None, theme=theme,

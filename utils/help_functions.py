@@ -6,6 +6,8 @@ import matplotlib as mpl
 import numpy as np
 import yaml
 
+import datetime
+
 
 def generate_set_of_label_colors():
     colors = []
@@ -151,6 +153,15 @@ def create_random_color(alpha):
         rgba[i] = np.random.randint(0, 256)
 
     return rgba
+
+
+def create_unique_image_name(image_name):
+    splitted_name = image_name.split('.')
+    new_name = ""
+    for i in range(len(splitted_name) - 1):
+        new_name += splitted_name[i]
+
+    return f'{new_name} {datetime.datetime.now().microsecond}.{splitted_name[-1]}'
 
 
 def is_im_path(im_path, suffixes=['jpg', 'tiff', 'png', 'jpeg']):
