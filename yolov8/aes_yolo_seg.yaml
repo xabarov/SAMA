@@ -1,0 +1,6 @@
+path: F:\python\dataset_fix\aes_yolo_seg
+train: F:\python\dataset_fix\aes_yolo_seg\images\train
+val: F:\python\dataset_fix\aes_yolo_seg\images\val
+test: 
+nc: 12
+names: ["ro_pf", "ro_sf", "mz_v", "mz_ot", "ru_ot", "bns_ot", "gr_b", "gr_vent_kr", "gr_vent_pr", "gr_b_act", "discharge", "diesel"]

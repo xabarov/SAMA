@@ -79,3 +79,21 @@ class AppSettings:
 
     def read_density(self):
         return self.qt_settings.value("main/density", 50)
+
+    def write_cnn_model(self, model_name):
+        self.qt_settings.setValue("cnn/model_name", model_name)
+
+    def read_cnn_model(self):
+        return self.qt_settings.value("cnn/model_name", 'YOLOv8')
+
+    def write_conf_thres(self, conf_thres):
+        self.qt_settings.setValue("cnn/conf_thres", conf_thres)
+
+    def read_conf_thres(self):
+        return self.qt_settings.value("cnn/conf_thres", 0.5)
+
+    def write_iou_thres(self, iou_thres):
+        self.qt_settings.setValue("cnn/iou_thres", iou_thres)
+
+    def read_iou_thres(self):
+        return self.qt_settings.value("cnn/iou_thres", 0.5)

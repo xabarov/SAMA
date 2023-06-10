@@ -21,7 +21,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
     Сцена для отображения текущей картинки и полигонов
     """
 
-    def __init__(self, parent=None, active_color=None, fat_point_color=None):
+    def __init__(self, parent=None, active_color=None, fat_point_color=None, on_rubber_band_mode=None):
         """
         active_color - цвет активного полигона, по умолчанию config.ACTIVE_COLOR
         fat_point_color - цвет узлов активного полигона, по умолчанию config.FAT_POINT_COLOR
@@ -40,6 +40,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         self._pixmap_item = QtWidgets.QGraphicsPixmapItem()
         scene.addItem(self._pixmap_item)
+
+        on_rubber_band_mode.connect(self.on_rb_mode_change)
+        self.is_rubber_mode = False
 
         self.is_drawing = False
         self.drawing_type = "Polygon"
@@ -173,8 +176,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def toggle(self, item):
         if item.brush().color().getRgb() == self.active_brush.color().getRgb():
-            item.setBrush(QtGui.QBrush(QColor(*item.color), QtCore.Qt.SolidPattern))
-            item.setPen(QPen(QColor(*hf.set_alpha_to_max(item.color)), self.line_width, QtCore.Qt.SolidLine))
+                item.setBrush(QtGui.QBrush(QColor(*item.color), QtCore.Qt.SolidPattern))
+                item.setPen(QPen(QColor(*hf.set_alpha_to_max(item.color)), self.line_width, QtCore.Qt.SolidLine))
         else:
             item.setBrush(self.active_brush)
             item.setPen(self.active_pen)
@@ -368,6 +371,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
         alpha - прозрачность в процентах
         """
 
+        if not point_mass:
+            return
+
         if id == None:
             id = self.get_unique_label_id()
 
@@ -490,7 +496,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
             self.buffer.setPolygon(pol_new)
 
-            self.toggle(self.active_item)
+            if self.active_item:
+                self.toggle(self.active_item)
+
             self.scene().addItem(self.buffer)
             self.active_item = self.buffer
 
@@ -1096,3 +1104,12 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 menu.addAction(self.delPolyAct)
                 menu.addAction(self.changeClsNumAct)
                 menu.exec(event.globalPos())
+
+    def on_rb_mode_change(self, is_active):
+        print(f'Rubber mode: {is_active}')
+        self.is_rubber_mode = is_active
+        if is_active:
+            self.start_drawing(type='RubberBand')
+        else:
+            if self.active_item and self.active_item.cls_num == -1:
+                self.remove_active()

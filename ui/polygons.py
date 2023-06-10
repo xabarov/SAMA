@@ -96,7 +96,8 @@ class GrPolygonLabel(QtWidgets.QGraphicsPolygonItem):
         """
         if not color:
             if cls_num > len(config.COLORS) - 1:
-                color = config.COLORS[len(config.COLORS) % (cls_num + 1)]
+                color_num = len(config.COLORS) % (cls_num + 1) - 1
+                color = config.COLORS[color_num]
             else:
                 color = config.COLORS[self.cls_num]
 

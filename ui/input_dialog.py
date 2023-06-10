@@ -149,3 +149,5 @@ class PromptInputDialog(QWidget):
             self.progress_bar.setValue(progress_value)
         else:
             self.progress_bar.setVisible(False)
+
+

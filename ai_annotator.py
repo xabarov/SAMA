@@ -5,6 +5,9 @@ from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, 
     QColorDialog, QListWidget
 from PyQt5.QtWidgets import QApplication
 
+from ultralytics import YOLO
+from torch import cuda
+
 from utils import help_functions as hf
 from utils.sam_predictor import load_model as sam_load_model
 from utils.sam_predictor import mask_to_seg, predict_by_points, predict_by_box
@@ -14,6 +17,8 @@ from utils.project import ProjectHandler
 from utils.importer import Importer
 from utils.edges_from_mask import yolo8masks2points
 from utils.settings_handler import AppSettings
+from utils.cnn_worker import CNN_worker
+from utils import cls_settings
 
 from gd.gd_worker import GroundingSAMWorker
 from gd.gd_sam import load_model as gd_load_model
@@ -25,8 +30,10 @@ from ui.view import GraphicsView
 from ui.input_dialog import CustomInputDialog, PromptInputDialog, CustomComboDialog
 from ui.show_image_widget import ShowImgWindow
 from ui.panels import ImagesPanel, LabelsPanel
-from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection, ThemeChangeConnection
+from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection, ThemeChangeConnection, \
+    RubberBandModeConnection
 from ui.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog
+from ui.edit_with_button import EditWithButton
 from ui.ok_cancel_dialog import OkCancelDialog
 from ui.progress import ProgressWindow
 
@@ -37,6 +44,7 @@ import numpy as np
 import os
 import shutil
 import matplotlib.pyplot as plt
+import gc
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -48,8 +56,12 @@ class MainWindow(QtWidgets.QMainWindow):
         # Start on Loading Animation
         self.start_gif(is_prog_load=True)
 
+        # Rubber band
+        self.is_rubber_band_mode = False
+        self.rubber_band_change_conn = RubberBandModeConnection()
+
         # GraphicsView
-        self.view = GraphicsView()
+        self.view = GraphicsView(on_rubber_band_mode=self.rubber_band_change_conn.on_rubber_mode_change)
         self.setCentralWidget(self.view)
 
         # Signals with View
@@ -93,17 +105,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.init_global_values()
 
-        # SAM
-        self.sam = self.load_sam()
-        self.image_setted = False
-        self.image_setter = SAMImageSetter()
-        self.image_setter.set_predictor(self.sam)
-        self.image_setter.finished.connect(self.on_image_setted)
-        self.queue_to_image_setter = []
-
         # GroundingDINO
         self.prompts = []
-        self.gd_model = self.load_gd_model()
+
+        # SAM
+        self.image_setted = False
+        self.image_setter = None
+        self.queue_to_image_setter = []
 
         # import settings
         self.is_seg_import = False
@@ -114,9 +122,74 @@ class MainWindow(QtWidgets.QMainWindow):
         # Set window size and pos from last state
         self.read_size_pos()
 
+        # Detector
+        self.started_cnn = None
+        self.scanning_mode = None
+
+        self.tek_image_path = None
+
+        # Current CUDA model
+        self.handle_cuda_models()
+
         self.splash.finish(self)
         self.statusBar().showMessage(
             "Загрузите проект или набор изображений" if self.settings.read_lang() == 'RU' else "Load dataset or project")
+
+    def free_memory(self, current_model):
+
+        if not current_model:
+            return
+
+        if current_model == 'SAM':
+            del self.sam
+
+        elif current_model == 'OD':
+            del self.yolo
+
+        elif current_model == 'GD':
+            del self.gd_model
+
+        gc.collect()
+
+    def queue_image_to_sam(self, image_name):
+
+        if not self.image_setter.isRunning():
+            self.image_setter.set_image(self.cv2_image)
+            self.statusBar().showMessage(
+                "Начинаю загружать изображение в нейросеть SAM..." if self.settings.read_lang() == 'RU' else "Start loading image to SAM...",
+                3000)
+            self.image_setter.start()
+        else:
+            self.queue_to_image_setter.append(image_name)
+
+            self.statusBar().showMessage(
+                f"Изображение {os.path.split(image_name)[-1]} добавлено в очередь на обработку." if self.settings.read_lang() == 'RU' else f"Image {os.path.split(image_name)[-1]} is added to queue...",
+                3000)
+
+    def handle_cuda_models(self):
+
+        self.sam = self.load_sam()
+        self.image_setter = SAMImageSetter()
+        self.image_setter.set_predictor(self.sam)
+        self.image_setter.finished.connect(self.on_image_setted)
+        if self.tek_image_path:
+            self.queue_image_to_sam(self.tek_image_path)
+
+        cfg_path, weights_path = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8')
+        config_path = os.path.join(os.getcwd(), cfg_path)
+        model_path = os.path.join(os.getcwd(), weights_path)
+
+        self.yolo = YOLO(model_path)
+        self.yolo.data = config_path
+
+        dev_set = 'cpu'
+        # if self.settings.read_platform() == "cuda":
+        #     dev_set = 0
+
+        self.yolo.to(dev_set)
+        self.yolo.overrides['data'] = config_path
+
+        self.gd_model = self.load_gd_model()
 
     def load_gd_model(self):
         config_file = os.path.join(os.getcwd(),
@@ -300,6 +373,22 @@ class MainWindow(QtWidgets.QMainWindow):
                                     enabled=True,
                                     triggered=self.rename_label_button_clicked)
 
+        # Object detector
+        self.detectAct = QAction(
+            "Обнаружить объекты за один проход" if self.settings.read_lang() == 'RU' else "Detect objects", self,
+            shortcut="Ctrl+Y", enabled=False,
+            triggered=self.detect)
+        self.detectScanAct = QAction(
+            "Обнаружить объекты сканированием" if self.settings.read_lang() == 'RU' else "Detect objects with scanning",
+            self, enabled=False,
+            triggered=self.detect_scan)
+
+        # Image actions
+
+        self.selectAreaAct = QAction("Выделить область" if self.settings.read_lang() == 'RU' else "Select an area",
+                                     self,
+                                     shortcut="Ctrl+I", enabled=False, triggered=self.getArea)
+
     def createMenus(self):
 
         self.fileMenu = QMenu("&Файл" if self.settings.read_lang() == 'RU' else "&File", self)
@@ -317,6 +406,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewMenu.addAction(self.zoomOutAct)
         self.viewMenu.addSeparator()
         self.viewMenu.addAction(self.fitToWindowAct)
+        self.viewMenu.addSeparator()
+        self.viewMenu.addAction(self.selectAreaAct)
+
         #
         self.annotatorMenu = QMenu("&Аннотация" if self.settings.read_lang() == 'RU' else "&Labeling", self)
 
@@ -336,6 +428,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.AnnotatorMethodMenu.addMenu(self.aiAnnotatorMethodMenu)
         self.annotatorMenu.addMenu(self.AnnotatorMethodMenu)
+
+        self.classifierMenu = QMenu("Классификатор" if self.settings.read_lang() == 'RU' else "Classifier", self)
+        self.classifierMenu.addAction(self.detectAct)
+        self.classifierMenu.addAction(self.detectScanAct)
 
         self.annotatorExportMenu = QMenu("Экспорт" if self.settings.read_lang() == 'RU' else "Export", self)
         self.annotatorExportMenu.addAction(self.exportAnnToYoloBoxAct)
@@ -362,6 +458,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.menuBar().addMenu(self.fileMenu)
         self.menuBar().addMenu(self.viewMenu)
+        self.menuBar().addMenu(self.classifierMenu)
         self.menuBar().addMenu(self.annotatorMenu)
         self.menuBar().addMenu(self.settingsMenu)
         self.menuBar().addMenu(self.helpMenu)
@@ -440,6 +537,81 @@ class MainWindow(QtWidgets.QMainWindow):
         self.addToolBar(QtCore.Qt.LeftToolBarArea, self.toolBarLeft)
         self.addToolBar(QtCore.Qt.RightToolBarArea, self.toolBarRight)
 
+    def getArea(self):
+        """
+        Действие - выбрать область
+        """
+        self.break_drawing()  # Если до этого что-то рисовали - сбросить
+        self.is_rubber_band_mode = True
+        self.rubber_band_change_conn.on_rubber_mode_change.emit(True)
+
+    def detect(self):
+        # на вход воркера - исходное изображение
+
+        img_path = self.dataset_dir
+        img_name = os.path.basename(self.tek_image_name)
+
+        self.goCNN(img_name=img_name, img_path=img_path)
+
+    def detect_scan(self):
+        pass
+
+    def goCNN(self, img_name, img_path):
+        """
+        Запуск классификации
+        img_name - имя изображения
+        img_path - путь к изображению
+        """
+
+        self.started_cnn = self.settings.read_cnn_model()
+
+        conf_thres_set = self.settings.read_conf_thres()
+        iou_thres_set = self.settings.read_iou_thres()
+
+        if self.scanning_mode:
+            str_text = "Начинаю классифкацию СНС {0:s} сканирующим окном".format(self.started_cnn)
+        else:
+            str_text = "Начинаю классифкацию СНС {0:s}".format(self.started_cnn)
+        print(str_text)
+
+        self.CNN_worker = CNN_worker(model=self.yolo, conf_thres=conf_thres_set, iou_thres=iou_thres_set,
+                                     cnn_name=self.started_cnn,
+                                     img_name=img_name, img_path=img_path,
+                                     scanning=self.scanning_mode,
+                                     device=self.settings.read_platform(), linear_dim=0.0923)
+
+        self.CNN_worker.started.connect(self.on_cnn_started)
+        self.CNN_worker.finished.connect(self.on_cnn_finished)
+
+        if not self.CNN_worker.isRunning():
+            self.CNN_worker.start()
+
+    def on_cnn_started(self):
+        """
+        При начале классификации
+        """
+        self.start_gif(is_prog_load=True)
+        str_text = "{0:s} CNN started detection...".format(self.started_cnn)
+        print(str_text)
+
+    def on_cnn_finished(self):
+        """
+        При завершении классификации
+        """
+        mask_results = self.CNN_worker.mask_results
+        shape = self.cv2_image.shape
+
+        for res in mask_results:
+            for i, mask in enumerate(res['masks']):
+                points = yolo8masks2points(mask, simplify_factor=3, width=shape[1], height=shape[0])
+                cls_num = res['classes'][i]
+                self.view.add_polygon_to_scene(cls_num, points, color=cls_settings.PALETTE[cls_num])
+                self.write_scene_to_project_data()
+                self.fill_labels_on_tek_image_list_widget()
+                self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+
+        self.splash.finish(self)
+
     def change_polygon_cls_num(self, cls_num, cls_id):
         labels = self.project_data.get_labels()
         self.combo_dialog = CustomComboDialog(self,
@@ -466,6 +638,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.combo_dialog.close()
 
     def grounding_sam_pressed(self):
+
         self.prompt_input_dialog = PromptInputDialog(self,
                                                      class_names=self.project_data.get_labels(),
                                                      on_ok_clicked=self.start_grounddino, prompts_variants=self.prompts)
@@ -834,29 +1007,21 @@ class MainWindow(QtWidgets.QMainWindow):
         # 1. Сохраняем последние изменения на сцене в проект
         self.write_scene_to_project_data()
 
-        new_name = self.ask_del_label.cls_combo.currentText()  # на что меняем
+        new_name = self.ask_del_label.cls_combo.currentText()  # на что меням
         old_name = self.cls_combo.itemText(self.del_index)
 
         self.ask_del_label.close()  # закрываем окно
 
-        # 2. Убираем цвет из данных
-        self.project_data.delete_label_color(old_name)
-
-        # Берем индекс класса, на который меняем.
-        change_to_idx = self.get_label_index_by_name(new_name)
-
-        # 3. Убираем имя из комбобокса
+        # 2. Убираем имя из комбобокса
         self.del_label_from_combobox(old_name)  # теперь в комбобоксе нет имени
-        # 4. Перезаписываем данные об именах классов в проекте
-        self.fill_project_labels()
 
-        # 5. Обновляем все полигоны
-        self.change_project_data_labels_from_to(self.del_index, change_to_idx)
+        # 3. Обновляем все полигоны
+        self.project_data.change_data_class_from_to(old_name, new_name)
 
-        # 6. Обновляем панель справа
+        # 4. Обновляем панель справа
         self.fill_labels_on_tek_image_list_widget()
 
-        # 7. Переоткрываем изображение и рисуем полигоны из проекта
+        # 5. Переоткрываем изображение и рисуем полигоны из проекта
         self.open_image(self.tek_image_path)
         self.load_image_data(self.tek_image_name)
         self.view.setFocus()
@@ -866,25 +1031,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.write_scene_to_project_data()
 
         del_name = self.ask_del_label.cls_name
-        del_idx = self.get_label_index_by_name(del_name)
 
         self.ask_del_label.close()
 
         # 2. Удаляем данные о цвете из проекта
-        self.project_data.delete_label_color(del_name)
+        self.project_data.delete_data_by_class_name(del_name)
 
         # 3. Убираем имя класса из комбобокса
         self.del_label_from_combobox(del_name)
-        # 4. Перезаписываем данные о именах классов в проекте
-        self.fill_project_labels()
 
-        # 5. Обновляем все полигоны
-        self.del_labels_from_project(del_idx)
-
-        # 6. Обновляем панель справа
+        # 4. Обновляем панель справа
         self.fill_labels_on_tek_image_list_widget()
 
-        # 7. Переоткрываем изображение и рисуем полигоны из проекта
+        # 5. Переоткрываем изображение и рисуем полигоны из проекта
         self.open_image(self.tek_image_path)
         self.load_image_data(self.tek_image_name)
 
@@ -909,23 +1068,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         return -1
 
-    def del_labels_from_project(self, del_index):
-
-        self.project_data.set_labels([self.cls_combo.itemText(i) for i in range(self.cls_combo.count())])
-        self.project_data.delete_data_by_class_number(del_index)
-
     def del_image_labels_from_project(self, image_name):
 
-        self.project_data.set_labels([self.cls_combo.itemText(i) for i in range(self.cls_combo.count())])
-
         self.project_data.del_image(image_name)
-
-    def change_project_data_labels_from_to(self, from_index, to_index):
-
-        self.write_scene_to_project_data()
-
-        self.project_data.set_labels([self.cls_combo.itemText(i) for i in range(self.cls_combo.count())])
-        self.project_data.change_images_class_from_to(from_index, to_index)
 
     def change_label_color_button_clicked(self):
 
@@ -985,7 +1130,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     new_cls.append(cls_names[i])
             self.cls_combo.clear()
             self.cls_combo.addItems(new_cls)
-            self.project_data.rename_color(cls_name, new_name)
+            self.project_data.change_name(cls_name, new_name)
 
             self.fill_labels_on_tek_image_list_widget()
 
@@ -1012,6 +1157,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.openProjAct.setIcon(QIcon(self.icon_folder + "/load.png"))
         self.saveProjAsAct.setIcon(QIcon(self.icon_folder + "/save_project.png"))
         self.saveProjAct.setIcon(QIcon(self.icon_folder + "/save.png"))
+
+        # rubber band
+        self.selectAreaAct.setIcon(QIcon(self.icon_folder + "/select.png"))
+
+        # classifier
+        self.detectAct.setIcon(QIcon(self.icon_folder + "/detect_all.png"))
+        self.detectScanAct.setIcon(QIcon(self.icon_folder + "/slide.png"))
 
         # export
         self.exportAnnToYoloBoxAct.setIcon(QIcon(self.icon_folder + "/yolo.png"))
@@ -1071,25 +1223,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cv2_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         self.image_setted = False
-        self.image_setter.set_image(self.cv2_image)
 
-        if not self.image_setter.isRunning():
-            self.statusBar().showMessage(
-                "Начинаю загружать изображение в нейросеть SAM..." if self.settings.read_lang() == 'RU' else "Start loading image to SAM...",
-                3000)
-            self.image_setter.start()
-        else:
-            image_copy = cv2.imread(image_name)
-            image_copy = cv2.cvtColor(image_copy, cv2.COLOR_BGR2RGB)
-            self.queue_to_image_setter.append(image_copy)
-
-            self.statusBar().showMessage(
-                f"Изображение {os.path.split(image_name)[-1]} добавлено в очередь на обработку." if self.settings.read_lang() == 'RU' else f"Image {os.path.split(image_name)[-1]} is added to queue...",
-                3000)
+        self.queue_image_to_sam(image_name)
 
     def on_image_setted(self):
         if len(self.queue_to_image_setter) != 0:
-            self.cv2_image = self.queue_to_image_setter[-1]
+            image_name = self.queue_to_image_setter[-1]
+            image = cv2.imread(image_name)
+            self.cv2_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             self.image_setted = False
             self.image_setter.set_image(self.cv2_image)
             self.queue_to_image_setter = []
@@ -1155,31 +1296,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.dataset_dir = dataset_dir
                 self.project_data.set_path_to_images(dataset_dir)
 
-                self.tek_image_name = self.dataset_images[0]
-                self.tek_image_path = os.path.join(self.dataset_dir, self.tek_image_name)
-
-                self.open_image(self.tek_image_path)
-
-                self.fitToWindowAct.setEnabled(True)
-                self.zoomInAct.setEnabled(True)
-                self.zoomOutAct.setEnabled(True)
-                self.balanceAct.setEnabled(True)
-
-                main_geom = self.geometry().getCoords()
-                self.scaleFactor = (main_geom[2] - main_geom[0]) / self.cv2_image.shape[1]
-
-                self.fill_labels_on_tek_image_list_widget()
-
-                self.fill_images_label(self.dataset_images)
-
-                self.splash.finish(self)
-
-                self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
-                self.images_list_widget.setCurrentRow(0)
-
                 self.statusBar().showMessage(
                     f"Число загруженны в проект изображений: {len(self.dataset_images)}" if self.settings.read_lang() == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
                     3000)
+
+                self.save_project_as()
+                self.load_project(self.loaded_proj_name)
+
+                self.splash.finish(self)
+
             else:
                 self.statusBar().showMessage(
                     f"В указанной папке изображений не обнаружено" if self.settings.read_lang() == 'RU' else "Folder is empty",
@@ -1194,18 +1319,84 @@ class MainWindow(QtWidgets.QMainWindow):
     def progress_bar_changed(self, percent):
         self.progress_bar.set_progress(percent)
 
-    def load_project(self, project_name):
+    def on_change_project_name(self):
+        dataset_dir = self.change_path_window.getEditText()
 
-        self.loaded_proj_name = project_name
-        is_success = self.project_data.load(self.loaded_proj_name)
+        if not os.path.exists(dataset_dir):
+
+            msgbox = QMessageBox()
+            msgbox.setIcon(QMessageBox.Information)
+            msgbox.setText(
+                f"Ошибка загрузки проекта. " if self.settings.read_lang() == 'RU' else f"Error in loading project")
+            if self.settings.read_lang() == 'RU':
+                msgbox.setInformativeText(
+                    f"Директория {dataset_dir} не существует"
+                )
+            else:
+                msgbox.setInformativeText(
+                    f"Directory {dataset_dir} doesn't exist")
+            msgbox.setWindowTitle(
+                f"Ошибка загрузки проекта {self.loaded_proj_name}" if self.settings.read_lang() == 'RU' else "Error")
+            msgbox.exec()
+
+            return
+
+        self.project_data.set_path_to_images(dataset_dir)
+        self.on_checking_project_success(dataset_dir)
+
+    def on_checking_project_success(self, dataset_dir):
 
         self.progress_bar = ProgressWindow(self,
                                            title='Loading project...' if self.settings.read_lang() == 'RU' else 'Загрузка проекта...')
+
         self.view.load_ids_conn.percent.connect(self.progress_bar_changed)
 
         self.view.set_ids_from_project(self.project_data.get_data())
 
         self.balanceAct.setEnabled(True)
+
+        self.dataset_dir = dataset_dir
+        self.dataset_images = self.filter_images_names(os.listdir(self.dataset_dir))
+
+        self.fill_labels_combo_from_project()
+
+        if self.dataset_images:
+            self.tek_image_name = self.dataset_images[0]
+            self.tek_image_path = os.path.join(self.dataset_dir, self.tek_image_name)
+
+            # Открытие изображения
+            self.open_image(self.tek_image_path)
+
+            self.fitToWindowAct.setEnabled(True)
+            self.zoomInAct.setEnabled(True)
+            self.zoomOutAct.setEnabled(True)
+
+            self.selectAreaAct.setEnabled(True)
+            self.detectAct.setEnabled(True)
+            self.detectScanAct.setEnabled(True)
+
+            main_geom = self.geometry().getCoords()
+            self.scaleFactor = (main_geom[2] - main_geom[0]) / self.cv2_image.shape[1]
+
+            self.load_image_data(self.tek_image_name)
+
+            self.view.setMouseTracking(True)
+            self.fill_labels_on_tek_image_list_widget()
+            self.fill_images_label(self.dataset_images)
+
+            self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
+            self.images_list_widget.setCurrentRow(0)
+
+            self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+
+        self.statusBar().showMessage(
+            f"Число загруженных в проект изображений: {len(self.dataset_images)}" if self.settings.read_lang() == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
+            3000)
+
+    def load_project(self, project_name):
+
+        self.loaded_proj_name = project_name
+        is_success = self.project_data.load(self.loaded_proj_name)
 
         if not is_success:
             msgbox = QMessageBox()
@@ -1228,57 +1419,19 @@ class MainWindow(QtWidgets.QMainWindow):
         dataset_dir = self.project_data.get_image_path()
 
         if not os.path.exists(dataset_dir):
-            msgbox = QMessageBox()
-            msgbox.setIcon(QMessageBox.Information)
-            msgbox.setText(
-                f"Ошибка загрузки проекта. " if self.settings.read_lang() == 'RU' else f"Error in loading project")
-            if self.settings.read_lang() == 'RU':
-                msgbox.setInformativeText(
-                    f"Директория {dataset_dir} не существует"
-                )
-            else:
-                msgbox.setInformativeText(
-                    f"Directory {dataset_dir} doesn't exist")
-            msgbox.setWindowTitle(
-                f"Ошибка загрузки проекта {self.loaded_proj_name}" if self.settings.read_lang() == 'RU' else "Error")
-            msgbox.exec()
+            # Ask for change path
+
+            self.change_path_window = EditWithButton(None, in_separate_window=True,
+                                                     theme=self.settings.read_theme(),
+                                                     on_button_clicked_callback=self.on_change_project_name,
+                                                     is_dir=True, dialog_text='Input path to images',
+                                                     title=f"Директория {dataset_dir} не существует",
+                                                     placeholder='Input path to images')
+            self.change_path_window.show()
 
             return
 
-        self.dataset_dir = dataset_dir
-        self.dataset_images = self.filter_images_names(os.listdir(self.dataset_dir))
-
-        self.fill_labels_combo_from_project()
-
-        if self.dataset_images:
-            self.tek_image_name = self.dataset_images[0]
-            self.tek_image_path = os.path.join(self.dataset_dir, self.tek_image_name)
-
-            # Открытие изображения
-            self.open_image(self.tek_image_path)
-
-            self.fitToWindowAct.setEnabled(True)
-            self.zoomInAct.setEnabled(True)
-            self.zoomOutAct.setEnabled(True)
-
-            main_geom = self.geometry().getCoords()
-            self.scaleFactor = (main_geom[2] - main_geom[0]) / self.cv2_image.shape[1]
-
-            self.load_image_data(self.tek_image_name)
-
-
-            self.view.setMouseTracking(True)
-            self.fill_labels_on_tek_image_list_widget()
-            self.fill_images_label(self.dataset_images)
-
-            self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
-            self.images_list_widget.setCurrentRow(0)
-
-            self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
-
-        self.statusBar().showMessage(
-            f"Число загруженных в проект изображений: {len(self.dataset_images)}" if self.settings.read_lang() == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
-            3000)
+        self.on_checking_project_success(dataset_dir)
 
     def open_project(self):
         """
@@ -1388,7 +1541,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def showSettings(self):
         """
-        Показать осно с настройками приложения
+        Показать окно с настройками приложения
         """
 
         self.settings_window = SettingsWindow(self)
@@ -1486,6 +1639,7 @@ class MainWindow(QtWidgets.QMainWindow):
             f"Настройки проекта изменены" if lang == 'RU' else "Settings is saved", 3000)
 
     def ai_points_pressed(self):
+
         self.ann_type = "AiPoints"
         self.set_labels_color()
         cls_txt = self.cls_combo.currentText()
@@ -1498,6 +1652,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
 
     def ai_mask_pressed(self):
+
         self.ann_type = "AiMask"
         self.set_labels_color()
         cls_txt = self.cls_combo.currentText()
@@ -1677,6 +1832,35 @@ class MainWindow(QtWidgets.QMainWindow):
         if not self.image_setted:
             return
 
+        if self.is_rubber_band_mode:
+            # Режим селекции области на изображении
+
+            # Получаем полигон селекта
+            pol = self.view.get_rubber_band_polygon()
+            left_top_x, left_top_y = int(pol[0][0]), int(pol[0][1])
+            right_bottom_x, right_bottom_y = int(pol[2][0]), int(pol[2][1])
+
+            # Обрезаем изображение и сохраняем
+            cropped_image = self.cv2_image[left_top_y:right_bottom_y, left_top_x:right_bottom_x]
+            cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
+
+            image_name = hf.create_unique_image_name(self.tek_image_name)
+            im_full_name = os.path.join(self.dataset_dir, image_name)
+
+            cv2.imwrite(im_full_name, cropped_image)
+
+            # Добавляем в набор картинок и в панель
+            if image_name not in self.dataset_images:
+                self.dataset_images.append(image_name)
+
+            self.fill_images_label(self.dataset_images)
+
+            # Отключаем режим выделения области
+            self.is_rubber_band_mode = False
+            self.rubber_band_change_conn.on_rubber_mode_change.emit(False)
+
+            return
+
         if self.ann_type in ["Polygon", "Box", "Ellips"]:
             self.view.end_drawing()  # save it to
 
@@ -1688,8 +1872,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
             if len(input_label):
                 if self.image_setted and not self.image_setter.isRunning():
-                    mask = predict_by_points(self.sam, input_point, input_label)
-                    self.add_sam_polygon_to_scene(mask, id=self.view.get_unique_label_id())
+                    masks = predict_by_points(self.sam, input_point, input_label, multi=False)
+                    for mask in masks:
+                        self.add_sam_polygon_to_scene(mask, id=self.view.get_unique_label_id())
 
             else:
                 self.view.remove_active()
@@ -1715,6 +1900,10 @@ class MainWindow(QtWidgets.QMainWindow):
         label_color = self.project_data.get_label_color(cls_txt)
 
         alpha_tek = self.settings.read_alpha()
+
+        if self.is_rubber_band_mode:
+            self.rubber_band_change_conn.on_rubber_mode_change.emit(False)
+            self.is_rubber_band_mode = False
 
         self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
         self.view.clear_ai_points()

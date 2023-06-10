@@ -1,14 +1,20 @@
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLineEdit, QFileDialog
 from PyQt5.QtGui import QIcon
-
+from PyQt5.QtCore import Qt
 
 class EditWithButton(QWidget):
-    def __init__(self, parent, theme='dark_blue.xml', on_button_clicked_callback=None, is_dir=False, file_type='txt',
-                 dialog_text='Открытие файла', start_folder='projects', placeholder=None):
+    def __init__(self, parent, in_separate_window=False, theme='dark_blue.xml', on_button_clicked_callback=None, is_dir=False, file_type='txt',
+                 dialog_text='Открытие файла', start_folder='projects', placeholder=None, title=None):
         """
         Поле Edit с кнопкой
         """
         super().__init__(parent)
+
+        if in_separate_window:
+            self.setWindowFlag(Qt.Tool)
+
+        if title:
+            self.setWindowTitle(title)
 
         self.is_dir = is_dir
         self.file_type = file_type
@@ -16,7 +22,7 @@ class EditWithButton(QWidget):
         self.dialog_text = dialog_text
         self.start_folder = start_folder
 
-        layout = QHBoxLayout(self)
+        layout = QHBoxLayout()
 
         self.edit = QLineEdit()
         if placeholder:

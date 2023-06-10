@@ -48,25 +48,14 @@ def predictor_set_image(predictor, image):
     predictor.set_image(image)
 
 
-def predict_by_points(predictor, input_point, input_label, is_best=True):
-    # input_point = np.array([[500, 375]])
-    # input_label = np.array([1])
-
-    if is_best:
+def predict_by_points(predictor, input_point, input_label, multi=True):
+    if multi:
         masks, scores, _ = predictor.predict(
             point_coords=input_point,
             point_labels=input_label,
             multimask_output=True,
         )
-
-        max_score = -1
-        best_num = 0
-        for i, sc in enumerate(scores):
-            if sc > max_score:
-                max_score = sc
-                best_num = i
-
-        return masks[best_num]
+        return masks
 
     else:
         masks, _, _ = predictor.predict(
@@ -75,7 +64,7 @@ def predict_by_points(predictor, input_point, input_label, is_best=True):
             multimask_output=False,
         )
 
-        return masks
+        return [masks]
 
 
 def mask_to_polygons_layer(mask):

@@ -1,5 +1,4 @@
 import utils.config as config
-import cv2
 import datetime
 import utils.help_functions as hf
 import json
@@ -9,6 +8,7 @@ import os
 from PIL import Image
 
 from shapely import Polygon
+from utils.saver_worker import SaverWorker
 
 
 class ProjectHandler:
@@ -72,8 +72,14 @@ class ProjectHandler:
 
     def save(self, json_path):
 
-        with open(json_path, 'w') as f:
-            json.dump(self.data, f)
+        worker = SaverWorker(json_path, self.data)
+        worker.finished.connect(self.on_saved_finished)
+
+        if not worker.isRunning():
+            worker.start()
+
+    def on_saved_finished(self):
+        print('Saved')
 
     def set_data(self, data):
         self.data = data
@@ -87,6 +93,12 @@ class ProjectHandler:
             return self.data["labels_color"][cls_name]
 
         return None
+
+    def get_label_num(self, label_name):
+        for i, label in enumerate(self.data["labels"]):
+            if label == label_name:
+                return i
+        return -1
 
     def get_colors(self):
         return [tuple(self.data["labels_color"][key]) for key in
@@ -127,6 +139,16 @@ class ProjectHandler:
             color = self.data["labels_color"][old_name]
             self.data["labels_color"][new_name] = color
             del self.data["labels_color"][old_name]
+
+    def change_name(self, old_name, new_name):
+        self.rename_color(old_name, new_name)
+        labels = []
+        for i, label in enumerate(self.data["labels"]):
+            if label == old_name:
+                labels.append(new_name)
+            else:
+                labels.append(label)
+        self.data["labels"] = labels
 
     def set_labels(self, labels):
         self.data["labels"] = labels
@@ -192,6 +214,13 @@ class ProjectHandler:
         if label_name in self.data["labels_color"]:
             del self.data["labels_color"][label_name]
 
+    def delete_label(self, label_name):
+        labels = []
+        for label in labels:
+            if label != label_name:
+                labels.append(labels)
+        self.set_labels(labels)
+
     def del_image(self, image_name):
 
         images = []
@@ -200,6 +229,14 @@ class ProjectHandler:
                 images.append(image)
 
         self.data["images"] = images
+
+    def delete_data_by_class_name(self, cls_name):
+        for i, label in enumerate(self.data["labels"]):
+            if label == cls_name:
+                self.delete_data_by_class_number(i)
+                self.delete_label_color(label)
+                self.delete_label(label)
+                return
 
     def delete_data_by_class_number(self, cls_num):
 
@@ -212,6 +249,7 @@ class ProjectHandler:
                 elif shape["cls_num"] > cls_num:
                     shape_new = {}
                     shape_new["cls_num"] = shape["cls_num"] - 1
+
                     shape_new["points"] = shape["points"]
                     shape_new["id"] = shape["id"]
                     new_shapes.append(shape_new)
@@ -224,20 +262,34 @@ class ProjectHandler:
 
         self.data["images"] = images
 
-    def change_images_class_from_to(self, from_cls_num, to_cls_num):
+    def change_data_class_from_to(self, from_cls_name, to_cls_name):
+        # Two stage:
+        # 1) change
+        from_cls_num = self.get_label_num(from_cls_name)
+        to_cls_num = self.get_label_num(to_cls_name)
+
         images = []
         for image in self.data["images"]:
             new_shapes = []
             for shape in image["shapes"]:
 
-                if shape["cls_num"] == from_cls_num:
+                if shape["cls_num"] < from_cls_num:
+                    # save without change
+                    new_shapes.append(shape)
+
+                else:
+
                     shape_new = {}
-                    shape_new["cls_num"] = to_cls_num
+
+                    if shape["cls_num"] == from_cls_num:
+                        shape_new["cls_num"] = to_cls_num
+                    else:
+                        # Все номера от from старше должны уменьшиться на 1
+                        shape_new["cls_num"] = shape["cls_num"] - 1
+
                     shape_new["points"] = shape["points"]
                     shape_new["id"] = shape["id"]
                     new_shapes.append(shape_new)
-                else:
-                    new_shapes.append(shape)
 
             new_image = {}
             new_image["filename"] = image["filename"]
@@ -246,6 +298,16 @@ class ProjectHandler:
             images.append(new_image)
 
         self.data["images"] = images
+
+        # labels
+        labels = []
+
+        for label in self.data["labels"]:
+            if label != from_cls_name:
+                labels.append(label)
+        self.set_labels(labels)
+
+        self.delete_label_color(from_cls_name)
 
     def exportToYOLOSeg(self, export_dir):
         if os.path.isdir(export_dir):
