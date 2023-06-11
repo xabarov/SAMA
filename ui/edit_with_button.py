@@ -2,9 +2,12 @@ from PyQt5.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLineEdit, QFileD
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 
+
 class EditWithButton(QWidget):
-    def __init__(self, parent, in_separate_window=False, theme='dark_blue.xml', on_button_clicked_callback=None, is_dir=False, file_type='txt',
-                 dialog_text='Открытие файла', start_folder='projects', placeholder=None, title=None):
+    def __init__(self, parent, in_separate_window=False, theme='dark_blue.xml', on_button_clicked_callback=None,
+                 is_dir=False, file_type='txt',
+                 dialog_text='Открытие файла', start_folder='projects', placeholder=None, title=None,
+                 is_existing_file_only=True):
         """
         Поле Edit с кнопкой
         """
@@ -21,6 +24,7 @@ class EditWithButton(QWidget):
         self.on_button_clicked_callback = on_button_clicked_callback
         self.dialog_text = dialog_text
         self.start_folder = start_folder
+        self.is_existing_file_only = is_existing_file_only
 
         layout = QHBoxLayout()
 
@@ -59,10 +63,18 @@ class EditWithButton(QWidget):
                     self.on_button_clicked_callback()
 
         else:
-            file_name, _ = QFileDialog.getOpenFileName(self,
-                                                       self.dialog_text,
-                                                       self.start_folder,
-                                                       f'{self.file_type} File (*.{self.file_type})')
+
+            if self.is_existing_file_only:
+                file_name, _ = QFileDialog.getOpenFileName(self,
+                                                           self.dialog_text,
+                                                           self.start_folder,
+                                                           f'{self.file_type} File (*.{self.file_type})')
+
+            else:
+                file_name, _ = QFileDialog.getSaveFileName(self,
+                                                          self.dialog_text,
+                                                          self.start_folder,
+                                                          f'{self.file_type} File (*.{self.file_type})')
             if file_name:
                 self.edit.setText(file_name)
                 if self.on_button_clicked_callback:

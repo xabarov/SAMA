@@ -70,16 +70,15 @@ class ProjectHandler:
                 shape['id'] = id_num
                 id_num += 1
 
-    def save(self, json_path):
+    def save(self, json_path, on_save_callback=None):
 
         worker = SaverWorker(json_path, self.data)
-        worker.finished.connect(self.on_saved_finished)
+        if on_save_callback:
+            worker.finished.connect(on_save_callback)
 
         if not worker.isRunning():
             worker.start()
 
-    def on_saved_finished(self):
-        print('Saved')
 
     def set_data(self, data):
         self.data = data

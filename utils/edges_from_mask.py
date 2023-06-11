@@ -129,7 +129,7 @@ def calc_areas(seg_results, lrm, verbose=False, cls_names=None, scale=1):
 
 def yolo8masks2points(yolo_mask, simplify_factor=3, width=1280, height=1280):
     points = []
-    img_data = yolo_mask > 128
+    img_data = yolo_mask[0] > 128
     shape = img_data.shape
 
     mask_width = shape[1]

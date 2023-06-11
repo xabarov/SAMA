@@ -7,8 +7,8 @@ import os
 
 
 class AppSettings:
-    def __init__(self):
-        self.qt_settings = QSettings(config.QT_SETTINGS_COMPANY, config.QT_SETTINGS_APP)
+    def __init__(self, app_name=None):
+        self.qt_settings = QSettings(config.QT_SETTINGS_COMPANY, app_name)
 
     def write_size_pos_settings(self, size, pos):
         self.qt_settings.beginGroup("main_window")

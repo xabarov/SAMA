@@ -123,7 +123,7 @@ def predict_and_return_masks(model, source, model_path, config_path, conf=0.25, 
 
             masks = []
             for i, mask in enumerate(masks_mass):
-                mask = mask.masks
+                mask = mask.data
                 mask[mask == 1] = 255
                 masks.append(mask)
 
