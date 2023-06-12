@@ -42,7 +42,6 @@ class Annotator(MainWindow):
 
         # Detector
         self.started_cnn = None
-        self.scanning_mode = None
 
         # GroundingDINO
         self.gd_worker = None
@@ -69,10 +68,6 @@ class Annotator(MainWindow):
             "Обнаружить объекты за один проход" if self.settings.read_lang() == 'RU' else "Detect objects", self,
             shortcut="Ctrl+Y", enabled=False,
             triggered=self.detect)
-        self.detectScanAct = QAction(
-            "Обнаружить объекты сканированием" if self.settings.read_lang() == 'RU' else "Detect objects with scanning",
-            self, enabled=False,
-            triggered=self.detect_scan)
 
         # AI Annotators
         self.aiAnnotatorPointsAct = QAction(
@@ -107,7 +102,6 @@ class Annotator(MainWindow):
 
         self.classifierMenu = QMenu("Классификатор" if self.settings.read_lang() == 'RU' else "Classifier", self)
         self.classifierMenu.addAction(self.detectAct)
-        self.classifierMenu.addAction(self.detectScanAct)
         self.annotatorMenu.addAction(self.balanceAct)
 
         self.menuBar().clear()
@@ -117,7 +111,6 @@ class Annotator(MainWindow):
         self.menuBar().addMenu(self.annotatorMenu)
         self.menuBar().addMenu(self.settingsMenu)
         self.menuBar().addMenu(self.helpMenu)
-
 
     def set_icons(self):
         super(Annotator, self).set_icons()
@@ -131,7 +124,6 @@ class Annotator(MainWindow):
 
         # classifier
         self.detectAct.setIcon(QIcon(self.icon_folder + "/detect_all.png"))
-        self.detectScanAct.setIcon(QIcon(self.icon_folder + "/slide.png"))
 
     def open_image(self, image_name):
         super(Annotator, self).open_image(image_name)
@@ -147,7 +139,7 @@ class Annotator(MainWindow):
         self.view.clear_ai_points()
 
     def on_image_set(self):
-        
+
         if len(self.queue_to_image_setter) != 0:
             image_name = self.queue_to_image_setter[-1]
             image = cv2.imread(image_name)
@@ -192,7 +184,6 @@ class Annotator(MainWindow):
         super(Annotator, self).on_checking_project_success(dataset_dir)
         self.balanceAct.setEnabled(True)
         self.detectAct.setEnabled(True)
-        self.detectScanAct.setEnabled(True)
 
     def handle_cuda_models(self):
 
@@ -386,8 +377,6 @@ class Annotator(MainWindow):
                 self.statusBar().showMessage(
                     "Cant't find NVIDIA CUDA. SAM will use CPU", 3000)
 
-
-
     def load_gd_model(self):
         config_file = os.path.join(os.getcwd(),
                                    config.PATH_TO_GROUNDING_DINO_CONFIG)
@@ -421,12 +410,9 @@ class Annotator(MainWindow):
         img_path = self.dataset_dir
         img_name = os.path.basename(self.tek_image_name)
 
-        self.goCNN(img_name=img_name, img_path=img_path)
+        self.run_detection(img_name=img_name, img_path=img_path)
 
-    def detect_scan(self):
-        pass
-
-    def goCNN(self, img_name, img_path):
+    def run_detection(self, img_name, img_path):
         """
         Запуск классификации
         img_name - имя изображения
@@ -438,17 +424,13 @@ class Annotator(MainWindow):
         conf_thres_set = self.settings.read_conf_thres()
         iou_thres_set = self.settings.read_iou_thres()
 
-        if self.scanning_mode:
-            str_text = "Начинаю классифкацию СНС {0:s} сканирующим окном".format(self.started_cnn)
-        else:
-            str_text = "Начинаю классифкацию СНС {0:s}".format(self.started_cnn)
+        str_text = "Начинаю классифкацию СНС {0:s}".format(self.started_cnn)
         print(str_text)
 
         self.CNN_worker = CNN_worker(model=self.yolo, conf_thres=conf_thres_set, iou_thres=iou_thres_set,
-                                     cnn_name=self.started_cnn,
                                      img_name=img_name, img_path=img_path,
-                                     scanning=self.scanning_mode,
-                                     device=self.settings.read_platform(), linear_dim=0.0923)
+                                     scanning=False,
+                                     linear_dim=0.0923)
 
         self.CNN_worker.started.connect(self.on_cnn_started)
         self.CNN_worker.finished.connect(self.on_cnn_finished)

@@ -7,6 +7,8 @@ import numpy as np
 import yaml
 
 import datetime
+import os
+import cv2
 
 
 def generate_set_of_label_colors():
@@ -19,6 +21,48 @@ def generate_set_of_label_colors():
             color_rgba.append(255)
             colors.append(tuple(color_rgba))
     return colors
+
+
+def calc_width_parts(img_width, frag_size):
+    crop_start_end_coords = []
+    tek_pos = 0
+    while tek_pos < img_width:
+        if tek_pos + frag_size > img_width:
+            crop_start_end_coords.append([tek_pos, img_width])
+        else:
+            crop_start_end_coords.append([tek_pos, tek_pos + frag_size])
+        tek_pos += frag_size
+    return crop_start_end_coords
+
+
+def calc_parts(img_width, img_height, frag_size):
+    crop_x_y_sizes = []
+    crop_x_sizes = calc_width_parts(img_width, frag_size)
+    crop_y_sizes = calc_width_parts(img_height, frag_size)
+    for y in crop_y_sizes:
+        for x in crop_x_sizes:
+            crop_x_y_sizes.append([x, y])
+    return crop_x_y_sizes
+
+
+def split_into_fragments(img, frag_size):
+    fragments = []
+
+    shape = img.shape
+
+    print(shape)
+
+    img_width = shape[1]
+    img_height = shape[0]
+
+    crop_x_y_sizes = calc_parts(img_width, img_height, frag_size)
+
+    for x_y_crops in crop_x_y_sizes:
+        x_min, x_max = x_y_crops[0]
+        y_min, y_max = x_y_crops[1]
+        fragments.append(img[y_min:y_max, x_min:x_max, :])
+
+    return fragments
 
 
 def get_label_colors(names, alpha=120):
@@ -207,4 +251,8 @@ def convert_text_name_to_image_name(text_name):
 
 
 if __name__ == '__main__':
-    print(density_slider_to_value(10))
+    img_name = 'barksdale air force base 19.jpg'
+    img = cv2.imread(img_name)
+    for i, part in enumerate(split_into_fragments(img, 450)):
+        cv2.imshow(f'frag {i}', part)
+        cv2.waitKey(0)

@@ -101,7 +101,7 @@ def predict(source, model_path, save_folder, save_name=None, box_thickness=2, pa
         create_image_yolo(res, save_folder, save_name=save_name, box_thickness=box_thickness, pallete=pallete,
                           txt_color=txt_color, names=names, is_seg=is_seg, mask_path=mask_path)
 
-def predict_and_return_masks(model, source, model_path, config_path, conf=0.25, iou=0.7, device=None, save_txt=False):
+def predict_and_return_masks(model, source, conf=0.25, iou=0.7, save_txt=False):
     # Test for multiple images:
     # images_dir = 'F:\python\OD_on_graph_view\images'
     # source = [os.path.join(images_dir, im) for im in os.listdir(images_dir)]

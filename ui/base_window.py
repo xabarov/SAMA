@@ -325,8 +325,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menuBar().addMenu(self.settingsMenu)
         self.menuBar().addMenu(self.helpMenu)
 
-    def createToolbar(self):
-
+    def create_left_toolbar(self):
         # Left
 
         toolBar = QToolBar("Панель инструментов" if self.settings.read_lang() == 'RU' else "ToolBar", self)
@@ -350,28 +349,10 @@ class MainWindow(QtWidgets.QMainWindow):
         toolBar.addAction(self.settingsAct)
         toolBar.addSeparator()
 
-        labelSettingsToolBar = QToolBar(
-            "Настройки разметки" if self.settings.read_lang() == 'RU' else "Current Label Bar",
-            self)
-        self.cls_combo = QComboBox()
-
-        label = QLabel("Текущий класс:   " if self.settings.read_lang() == 'RU' else "Current label:   ")
-        cls_names = np.array(['no name'])
-        self.cls_combo.addItems(cls_names)
-        self.cls_combo.setMinimumWidth(150)
-        self.cls_combo.setEnabled(True)
-
-        labelSettingsToolBar.addWidget(label)
-        labelSettingsToolBar.addWidget(self.cls_combo)
-
-        labelSettingsToolBar.addAction(self.change_label_color)
-        labelSettingsToolBar.addAction(self.rename_label)
-        labelSettingsToolBar.addAction(self.del_label)
-        labelSettingsToolBar.addSeparator()
-        labelSettingsToolBar.addAction(self.add_label)
-
         self.toolBarLeft = toolBar
+        self.addToolBar(QtCore.Qt.LeftToolBarArea, self.toolBarLeft)
 
+    def create_right_toolbar(self):
         # Right toolbar
         self.toolBarRight = QToolBar("Менеджер разметок" if self.settings.read_lang() == 'RU' else "Labeling Bar", self)
 
@@ -395,9 +376,38 @@ class MainWindow(QtWidgets.QMainWindow):
         self.toolBarRight.addWidget(self.images_list_widget)
 
         # Add panels to toolbars
-        self.addToolBar(QtCore.Qt.TopToolBarArea, labelSettingsToolBar)
-        self.addToolBar(QtCore.Qt.LeftToolBarArea, self.toolBarLeft)
+
         self.addToolBar(QtCore.Qt.RightToolBarArea, self.toolBarRight)
+
+    def create_top_toolbar(self):
+
+        labelSettingsToolBar = QToolBar(
+            "Настройки разметки" if self.settings.read_lang() == 'RU' else "Current Label Bar",
+            self)
+        self.cls_combo = QComboBox()
+
+        label = QLabel("Текущий класс:   " if self.settings.read_lang() == 'RU' else "Current label:   ")
+        cls_names = np.array(['no name'])
+        self.cls_combo.addItems(cls_names)
+        self.cls_combo.setMinimumWidth(150)
+        self.cls_combo.setEnabled(True)
+
+        labelSettingsToolBar.addWidget(label)
+        labelSettingsToolBar.addWidget(self.cls_combo)
+
+        labelSettingsToolBar.addAction(self.change_label_color)
+        labelSettingsToolBar.addAction(self.rename_label)
+        labelSettingsToolBar.addAction(self.del_label)
+        labelSettingsToolBar.addSeparator()
+        labelSettingsToolBar.addAction(self.add_label)
+
+        self.addToolBar(QtCore.Qt.TopToolBarArea, labelSettingsToolBar)
+
+    def createToolbar(self):
+
+        self.create_left_toolbar()
+        self.create_right_toolbar()
+        self.create_top_toolbar()
 
     def getArea(self):
         """
