@@ -453,14 +453,16 @@ class Annotator(MainWindow):
         mask_results = self.CNN_worker.mask_results
         shape = self.cv2_image.shape
 
+
         for res in mask_results:
             for i, mask in enumerate(res['masks']):
                 points = yolo8masks2points(mask, simplify_factor=3, width=shape[1], height=shape[0])
                 cls_num = res['classes'][i]
                 self.view.add_polygon_to_scene(cls_num, points, color=cls_settings.PALETTE[cls_num])
-                self.write_scene_to_project_data()
-                self.fill_labels_on_tek_image_list_widget()
-                self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+
+        self.write_scene_to_project_data()
+        self.fill_labels_on_tek_image_list_widget()
+        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
         self.splash.finish(self)
 

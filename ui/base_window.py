@@ -960,9 +960,12 @@ class MainWindow(QtWidgets.QMainWindow):
                           "<p>Программа для разметки изображений</p>" if
                           self.settings.read_lang() == 'RU' else "<p>Labeling Data for Object Detection and Instance Segmentation</p>")
 
-    def filter_images_names(self, file_names):
+    def filter_images_names(self, images_dir):
         im_names_valid = []
+        file_names = os.listdir(images_dir)
         for f in file_names:
+            if not os.path.isfile(os.path.join(images_dir, f)):
+                continue
             is_valid = False
             for t in self.image_types:
                 if is_valid:
@@ -989,7 +992,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.dataset_dir = dataset_dir
         self.project_data.set_path_to_images(dataset_dir)
-        dataset_images = self.filter_images_names(os.listdir(dataset_dir))
+        dataset_images = self.filter_images_names(dataset_dir)
 
         if not dataset_images:
             self.statusBar().showMessage(
@@ -1053,7 +1056,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.set_ids_from_project(self.project_data.get_data())
 
         self.dataset_dir = dataset_dir
-        self.dataset_images = self.filter_images_names(os.listdir(self.dataset_dir))
+        self.dataset_images = self.filter_images_names(dataset_dir)
 
         self.fill_labels_combo_from_project()
 
@@ -1502,6 +1505,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
     def reload_image(self):
+        if not self.tek_image_path:
+            return
+
         self.open_image(self.tek_image_path)
         self.load_image_data(self.tek_image_name)
         self.fill_labels_on_tek_image_list_widget()

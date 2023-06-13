@@ -113,7 +113,7 @@ def predict_and_return_masks(model, source, conf=0.25, iou=0.7, save_txt=False):
         if res.masks:
             masks_mass = res.masks.cpu().numpy()
 
-            boxes_mass = res.boxes
+            boxes_mass = res.boxes.cpu().numpy()
             cls_nums = []
             confs = []
             for box in boxes_mass:

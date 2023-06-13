@@ -1,5 +1,6 @@
 from PyQt5 import QtCore
 from utils import config
+from shapely import Polygon, intersection, union
 
 import math
 import matplotlib as mpl
@@ -9,6 +10,7 @@ import yaml
 import datetime
 import os
 import cv2
+
 
 
 def generate_set_of_label_colors():
@@ -24,25 +26,37 @@ def generate_set_of_label_colors():
 
 
 def calc_width_parts(img_width, frag_size):
+    if frag_size / 2 > img_width:
+        return [[0, img_width]]
     crop_start_end_coords = []
     tek_pos = 0
-    while tek_pos < img_width:
-        if tek_pos + frag_size > img_width:
+    while tek_pos <= img_width:
+        if tek_pos == 0:
+            if img_width > frag_size:
+                crop_start_end_coords.append([tek_pos, frag_size])
+            else:
+                crop_start_end_coords.append([tek_pos, img_width])
+                break
+
+        elif tek_pos + frag_size >= img_width:
             crop_start_end_coords.append([tek_pos, img_width])
+            break
+
         else:
             crop_start_end_coords.append([tek_pos, tek_pos + frag_size])
-        tek_pos += frag_size
+        tek_pos += int(frag_size / 2)
+
     return crop_start_end_coords
 
 
 def calc_parts(img_width, img_height, frag_size):
     crop_x_y_sizes = []
-    crop_x_sizes = calc_width_parts(img_width, frag_size)
-    crop_y_sizes = calc_width_parts(img_height, frag_size)
+    crop_x_sizes = calc_width_parts(img_width, int(frag_size))
+    crop_y_sizes = calc_width_parts(img_height, int(frag_size))
     for y in crop_y_sizes:
         for x in crop_x_sizes:
             crop_x_y_sizes.append([x, y])
-    return crop_x_y_sizes
+    return crop_x_y_sizes, len(crop_x_sizes), len(crop_y_sizes)
 
 
 def split_into_fragments(img, frag_size):
@@ -50,17 +64,15 @@ def split_into_fragments(img, frag_size):
 
     shape = img.shape
 
-    print(shape)
-
     img_width = shape[1]
     img_height = shape[0]
 
-    crop_x_y_sizes = calc_parts(img_width, img_height, frag_size)
+    crop_x_y_sizes, x_parts_num, y_parts_num = calc_parts(img_width, img_height, frag_size)
 
     for x_y_crops in crop_x_y_sizes:
         x_min, x_max = x_y_crops[0]
         y_min, y_max = x_y_crops[1]
-        fragments.append(img[y_min:y_max, x_min:x_max, :])
+        fragments.append(img[int(y_min):int(y_max), int(x_min):int(x_max), :])
 
     return fragments
 
@@ -250,9 +262,43 @@ def convert_text_name_to_image_name(text_name):
     return img_name + ".txt"
 
 
+def filter_masks(masks_results, conf_thres=0.5, iou_filter=0.3):
+    """
+    Фильтрация боксов
+    conf_tresh - убираем все боксы с вероятностями ниже заданной
+    iou_filter - убираем дубликаты боксов, дубликатами считаются те, значение IoU которых выше этого порога
+    """
+    filtered = []
+    for i in range(len(masks_results)):
+        if masks_results[i]['conf'] < conf_thres:
+            continue
+        is_found = False
+        for j in range(len(masks_results)):
+            if j == i:
+                continue
+            pol1 = Polygon(masks_results[i]['points'])
+            pol2 = Polygon(masks_results[j]['points'])
+
+            inter = pol1.intersection(pol2)
+            un = pol1.union(pol2)
+            if inter and un:
+                iou = inter.area/un.area
+
+                if iou > iou_filter:
+                    if masks_results[i]['cls_num'] == masks_results[j]['cls_num']:
+                        if masks_results[i]['conf'] < masks_results[j]['conf']:
+                            is_found = True
+        if not is_found:
+            filtered.append(masks_results[i])
+
+    return filtered
+
+
 if __name__ == '__main__':
-    img_name = 'barksdale air force base 19.jpg'
-    img = cv2.imread(img_name)
-    for i, part in enumerate(split_into_fragments(img, 450)):
-        cv2.imshow(f'frag {i}', part)
-        cv2.waitKey(0)
+    crops = calc_parts(2000, 1000, 900)
+    print(crops)
+    # img_name = 'barksdale air force base 19.jpg'
+    # img = cv2.imread(img_name)
+    # for i, part in enumerate(split_into_fragments(img, 450)):
+    #     cv2.imshow(f'frag {i}', part)
+    #     cv2.waitKey(0)

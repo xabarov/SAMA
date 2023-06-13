@@ -1,6 +1,7 @@
 from PySide2 import QtCore
 from . import cls_settings
 from .detect_yolo8 import predict_and_return_masks
+from utils.edges_from_mask import yolo8masks2points
 
 import os
 import torch
@@ -28,6 +29,8 @@ class CNN_worker(QtCore.QThread):
         self.img_path = img_path
         self.scanning = scanning
 
+        self.mask_results = []
+
         self.img_ld = linear_dim
         self.train_ld = 0.12
         self.train_img_px = 8000  # в реальности - 1280, но это ужатые 8000 с ld = 0.0923
@@ -48,22 +51,55 @@ class CNN_worker(QtCore.QThread):
         self.run_yolo8(img_path_full, self.scanning)
 
     def run_yolo8(self, img_path_full, is_scanning):
+        img = cv2.imread(img_path_full)
+        shape = img.shape
 
         if is_scanning:
 
-            # Steps:
-            frag_size = int(self.train_img_px * self.train_ld / self.img_ld)
-            img = cv2.imread(img_path_full)
-            parts = hf.split_into_fragments(img, frag_size)
-            self.mask_results = predict_and_return_masks(self.model, parts, conf=self.conf_thres,
-                                                         iou=self.iou_thres, save_txt=False)
+            frag_size = 1000  # int(self.train_img_px * self.train_ld / self.img_ld)
 
-            # 3. Fit all fragment masks to image size
-            # 4. Use IoU for filtering mask
-            # 5. Return filtered results
-            pass
+            parts = hf.split_into_fragments(img, frag_size)
+            crop_x_y_sizes, x_parts_num, y_parts_num = hf.calc_parts(shape[1], shape[0], frag_size)
+
+            scanning_results = []
+
+            part_tek = 0
+            for part, part_size in zip(parts, crop_x_y_sizes):
+
+                part_mask_results = predict_and_return_masks(self.model, part, conf=self.conf_thres,
+                                                             iou=self.iou_thres, save_txt=False)
+                x_min, x_max = part_size[0]
+                y_min, y_max = part_size[1]
+
+                for res in part_mask_results:
+                    for i, mask in enumerate(res['masks']):
+                        points = yolo8masks2points(mask, simplify_factor=3, width=x_max - x_min, height=y_max - y_min)
+                        if not points:
+                            continue
+                        points_shifted = []
+                        for x, y in points:
+                            points_shifted.append([x + x_min, y + y_min])
+                        cls_num = res['classes'][i]
+                        conf = res['confs'][i]
+                        scanning_results.append({'cls_num': cls_num, 'points': points_shifted, 'conf': conf})
+
+                part_tek += 1
+
+            self.mask_results = hf.filter_masks(scanning_results)
 
         else:
 
-            self.mask_results = predict_and_return_masks(self.model, img_path_full, conf=self.conf_thres,
-                                                         iou=self.iou_thres, save_txt=False)
+            results = predict_and_return_masks(self.model, img_path_full, conf=self.conf_thres,
+                                               iou=self.iou_thres, save_txt=False)
+            
+            mask_results = []
+            for res in results:
+                for i, mask in enumerate(res['masks']):
+                    points = yolo8masks2points(mask, simplify_factor=3, width=shape[1], height=shape[0])
+                    if not points:
+                        continue
+                    cls_num = res['classes'][i]
+                    conf = res['confs'][i]
+                    mask_results.append({'cls_num': cls_num, 'points': points, 'conf': conf})
+
+            self.mask_results = mask_results
