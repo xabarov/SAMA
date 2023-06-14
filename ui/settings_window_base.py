@@ -11,33 +11,28 @@ class SettingsWindowBase(QWidget):
     def __init__(self, parent):
         super().__init__(parent)
 
-        self.settings = AppSettings()
-        self.lang = self.settings.read_lang()
-        self.setWindowTitle("Настройки приложения" if self.lang == 'RU' else 'Settings')
-        self.setWindowFlag(Qt.Tool)
+        self.import_settings()
 
-        # Настройки разметки
-        self.formGroupBox = QGroupBox("Настройки разметки" if self.lang == 'RU' else 'Labeling')
+        self.create_labeling_group()
+        self.create_main_group()
 
-        layout = QFormLayout()
+        self.stack_layouts()
 
-        self.alpha_slider = QSlider(Qt.Orientation.Horizontal)
-        self.alpha_slider.setValue(self.settings.read_alpha())
+        self.resize(500, 500)
 
-        layout.addRow(QLabel("Степень непрозрачности масок" if self.lang == 'RU' else 'Label opaque'),
-                      self.alpha_slider)
+    def stack_layouts(self):
+        self.mainLayout = QVBoxLayout()
+        self.mainLayout.addWidget(self.main_group)
+        self.mainLayout.addWidget(self.labeling_group)
 
-        self.fat_width_slider = QSlider(Qt.Orientation.Horizontal)
-        self.fat_width_slider.setValue(self.settings.read_fat_width())
+        btnLayout = self.create_buttons()
+        self.mainLayout.addLayout(btnLayout)
+        self.setLayout(self.mainLayout)
 
-        layout.addRow(QLabel("Толщина граней разметки" if self.lang == 'RU' else 'Edges width'),
-                      self.fat_width_slider)
-
-        self.formGroupBox.setLayout(layout)
-
+    def create_main_group(self):
         # настройки темы
 
-        self.formGroupBoxGlobal = QGroupBox(
+        self.main_group = QGroupBox(
             "Настройки приложения" if self.lang == 'RU' else 'Appearance')
 
         layout_global = QFormLayout()
@@ -127,8 +122,35 @@ class SettingsWindowBase(QWidget):
         idx = np.where(self.themes == self.settings.read_theme())[0][0]
         self.theme_combo.setCurrentIndex(idx)
 
-        self.formGroupBoxGlobal.setLayout(layout_global)
+        self.main_group.setLayout(layout_global)
 
+    def create_labeling_group(self):
+        # Настройки разметки
+        self.labeling_group = QGroupBox("Настройки разметки" if self.lang == 'RU' else 'Labeling')
+
+        layout = QFormLayout()
+
+        self.alpha_slider = QSlider(Qt.Orientation.Horizontal)
+        self.alpha_slider.setValue(self.settings.read_alpha())
+
+        layout.addRow(QLabel("Степень непрозрачности масок" if self.lang == 'RU' else 'Label opaque'),
+                      self.alpha_slider)
+
+        self.fat_width_slider = QSlider(Qt.Orientation.Horizontal)
+        self.fat_width_slider.setValue(self.settings.read_fat_width())
+
+        layout.addRow(QLabel("Толщина граней разметки" if self.lang == 'RU' else 'Edges width'),
+                      self.fat_width_slider)
+
+        self.labeling_group.setLayout(layout)
+        
+    def import_settings(self):
+        self.settings = AppSettings()
+        self.lang = self.settings.read_lang()
+        self.setWindowTitle("Настройки приложения" if self.lang == 'RU' else 'Settings')
+        self.setWindowFlag(Qt.Tool)
+        
+    def create_buttons(self):
         btnLayout = QHBoxLayout()
 
         self.okBtn = QPushButton('Принять' if self.lang == 'RU' else 'Apply', self)
@@ -139,15 +161,8 @@ class SettingsWindowBase(QWidget):
 
         btnLayout.addWidget(self.okBtn)
         btnLayout.addWidget(self.cancelBtn)
-
-        self.mainLayout = QVBoxLayout()
-        self.mainLayout.addWidget(self.formGroupBoxGlobal)
-        self.mainLayout.addWidget(self.formGroupBox)
-
-        self.mainLayout.addLayout(btnLayout)
-        self.setLayout(self.mainLayout)
-
-        self.resize(500, 500)
+        
+        return btnLayout
 
     def on_ok_clicked(self):
 

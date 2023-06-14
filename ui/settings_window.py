@@ -13,6 +13,19 @@ class SettingsWindow(SettingsWindowBase):
     def __init__(self, parent):
         super().__init__(parent)
 
+    def stack_layouts(self):
+        self.create_cnn_layout()
+
+        self.mainLayout = QVBoxLayout()
+        self.mainLayout.addWidget(self.main_group)
+        self.mainLayout.addWidget(self.labeling_group)
+        self.mainLayout.addWidget(self.classifierGroupBox)
+
+        btnLayout = self.create_buttons()
+        self.mainLayout.addLayout(btnLayout)
+        self.setLayout(self.mainLayout)
+
+    def create_cnn_layout(self):
         self.where_calc_combo = QComboBox()
         self.where_vars = np.array(["cpu", "cuda", 'Auto'])
         self.where_calc_combo.addItems(self.where_vars)
@@ -62,11 +75,8 @@ class SettingsWindow(SettingsWindowBase):
         classifier_layout.addRow(QLabel("IOU порог:" if self.lang == 'RU' else "IoU threshold"), self.IOU_spin)
 
         self.classifierGroupBox.setLayout(classifier_layout)
-        self.mainLayout.addWidget(self.classifierGroupBox)
-
 
     def on_ok_clicked(self):
-
         super(SettingsWindow, self).on_ok_clicked()
 
         self.settings.write_platform(self.where_vars[self.where_calc_combo.currentIndex()])
@@ -74,5 +84,3 @@ class SettingsWindow(SettingsWindowBase):
         self.settings.write_cnn_model(self.cnns[self.cnn_combo.currentIndex()])
         self.settings.write_iou_thres(self.IOU_spin.value())
         self.settings.write_conf_thres(self.conf_thres_spin.value())
-
-

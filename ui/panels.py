@@ -3,6 +3,7 @@ from PyQt5.QtGui import QIcon
 
 from utils import config
 
+
 class ImagesPanel(QWidget):
     def __init__(self, parent, add_image_to_projectAct, del_image_from_projectAct, icon_folder, button_size=30,
                  on_color_change_signal=None, on_images_list_change=None):
@@ -39,7 +40,6 @@ class ImagesPanel(QWidget):
         if on_images_list_change:
             on_images_list_change.connect(self.on_im_list_change)
 
-
         self.setLayout(images_header)
 
     def on_color_change(self, icon_folder):
@@ -51,8 +51,6 @@ class ImagesPanel(QWidget):
             self.del_im_button.setEnabled(True)
             return
         self.del_im_button.setEnabled(False)
-
-
 
 
 class LabelsPanel(QWidget):

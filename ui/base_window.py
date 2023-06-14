@@ -2,7 +2,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QMovie, QPainter, QIcon, QColor
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, QToolButton, QComboBox, QLabel, \
-    QColorDialog, QListWidget
+    QColorDialog, QListWidget, QProgressBar
 from PyQt5.QtWidgets import QApplication
 
 from utils import help_functions as hf
@@ -381,7 +381,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def create_top_toolbar(self):
 
-        labelSettingsToolBar = QToolBar(
+        self.labelSettingsToolBar = QToolBar(
             "Настройки разметки" if self.settings.read_lang() == 'RU' else "Current Label Bar",
             self)
         self.cls_combo = QComboBox()
@@ -392,21 +392,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cls_combo.setMinimumWidth(150)
         self.cls_combo.setEnabled(True)
 
-        labelSettingsToolBar.addWidget(label)
-        labelSettingsToolBar.addWidget(self.cls_combo)
+        self.labelSettingsToolBar.addWidget(label)
+        self.labelSettingsToolBar.addWidget(self.cls_combo)
 
-        labelSettingsToolBar.addAction(self.change_label_color)
-        labelSettingsToolBar.addAction(self.rename_label)
-        labelSettingsToolBar.addAction(self.del_label)
-        labelSettingsToolBar.addSeparator()
-        labelSettingsToolBar.addAction(self.add_label)
+        self.labelSettingsToolBar.addAction(self.change_label_color)
+        self.labelSettingsToolBar.addAction(self.rename_label)
+        self.labelSettingsToolBar.addAction(self.del_label)
+        self.labelSettingsToolBar.addSeparator()
+        self.labelSettingsToolBar.addAction(self.add_label)
+        self.labelSettingsToolBar.addSeparator()
 
-        self.addToolBar(QtCore.Qt.TopToolBarArea, labelSettingsToolBar)
+        self.addToolBar(QtCore.Qt.TopToolBarArea, self.labelSettingsToolBar)
 
     def createToolbar(self):
 
-        self.create_left_toolbar()
         self.create_right_toolbar()
+        self.create_left_toolbar()
         self.create_top_toolbar()
 
     def getArea(self):
@@ -817,6 +818,7 @@ class MainWindow(QtWidgets.QMainWindow):
         color_dialog.exec()
         rgb = color_dialog.selectedColor().getRgb()
         rgba = (rgb[0], rgb[1], rgb[2], self.settings.read_alpha())
+        print(rgba)
 
         self.project_data.set_label_color(cls_txt, color=rgba)
 
@@ -1020,6 +1022,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def progress_bar_changed(self, percent):
         self.progress_bar.set_progress(percent)
+        if percent == 100:
+            self.progress_bar.hide()
 
     def on_change_project_name(self):
         dataset_dir = self.change_path_window.getEditText()
@@ -1049,7 +1053,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def on_checking_project_success(self, dataset_dir):
 
         self.progress_bar = ProgressWindow(self,
-                                           title='Loading project...' if self.settings.read_lang() == 'RU' else 'Загрузка проекта...')
+                                           title='Загрузка проекта...' if self.settings.read_lang() == 'RU' else 'Loading project...')
 
         self.view.load_ids_conn.percent.connect(self.progress_bar_changed)
 
@@ -1514,7 +1518,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
     def show_tutorial(self):
-        path_to_png = os.path.join(os.getcwd(), '', 'tutorial', 'shortcuts.png')
+        path_to_png = os.path.join(os.getcwd(), 'ui', 'tutorial', 'shortcuts.png')
         self.tutorial = ShowImgWindow(self, title='Горячие клавиши', img_file=path_to_png, icon_folder=self.icon_folder,
                                       is_fit_button=False)
         self.tutorial.scaleImage(0.4)

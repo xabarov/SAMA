@@ -1,5 +1,5 @@
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QAction, QMessageBox, QMenu, QToolBar, QToolButton, QListWidget, QLabel, QComboBox
+from PyQt5.QtWidgets import QAction, QMessageBox, QMenu, QToolBar, QToolButton
 from PyQt5.QtGui import QIcon, QCursor
 
 from ui.base_window import MainWindow
@@ -10,7 +10,7 @@ from ultralytics import YOLO
 from ui.input_dialog import PromptInputDialog
 from ui.show_image_widget import ShowImgWindow
 from ui.settings_window import SettingsWindow
-from ui.panels import ImagesPanel, LabelsPanel
+from ui.progress import ProgressWindow
 
 from utils.predictor import SAMImageSetter
 from utils.cnn_worker import CNN_worker
@@ -26,7 +26,6 @@ from shapely import Polygon
 import matplotlib.pyplot as plt
 import utils.help_functions as hf
 import cv2
-import numpy as np
 import os
 
 
@@ -58,6 +57,8 @@ class Detector(MainWindow):
 
         self.handle_cuda_models()
 
+        self.lrm = None  # name of file with geo coords
+
     def createActions(self):
         super(Detector, self).createActions()
 
@@ -74,6 +75,10 @@ class Detector(MainWindow):
             "Обнаружить объекты сканированием" if self.settings.read_lang() == 'RU' else "Detect objects with scanning",
             self, enabled=False,
             triggered=self.detect_scan)
+        self.syncLabelsAct = QAction(
+            "Синхронизировать имена меток" if self.settings.read_lang() == 'RU' else "Fill label names from AI model",
+            self, enabled=False,
+            triggered=self.sync_labels)
 
         # AI Annotators
         self.aiAnnotatorPointsAct = QAction(
@@ -93,6 +98,11 @@ class Detector(MainWindow):
             triggered=self.grounding_sam_pressed,
             checkable=True)
 
+        self.exportToESRIAct = QAction(
+            "Экспорт в ESRI shapefile" if self.settings.read_lang() == 'RU' else "Export to ESRI shapefiles", self,
+            enabled=False, shortcut="Ctrl+G",
+            triggered=self.export_to_esri)
+
     def createMenus(self):
         super(Detector, self).createMenus()
 
@@ -109,7 +119,10 @@ class Detector(MainWindow):
         self.classifierMenu = QMenu("Классификатор" if self.settings.read_lang() == 'RU' else "Classifier", self)
         self.classifierMenu.addAction(self.detectAct)
         self.classifierMenu.addAction(self.detectScanAct)
+        self.classifierMenu.addAction(self.syncLabelsAct)
+
         self.annotatorMenu.addAction(self.balanceAct)
+        self.annotatorMenu.addAction(self.exportToESRIAct)
 
         self.menuBar().clear()
         self.menuBar().addMenu(self.fileMenu)
@@ -174,6 +187,9 @@ class Detector(MainWindow):
         self.GroundingDINOSamAct.setEnabled(True)
         self.image_set = False
         self.queue_image_to_sam(image_name)
+        lrm = hf.try_read_lrm(image_name)
+        if lrm:
+            self.lrm = lrm
 
     def reload_image(self):
         super(Detector, self).reload_image()
@@ -198,6 +214,23 @@ class Detector(MainWindow):
                 "Нейросеть SAM готова к сегментации" if self.settings.read_lang() == 'RU' else "SAM ready to work",
                 3000)
             self.image_set = True
+
+    def export_to_esri(self):
+        if self.lrm:
+            pass
+
+    def sync_labels(self):
+        if self.yolo:
+            names = self.yolo.names  # dict like {0:name1, 1:name2...}
+            self.cls_combo.clear()
+            labels = []
+            for key in names:
+                label = names[key]
+                self.cls_combo.addItem(label)
+                labels.append(label)
+
+            self.project_data.set_labels(labels)
+            self.project_data.set_labels_colors(labels, rewrite=True)
 
     def showSettings(self):
         """
@@ -225,6 +258,7 @@ class Detector(MainWindow):
         self.balanceAct.setEnabled(True)
         self.detectAct.setEnabled(True)
         self.detectScanAct.setEnabled(True)
+        self.syncLabelsAct.setEnabled(True)
 
     def handle_cuda_models(self):
 
@@ -479,9 +513,14 @@ class Detector(MainWindow):
         self.CNN_worker = CNN_worker(model=self.yolo, conf_thres=conf_thres_set, iou_thres=iou_thres_set,
                                      img_name=img_name, img_path=img_path,
                                      scanning=self.scanning_mode,
-                                     linear_dim=0.0923)
+                                     linear_dim=self.lrm)
 
         self.CNN_worker.started.connect(self.on_cnn_started)
+
+        self.progress_bar = ProgressWindow(self,
+                                           'Обнаружение объектов...' if self.settings.read_lang() == 'RU' else 'Object detection...')
+
+        self.CNN_worker.psnt_connection.percent.connect(self.progress_bar_changed)
         self.CNN_worker.finished.connect(self.on_cnn_finished)
 
         if not self.CNN_worker.isRunning():
@@ -491,9 +530,10 @@ class Detector(MainWindow):
         """
         При начале классификации
         """
-        self.start_gif(is_prog_load=True)
-        str_text = "{0:s} CNN started detection...".format(self.started_cnn)
-        print(str_text)
+        self.progress_bar.show()
+        self.statusBar().showMessage(
+            f"Начинаю поиск объектов на изображении..." if self.settings.read_lang() == 'RU' else f"Start searching object on image...",
+            3000)
 
     def on_cnn_finished(self):
         """
@@ -506,13 +546,24 @@ class Detector(MainWindow):
         for res in self.CNN_worker.mask_results:
             cls_num = res['cls_num']
             points = res['points']
-            self.view.add_polygon_to_scene(cls_num, points, color=cls_settings.PALETTE[cls_num])
+
+            color = None
+            label = self.project_data.get_label_name(cls_num)
+            if label:
+                color = self.project_data.get_label_color(label)
+            if not color:
+                color = cls_settings.PALETTE[cls_num]
+            self.view.add_polygon_to_scene(cls_num, points, color=color)
 
         self.write_scene_to_project_data()
         self.fill_labels_on_tek_image_list_widget()
         self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
-        self.splash.finish(self)
+        self.progress_bar.hide()
+
+        self.statusBar().showMessage(
+            f"Найдено {len(self.CNN_worker.mask_results)} объектов" if self.settings.read_lang() == 'RU' else f"{len(self.CNN_worker.mask_results)} objects has been detected",
+            3000)
 
     def grounding_sam_pressed(self):
 

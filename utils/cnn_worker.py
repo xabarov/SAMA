@@ -1,16 +1,13 @@
 from PySide2 import QtCore
-from . import cls_settings
 from .detect_yolo8 import predict_and_return_masks
 from utils.edges_from_mask import yolo8masks2points
+from ui.signals_and_slots import LoadPercentConnection
 
 import os
 import torch
 import cv2
 import help_functions as hf
-
-
-class PercentConnection(QtCore.QObject):
-    percent = QtCore.Signal(int)
+import math
 
 
 class CNN_worker(QtCore.QThread):
@@ -35,7 +32,7 @@ class CNN_worker(QtCore.QThread):
         self.train_ld = 0.12
         self.train_img_px = 8000  # в реальности - 1280, но это ужатые 8000 с ld = 0.0923
 
-        self.psnt_connection = PercentConnection()
+        self.psnt_connection = LoadPercentConnection()
 
     def run(self):
 
@@ -56,7 +53,15 @@ class CNN_worker(QtCore.QThread):
 
         if is_scanning:
 
-            frag_size = 1000  # int(self.train_img_px * self.train_ld / self.img_ld)
+            self.psnt_connection.percent.emit(0)
+
+            if self.img_ld:
+                frag_size = int(self.train_img_px * self.train_ld / self.img_ld)
+            else:
+                frag_size = 1280
+
+            if math.fabs(frag_size - 1280) < 300:
+                self.run_yolo8(img_path_full, False)
 
             parts = hf.split_into_fragments(img, frag_size)
             crop_x_y_sizes, x_parts_num, y_parts_num = hf.calc_parts(shape[1], shape[0], frag_size)
@@ -84,14 +89,21 @@ class CNN_worker(QtCore.QThread):
                         scanning_results.append({'cls_num': cls_num, 'points': points_shifted, 'conf': conf})
 
                 part_tek += 1
+                self.psnt_connection.percent.emit(90.0*part_tek/len(parts))
 
-            self.mask_results = hf.filter_masks(scanning_results)
+            self.mask_results = hf.filter_masks(scanning_results, conf_thres=0.2, iou_filter=0.7)
+
+            self.psnt_connection.percent.emit(100)
 
         else:
 
+            self.psnt_connection.percent.emit(0)
+
             results = predict_and_return_masks(self.model, img_path_full, conf=self.conf_thres,
                                                iou=self.iou_thres, save_txt=False)
-            
+
+            self.psnt_connection.percent.emit(50)
+
             mask_results = []
             for res in results:
                 for i, mask in enumerate(res['masks']):
@@ -103,3 +115,5 @@ class CNN_worker(QtCore.QThread):
                     mask_results.append({'cls_num': cls_num, 'points': points, 'conf': conf})
 
             self.mask_results = mask_results
+
+            self.psnt_connection.percent.emit(100)

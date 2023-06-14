@@ -112,6 +112,10 @@ class ProjectHandler:
     def get_labels(self):
         return self.data["labels"]
 
+    def get_label_name(self, cls_num):
+        if cls_num < len(self.data["labels"]):
+            return self.data["labels"][cls_num]
+
     def change_cls_num_by_id(self, lbl_id, new_cls_num):
         new_images = []
         for im in self.data['images']:
@@ -185,7 +189,10 @@ class ProjectHandler:
                 color = [color[0], color[1], color[2], alpha]
             self.data["labels_color"][cls_name] = color
 
-    def set_labels_colors(self, labels_names):
+    def set_labels_colors(self, labels_names, rewrite=False):
+        if rewrite:
+            self.data["labels_color"] = {}
+
         for label_name in labels_names:
             if label_name not in self.data["labels_color"]:
                 self.set_label_color(label_name)

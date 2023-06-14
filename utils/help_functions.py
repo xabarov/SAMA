@@ -1,16 +1,57 @@
 from PyQt5 import QtCore
 from utils import config
-from shapely import Polygon, intersection, union
+from shapely import Polygon
+from utils import coords_calc
 
 import math
 import matplotlib as mpl
 import numpy as np
 import yaml
+import geopandas as gpd
 
 import datetime
 import os
-import cv2
+from PIL import Image
 
+
+def try_read_lrm(image_name):
+    ext = coords_calc.get_ext(image_name)
+    name_without_ext = image_name[:-len(ext)]
+    for map_ext in ['dat', 'map']:
+        map_name = name_without_ext + map_ext
+        if os.path.exists(map_name):
+            coords_net = coords_calc.load_coords_map(map_name)
+            img = Image.open(image_name)
+
+            img_width, img_height = img.size
+
+            return coords_calc.get_lrm(coords_net, img_height)
+
+
+def convert_polygons_to_esri(polygons, image_name, crs='epsg:4326', out_shapefile='esri_shapefile.shp'):
+    ext = coords_calc.get_ext(image_name)
+    name_without_ext = image_name[:-len(ext)]
+
+    img = Image.open(image_name)
+
+    img_width, img_height = img.size
+
+    for map_ext in ['dat', 'map']:
+        map_name = name_without_ext + map_ext
+        if os.path.exists(map_name):
+            coords_net = coords_calc.load_coords_map(map_name)
+            lat_min, lat_max, lon_min, lon_max = coords_calc.get_lat_lon_min_max_coords(coords_net)
+            geo_polygons = []
+            for polygon in polygons:
+                geo_polygon = []
+                for point in polygon:
+                    x = lon_min + (float(point[0]) / img_width) * (lon_max - lon_min)
+                    y = lat_min + (float(point[1]) / img_height) * (lat_max - lat_min)
+                    geo_polygon.append((x, y))
+                    pol = Polygon(geo_polygon)
+                geo_polygons.append(pol)
+            gdf = gpd.GeoDataFrame(crs=crs, geometry=geo_polygons)
+            gdf.to_file(out_shapefile)
 
 
 def generate_set_of_label_colors():
@@ -262,7 +303,7 @@ def convert_text_name_to_image_name(text_name):
     return img_name + ".txt"
 
 
-def filter_masks(masks_results, conf_thres=0.5, iou_filter=0.3):
+def filter_masks(masks_results, conf_thres=0.2, iou_filter=0.3):
     """
     Фильтрация боксов
     conf_tresh - убираем все боксы с вероятностями ниже заданной
@@ -282,7 +323,7 @@ def filter_masks(masks_results, conf_thres=0.5, iou_filter=0.3):
             inter = pol1.intersection(pol2)
             un = pol1.union(pol2)
             if inter and un:
-                iou = inter.area/un.area
+                iou = inter.area / un.area
 
                 if iou > iou_filter:
                     if masks_results[i]['cls_num'] == masks_results[j]['cls_num']:
@@ -295,9 +336,9 @@ def filter_masks(masks_results, conf_thres=0.5, iou_filter=0.3):
 
 
 if __name__ == '__main__':
-    crops = calc_parts(2000, 1000, 900)
-    print(crops)
-    # img_name = 'barksdale air force base 19.jpg'
+    img_name = 'F:\python\\ai_annotator\projects\\aes_big\\ano_google.jpg'
+    lrm = try_read_lrm(img_name)
+    print(lrm)
     # img = cv2.imread(img_name)
     # for i, part in enumerate(split_into_fragments(img, 450)):
     #     cv2.imshow(f'frag {i}', part)
