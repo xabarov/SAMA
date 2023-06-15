@@ -1,8 +1,9 @@
-# AIA - Annotator and Detector with artificial intelligence support
+# SAMA - SAM Annotator
 
 Labeling Data for Object Detection and Instance Segmentation with The Segment Anything Model (SAM) and GroundingDINO.
+The project also contains an object detector, a segmenter with SAM, YOLO and GroundingDINO support.
 
-![alt text](assests/main.png?raw=true)
+![alt text](assets/main.png?raw=true)
 
 ### SAM model
 
@@ -19,10 +20,10 @@ Labeling Data for Object Detection and Instance Segmentation with The Segment An
 ### YOLOv8 for detector
 
 1. Replace `weights` and `config` in CNN_DICT for 'YOLOv8' in `utils/cls_settings.py` to your model weight and YAML
-config paths
+   config paths
 2. Replace CLASSES_ENG and CLASSES_RU in `utils/cls_settings.py` for your classes names
 
-### Install requirements  
+### Install requirements
 
 Install requirements from `requirements.txt` as `pip install -r requirements.txt`
 
