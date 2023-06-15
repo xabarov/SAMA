@@ -3,6 +3,9 @@ from utils import config
 from shapely import Polygon
 from utils import coords_calc
 
+from utils import cls_settings
+from fiona.crs import from_epsg
+
 import math
 import matplotlib as mpl
 import numpy as np
@@ -27,8 +30,10 @@ def try_read_lrm(image_name):
 
             return coords_calc.get_lrm(coords_net, img_height)
 
+def get_extension(filename):
+    return coords_calc.get_ext(filename)
 
-def convert_polygons_to_esri(polygons, image_name, crs='epsg:4326', out_shapefile='esri_shapefile.shp'):
+def convert_shapes_to_esri(shapes, image_name, crs='epsg:4326', out_shapefile='esri_shapefile.shp'):
     ext = coords_calc.get_ext(image_name)
     name_without_ext = image_name[:-len(ext)]
 
@@ -41,16 +46,32 @@ def convert_polygons_to_esri(polygons, image_name, crs='epsg:4326', out_shapefil
         if os.path.exists(map_name):
             coords_net = coords_calc.load_coords_map(map_name)
             lat_min, lat_max, lon_min, lon_max = coords_calc.get_lat_lon_min_max_coords(coords_net)
-            geo_polygons = []
-            for polygon in polygons:
+            # geo_polygons = []
+            # cls_nums = []
+
+            gdf = gpd.GeoDataFrame()
+            gdf["geometry"] = None
+            cls_names = cls_settings.CLASSES_ENG
+            for i, shape in enumerate(shapes):
                 geo_polygon = []
+                polygon = shape["points"]
                 for point in polygon:
-                    x = lon_min + (float(point[0]) / img_width) * (lon_max - lon_min)
-                    y = lat_min + (float(point[1]) / img_height) * (lat_max - lat_min)
+                    x = lon_min + (float(point[0]) / img_width) * abs(lon_max - lon_min)
+                    y = lat_min + (1.0 - float(point[1]) / img_height) * abs(lat_max - lat_min)
                     geo_polygon.append((x, y))
-                    pol = Polygon(geo_polygon)
-                geo_polygons.append(pol)
-            gdf = gpd.GeoDataFrame(crs=crs, geometry=geo_polygons)
+
+                pol = Polygon(geo_polygon)
+                # geo_polygons.append(pol)
+                # cls_nums.append(shape['cls_num'])
+                gdf.loc[i, 'geometry'] = pol
+                gdf.loc[i, 'class'] = cls_names[shape['cls_num']]
+                if 'conf' in shape:
+                    gdf.loc[i, 'conf'] = float(shape['conf'])
+                else:
+                    gdf.loc[i, 'conf'] = 1.0
+
+            # gdf = gpd.GeoDataFrame(crs=crs, geometry=geo_polygons)
+            gdf.crs = crs
             gdf.to_file(out_shapefile)
 
 

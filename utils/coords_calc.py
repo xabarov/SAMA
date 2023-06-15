@@ -69,10 +69,10 @@ def load_coords_map(file_name):
 
 
 def get_lat_lon_min_max_coords(coords_net):
-    lat_max = max([abs(x.latitude) for x in coords_net])
-    lat_min = min([abs(x.latitude) for x in coords_net])
-    lon_max = max([abs(x.longitude) for x in coords_net])
-    lon_min = min([abs(x.longitude) for x in coords_net])
+    lat_max = max([x.latitude for x in coords_net])
+    lat_min = min([x.latitude for x in coords_net])
+    lon_max = max([x.longitude for x in coords_net])
+    lon_min = min([x.longitude for x in coords_net])
 
     return lat_min, lat_max, lon_min, lon_max
 

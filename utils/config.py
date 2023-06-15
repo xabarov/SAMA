@@ -94,4 +94,4 @@ PATH_TO_GROUNDING_DINO_CONFIG = 'gd\GroundingDINO\groundingdino\config\Grounding
 PATH_TO_GROUNDING_DINO_CHECKPOINT = 'gd\groundingdino_swint_ogc.pth'
 PATH_TO_SAM_CHECKPOINT = 'sam_models\sam_vit_h_4b8939.pth'
 
-LANGUAGE = 'ENG'  # RU
+LANGUAGE = 'RU'  # ENG

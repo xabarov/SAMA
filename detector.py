@@ -11,6 +11,7 @@ from ui.input_dialog import PromptInputDialog
 from ui.show_image_widget import ShowImgWindow
 from ui.settings_window import SettingsWindow
 from ui.progress import ProgressWindow
+from ui.edit_with_button import EditWithButton
 
 from utils.predictor import SAMImageSetter
 from utils.cnn_worker import CNN_worker
@@ -38,7 +39,6 @@ class Detector(MainWindow):
         # Current CUDA model
         self.last_platform = self.settings.read_platform()
         self.message_cuda_available()
-        self.handle_cuda_models()
 
         # Detector
         self.started_cnn = None
@@ -55,9 +55,10 @@ class Detector(MainWindow):
 
         self.view.mask_end_drawing.on_mask_end_drawing.connect(self.ai_mask_end_drawing)
 
-        self.handle_cuda_models()
-
         self.lrm = None  # name of file with geo coords
+        self.detected_shapes = []
+
+        self.handle_cuda_models()
 
     def createActions(self):
         super(Detector, self).createActions()
@@ -99,8 +100,8 @@ class Detector(MainWindow):
             checkable=True)
 
         self.exportToESRIAct = QAction(
-            "Экспорт в ESRI shapefile" if self.settings.read_lang() == 'RU' else "Export to ESRI shapefiles", self,
-            enabled=False, shortcut="Ctrl+G",
+            "Экспорт в ESRI shapefile" if self.settings.read_lang() == 'RU' else "Export to ESRI shapefile", self,
+            enabled=False,
             triggered=self.export_to_esri)
 
     def createMenus(self):
@@ -122,7 +123,7 @@ class Detector(MainWindow):
         self.classifierMenu.addAction(self.syncLabelsAct)
 
         self.annotatorMenu.addAction(self.balanceAct)
-        self.annotatorMenu.addAction(self.exportToESRIAct)
+        self.annotatorExportMenu.addAction(self.exportToESRIAct)
 
         self.menuBar().clear()
         self.menuBar().addMenu(self.fileMenu)
@@ -185,6 +186,7 @@ class Detector(MainWindow):
         self.aiAnnotatorMaskAct.setEnabled(True)
         self.aiAnnotatorMethodMenu.setEnabled(True)
         self.GroundingDINOSamAct.setEnabled(True)
+        self.exportToESRIAct.setEnabled(True)
         self.image_set = False
         self.queue_image_to_sam(image_name)
         lrm = hf.try_read_lrm(image_name)
@@ -216,8 +218,65 @@ class Detector(MainWindow):
             self.image_set = True
 
     def export_to_esri(self):
+
+        self.esri_path_window = EditWithButton(None, in_separate_window=True,
+                                               theme=self.settings.read_theme(),
+                                               on_button_clicked_callback=self.on_input_esri_path,
+                                               is_dir=False, dialog_text='ESRI shapefile name',
+                                               title=f"Choose ESRI shapefile name", file_type='shp',
+                                               placeholder='ESRI shapefile name', is_existing_file_only=False)
+        self.esri_path_window.show()
+
+    def on_input_esri_path(self):
+
+        esri_filename = self.esri_path_window.getEditText()
+
+        self.esri_path_window.hide()
+
+        if hf.get_extension(esri_filename) != 'shp':
+
+            if self.settings.read_lang() == 'RU':
+                message = f"Имя ESRI shapefile файла должно иметь расширение .shp"
+            else:
+                message = f"ESRI shapefile has to have '.shp' extension."
+
+            self.statusBar().showMessage(
+                message, 3000)
+
+            return
+
         if self.lrm:
-            pass
+            esri_shapes = []
+            view_shapes = self.view.get_all_shapes()
+            for shape in view_shapes:
+                shape_id = shape['id']
+                is_found = False
+                for det_shape in self.detected_shapes:
+                    if det_shape['id'] == shape_id:
+                        esri_shapes.append(det_shape)
+                        is_found = True
+                        break
+                if not is_found:
+                    esri_shapes.append(shape)
+
+            hf.convert_shapes_to_esri(esri_shapes, self.tek_image_path, out_shapefile=esri_filename)
+
+            if self.settings.read_lang() == 'RU':
+                message = f"ESRI shapefile файл создан. Добавлено {len(esri_shapes)} объектов"
+            else:
+                message = f"ESRI shapefile has been created with {len(esri_shapes)} objects."
+
+            self.statusBar().showMessage(
+                message, 3000)
+
+        else:
+            if self.settings.read_lang() == 'RU':
+                message = f"ESRI shapefile файл не создан. Не найден файл геоданных"
+            else:
+                message = f"Can't create ESRI shapefile. No geo data"
+
+            self.statusBar().showMessage(
+                message, 3000)
 
     def sync_labels(self):
         if self.yolo:
@@ -543,7 +602,11 @@ class Detector(MainWindow):
         if self.scanning_mode:
             self.scanning_mode = False
 
+        self.detected_shapes = []
         for res in self.CNN_worker.mask_results:
+
+            shape_id = self.view.get_unique_label_id()
+
             cls_num = res['cls_num']
             points = res['points']
 
@@ -553,7 +616,11 @@ class Detector(MainWindow):
                 color = self.project_data.get_label_color(label)
             if not color:
                 color = cls_settings.PALETTE[cls_num]
-            self.view.add_polygon_to_scene(cls_num, points, color=color)
+
+            self.view.add_polygon_to_scene(cls_num, points, color=color, id=shape_id)
+
+            shape = {'id': shape_id, 'cls_num': cls_num, 'points': points, 'conf': res['conf']}
+            self.detected_shapes.append(shape)
 
         self.write_scene_to_project_data()
         self.fill_labels_on_tek_image_list_widget()
@@ -609,7 +676,7 @@ class Detector(MainWindow):
         shape = self.cv2_image.shape
         for i, mask in enumerate(masks):
             self.prompt_input_dialog.set_progress(10 + int(90.0 * i / len(masks)))
-            points = yolo8masks2points(mask[0] * 255, simplify_factor=3, width=shape[1], height=shape[0])
+            points = yolo8masks2points(mask * 255, simplify_factor=3, width=shape[1], height=shape[0])
             if points:
                 self.view.add_polygon_to_scene(self.prompt_cls_num, points,
                                                color=self.project_data.get_label_color(self.prompt_cls_name))
