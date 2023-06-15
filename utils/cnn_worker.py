@@ -6,7 +6,7 @@ from ui.signals_and_slots import LoadPercentConnection
 import os
 import torch
 import cv2
-import help_functions as hf
+from . import help_functions as hf
 import math
 
 
@@ -89,7 +89,7 @@ class CNN_worker(QtCore.QThread):
                         scanning_results.append({'cls_num': cls_num, 'points': points_shifted, 'conf': conf})
 
                 part_tek += 1
-                self.psnt_connection.percent.emit(90.0*part_tek/len(parts))
+                self.psnt_connection.percent.emit(90.0 * part_tek / len(parts))
 
             self.mask_results = hf.filter_masks(scanning_results, conf_thres=0.2, iou_filter=0.7)
 
