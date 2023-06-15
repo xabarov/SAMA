@@ -22,16 +22,16 @@ Labeling Data for Object Detection and Instance Segmentation with The Segment An
 config paths
 2. Replace CLASSES_ENG and CLASSES_RU in `utils/cls_settings.py` for your classes names
 
+### Install requirements  
+
+Install requirements from `requirements.txt` as `pip install -r requirements.txt`
+
 ### Usage
 
 1. Run `annotator_light.py` for Annotator version without SAM, GroundingDINO, YOLO etc.
 2. Run `annotator.py` for Annotator version with SAM, GroundingDINO, YOLO etc.
 3. Run `detector.py` for Detector version with SAM, GroundingDINO, YOLO etc.
 4. Run `segmentator.py` for Segmentator version with SAM, GroundingDINO, YOLO etc.
-
-### Install requirements
-
-Install requirements from `requirements.txt` as `pip install -r requirements.txt`
 
 ### Common shortcuts
 
