@@ -934,8 +934,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.exportAnnToYoloSegAct.setEnabled(True)
         self.exportAnnToCOCOAct.setEnabled(True)
 
+
         image = cv2.imread(image_name)
-        self.cv2_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        self.cv2_image = image
 
         self.image_set = True
 

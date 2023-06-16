@@ -18,8 +18,8 @@ class CNN_worker(QtCore.QThread):
 
         super(CNN_worker, self).__init__()
 
-        self.conf_thres = conf_thres
-        self.iou_thres = iou_thres
+        self.conf_thres = float(conf_thres)
+        self.iou_thres = float(iou_thres)
         self.model = model
 
         self.img_name = img_name
@@ -91,7 +91,7 @@ class CNN_worker(QtCore.QThread):
                 part_tek += 1
                 self.psnt_connection.percent.emit(90.0 * part_tek / len(parts))
 
-            self.mask_results = hf.filter_masks(scanning_results, conf_thres=0.2, iou_filter=0.7)
+            self.mask_results = hf.filter_masks(scanning_results, conf_thres=self.conf_thres, iou_filter=0.05)
 
             self.psnt_connection.percent.emit(100)
 

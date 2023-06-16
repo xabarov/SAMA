@@ -1,20 +1,21 @@
 from PyQt5 import QtCore
-from utils import config
-from shapely import Polygon
-from utils import coords_calc
 
+from shapely import Polygon
+
+from PIL import Image
+
+from utils import coords_calc
 from utils import cls_settings
-from fiona.crs import from_epsg
+from utils import config
+from utils.gdal_translate import get_data
 
 import math
 import matplotlib as mpl
 import numpy as np
 import yaml
 import geopandas as gpd
-
 import datetime
 import os
-from PIL import Image
 
 
 def try_read_lrm(image_name):
@@ -23,56 +24,56 @@ def try_read_lrm(image_name):
     for map_ext in ['dat', 'map']:
         map_name = name_without_ext + map_ext
         if os.path.exists(map_name):
-            coords_net = coords_calc.load_coords_map(map_name)
+            coords_net = coords_calc.load_coords(map_name)
             img = Image.open(image_name)
 
             img_width, img_height = img.size
 
             return coords_calc.get_lrm(coords_net, img_height)
 
+    if ext == 'tif':
+        gdal_data = get_data(image_name, print_info=False)
+        return coords_calc.lrm_from_gdal_data(image_name, gdal_data)
+
+
 def get_extension(filename):
     return coords_calc.get_ext(filename)
 
-def convert_shapes_to_esri(shapes, image_name, crs='epsg:4326', out_shapefile='esri_shapefile.shp'):
-    ext = coords_calc.get_ext(image_name)
-    name_without_ext = image_name[:-len(ext)]
 
+def convert_shapes_to_esri(shapes, image_name, crs='epsg:4326', out_shapefile='esri_shapefile.shp'):
     img = Image.open(image_name)
 
     img_width, img_height = img.size
 
-    for map_ext in ['dat', 'map']:
-        map_name = name_without_ext + map_ext
-        if os.path.exists(map_name):
-            coords_net = coords_calc.load_coords_map(map_name)
-            lat_min, lat_max, lon_min, lon_max = coords_calc.get_lat_lon_min_max_coords(coords_net)
-            # geo_polygons = []
-            # cls_nums = []
+    geo_extent = coords_calc.get_geo_extent(image_name)
 
-            gdf = gpd.GeoDataFrame()
-            gdf["geometry"] = None
-            cls_names = cls_settings.CLASSES_ENG
-            for i, shape in enumerate(shapes):
-                geo_polygon = []
-                polygon = shape["points"]
-                for point in polygon:
-                    x = lon_min + (float(point[0]) / img_width) * abs(lon_max - lon_min)
-                    y = lat_min + (1.0 - float(point[1]) / img_height) * abs(lat_max - lat_min)
-                    geo_polygon.append((x, y))
+    if not geo_extent:
+        return
 
-                pol = Polygon(geo_polygon)
-                # geo_polygons.append(pol)
-                # cls_nums.append(shape['cls_num'])
-                gdf.loc[i, 'geometry'] = pol
-                gdf.loc[i, 'class'] = cls_names[shape['cls_num']]
-                if 'conf' in shape:
-                    gdf.loc[i, 'conf'] = float(shape['conf'])
-                else:
-                    gdf.loc[i, 'conf'] = 1.0
+    lat_min, lat_max, lon_min, lon_max = geo_extent
 
-            # gdf = gpd.GeoDataFrame(crs=crs, geometry=geo_polygons)
-            gdf.crs = crs
-            gdf.to_file(out_shapefile)
+    gdf = gpd.GeoDataFrame()
+    gdf["geometry"] = None
+    cls_names = cls_settings.CLASSES_ENG
+    for i, shape in enumerate(shapes):
+        geo_polygon = []
+        polygon = shape["points"]
+        for point in polygon:
+            x = lon_min + (float(point[0]) / img_width) * abs(lon_max - lon_min)
+            y = lat_min + (1.0 - float(point[1]) / img_height) * abs(lat_max - lat_min)
+            geo_polygon.append((x, y))
+
+        pol = Polygon(geo_polygon)
+
+        gdf.loc[i, 'geometry'] = pol
+        gdf.loc[i, 'class'] = cls_names[shape['cls_num']]
+        if 'conf' in shape:
+            gdf.loc[i, 'conf'] = float(shape['conf'])
+        else:
+            gdf.loc[i, 'conf'] = 1.0
+
+    gdf.crs = crs
+    gdf.to_file(out_shapefile)
 
 
 def generate_set_of_label_colors():
@@ -330,37 +331,59 @@ def filter_masks(masks_results, conf_thres=0.2, iou_filter=0.3):
     conf_tresh - убираем все боксы с вероятностями ниже заданной
     iou_filter - убираем дубликаты боксов, дубликатами считаются те, значение IoU которых выше этого порога
     """
-    filtered = []
+    unique_results = []
+    skip_nums = []
     for i in range(len(masks_results)):
         if masks_results[i]['conf'] < conf_thres:
             continue
-        is_found = False
-        for j in range(len(masks_results)):
-            if j == i:
+
+        mask_union = None
+
+        if i in skip_nums:
+            continue
+
+        for j in range(i+1, len(masks_results)):
+
+            if j in skip_nums:
                 continue
+
+            if masks_results[i]['cls_num'] != masks_results[j]['cls_num']:
+                continue
+
             pol1 = Polygon(masks_results[i]['points'])
             pol2 = Polygon(masks_results[j]['points'])
 
-            inter = pol1.intersection(pol2)
             un = pol1.union(pol2)
+            inter = pol1.intersection(pol2)
+
             if inter and un:
                 iou = inter.area / un.area
 
                 if iou > iou_filter:
-                    if masks_results[i]['cls_num'] == masks_results[j]['cls_num']:
-                        if masks_results[i]['conf'] < masks_results[j]['conf']:
-                            is_found = True
-        if not is_found:
-            filtered.append(masks_results[i])
 
-    return filtered
+                    if pol1.area > pol2.area:
+                        mask_union = masks_results[i]
+                    else:
+                        mask_union = masks_results[j]
+
+                    skip_nums.append(j)
+
+        if mask_union:
+            unique_results.append(mask_union)
+        else:
+            unique_results.append(masks_results[i])
+
+    return unique_results
 
 
 if __name__ == '__main__':
-    img_name = 'F:\python\\ai_annotator\projects\\aes_big\\ano_google.jpg'
-    lrm = try_read_lrm(img_name)
-    print(lrm)
+    # img_name = 'F:\python\\ai_annotator\projects\\aes_big\\ano_google.jpg'
+    # lrm = try_read_lrm(img_name)
+    # print(lrm)
     # img = cv2.imread(img_name)
     # for i, part in enumerate(split_into_fragments(img, 450)):
     #     cv2.imshow(f'frag {i}', part)
     #     cv2.waitKey(0)
+    coords = Polygon([[0, 1], [2, 3], [4, 5]]).exterior.coords
+    for p in coords:
+        print(p)

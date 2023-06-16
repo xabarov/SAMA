@@ -1,5 +1,6 @@
 from collections import namedtuple
 from PIL import Image
+from utils.gdal_translate import get_extent, get_data
 
 import cv2
 import os
@@ -24,6 +25,33 @@ def load_coords(file_name):
                     coords_net.append(Coords(float(lat), float(lon)))
 
             return coords_net
+
+
+def get_geo_extent(image_filename):
+    coords_file = find_coords_file(image_filename)
+    if coords_file:
+        coords_net = load_coords(coords_file)
+        if coords_net:
+            return get_lat_lon_min_max_coords(coords_net)
+
+    if get_ext(image_filename) == 'tif':
+
+        extent = get_extent(image_filename)  # [(left_poit lat, lon), (right_point]
+        coords_net = []
+        coords_net.append(Coords(float(extent[0][1]), float(extent[0][0])))
+        coords_net.append(Coords(float(extent[1][1]), float(extent[1][0])))
+
+        return get_lat_lon_min_max_coords(coords_net)
+
+
+def lrm_from_gdal_data(image_name, gdal_data):
+    extent = get_extent(image_name) # [left top, bottom right]
+    max_y = extent[0][1]
+    min_y = extent[1][1]
+    delta_lat = abs(max_y - min_y)  # в градусах
+    meters = delta_lat * 111.32 * 1000
+
+    return meters / gdal_data.RasterYSize
 
 
 def find_coords_file(file_name):
@@ -400,12 +428,6 @@ def get_lrm(coords_net, img_height):
 if __name__ == "__main__":
     # Получаем список географических координат углов изображения.
     # Поддерживаемые форматы .map, .kml, .dat
-    coords = load_coords("ano_google.map")
+    img_name ='F:\python\\ai_annotator\projects\geotiff\\byron.tif'
+    print(get_geo_extent(img_name))
 
-    # для получения LRM нужно знать ширину изображения
-    im = Image.open("ano_google.jpg")
-    _, im_height = im.size
-
-    lrm = get_lrm(coords, im_height)
-
-    print(lrm)

@@ -38,7 +38,6 @@ class Annotator(MainWindow):
         # Current CUDA model
         self.last_platform = self.settings.read_platform()
         self.message_cuda_available()
-        self.handle_cuda_models()
 
         # Detector
         self.started_cnn = None
@@ -510,7 +509,7 @@ class Annotator(MainWindow):
         shape = self.cv2_image.shape
         for i, mask in enumerate(masks):
             self.prompt_input_dialog.set_progress(10 + int(90.0 * i / len(masks)))
-            points = yolo8masks2points(mask[0] * 255, simplify_factor=3, width=shape[1], height=shape[0])
+            points = yolo8masks2points(mask * 255, simplify_factor=3, width=shape[1], height=shape[0])
             if points:
                 self.view.add_polygon_to_scene(self.prompt_cls_num, points,
                                                color=self.project_data.get_label_color(self.prompt_cls_name))

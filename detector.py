@@ -36,7 +36,7 @@ class Detector(MainWindow):
 
         self.setWindowTitle("AI Detector")
 
-        # Current CUDA model
+        # CUDA platform
         self.last_platform = self.settings.read_platform()
         self.message_cuda_available()
 
@@ -59,6 +59,8 @@ class Detector(MainWindow):
         self.detected_shapes = []
 
         self.handle_cuda_models()
+
+
 
     def createActions(self):
         super(Detector, self).createActions()
@@ -181,7 +183,9 @@ class Detector(MainWindow):
         self.detectScanAct.setIcon(QIcon(self.icon_folder + "/slide.png"))
 
     def open_image(self, image_name):
+
         super(Detector, self).open_image(image_name)
+
         self.aiAnnotatorPointsAct.setEnabled(True)
         self.aiAnnotatorMaskAct.setEnabled(True)
         self.aiAnnotatorMethodMenu.setEnabled(True)
@@ -525,7 +529,7 @@ class Detector(MainWindow):
 
     def queue_image_to_sam(self, image_name):
 
-        if not self.image_setter.isRunning():
+        if self.image_setter and not self.image_setter.isRunning():
             self.image_setter.set_image(self.cv2_image)
             self.statusBar().showMessage(
                 "Начинаю загружать изображение в нейросеть SAM..." if self.settings.read_lang() == 'RU' else "Start loading image to SAM...",
