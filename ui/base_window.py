@@ -612,6 +612,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.import_dialog.show()
 
     def on_import_coco_clicked(self):
+
         proj_data = self.import_dialog.getData()
         if proj_data:
             label_names = self.import_dialog.get_label_names()
@@ -629,8 +630,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.project_data.set_data(self.importer.get_project())
 
         if self.loaded_proj_name:
-            self.project_data.save(self.loaded_proj_name)
-            self.load_project(self.loaded_proj_name)
+            self.project_data.save(self.loaded_proj_name, on_save_callback=self.reload_project)
+
+        else:
+            self.save_project_as(on_save_callback=self.reload_project)
+            # self.on_checking_project_success(self.project_data.get_image_path())
 
         self.import_dialog.hide()
 
@@ -1010,10 +1014,8 @@ class MainWindow(QtWidgets.QMainWindow):
             3000)
         self.loaded_proj_name = self.create_new_proj_dialog.get_project_name()
         self.create_new_proj_dialog.hide()
-        self.save_project_as(proj_name=self.loaded_proj_name, on_save_callback=self.on_created_project_saved)
+        self.save_project_as(proj_name=self.loaded_proj_name, on_save_callback=self.reload_project)
 
-    def on_created_project_saved(self):
-        self.load_project(self.loaded_proj_name)
 
     def fill_images_label(self, image_names):
 
@@ -1098,6 +1100,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.statusBar().showMessage(
             f"Число загруженных в проект изображений: {len(self.dataset_images)}" if self.settings.read_lang() == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
             3000)
+
+    def reload_project(self):
+        self.load_project(self.loaded_proj_name)
 
     def load_project(self, project_name):
 
@@ -1187,9 +1192,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.set_labels_color()  # сохранение информации о цветах масок
             self.write_scene_to_project_data()
 
-            self.project_data.save(self.loaded_proj_name)
-
-            self.fill_project_labels()
+            self.project_data.save(self.loaded_proj_name, on_save_callback=self.fill_project_labels)
 
             self.statusBar().showMessage(
                 f"Проект успешно сохранен" if self.settings.read_lang() == 'RU' else "Project is saved", 3000)

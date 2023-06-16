@@ -7,19 +7,6 @@ from shapely import Point
 import rasterio
 
 
-# def get_extent(geo_transform, raster_x_size, raster_y_size):
-#     min_x = geo_transform[0]
-#     max_y = geo_transform[3]
-#     max_x = min_x + geo_transform[1] * raster_x_size
-#     min_y = max_y + geo_transform[5] * raster_y_size
-#     points = [Point(min_x, max_y), Point(max_x, min_y)]
-#     gdf = gpd.GeoDataFrame(geometry=points, crs=3857)
-#     gdf = gdf.to_crs(4326)
-#
-#     points = [(point.x, point.y) for point in gdf['geometry']]
-#
-#     return points
-
 def get_extent(img_filename):
     dataset = rasterio.open(img_filename)
     bounds = dataset.bounds

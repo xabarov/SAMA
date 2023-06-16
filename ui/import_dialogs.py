@@ -128,7 +128,7 @@ class ImportFromYOLODialog(QWidget):
                 yaml_data = yaml.safe_load(f)
                 combo_vars = []
                 for t in ["train", "val", 'test']:
-                    if yaml_data[t]:
+                    if t in yaml_data:
                         combo_vars.append(t)
 
                 self.dataset_combo.addItems(np.array(combo_vars))

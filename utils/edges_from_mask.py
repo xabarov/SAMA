@@ -152,41 +152,47 @@ def yolo8masks2points(yolo_mask, simplify_factor=3, width=1280, height=1280):
         return None
 
 
-def mask2seg(mask_filename, simpify_factor=3):
-    seg = {}  # pairs of x,y pixels
+def mask2seg(mask_filename, simpify_factor=3, cls_num=None):
+
+
     img_data = cv2.imread(mask_filename)
-    img_data = img_data > 128
+
+    if not cls_num:
+        img_data = img_data > 128
+    else:
+        img_data = img_data == cls_num
+
     size = img_data.shape[0] * img_data.shape[1]
 
     img_data = np.asarray(img_data[:, :, 0], dtype=np.double)
 
-    polygon = mask_to_polygons_layer(img_data).simplify(simpify_factor, preserve_topology=False)
+    polygons = mask_to_polygons_layer(img_data)
 
-    try:
-        xy = np.asarray(polygon.boundary.xy, dtype="int32")
-        seg['x'] = xy[0].tolist()
-        seg['y'] = xy[1].tolist()
-        seg['size'] = size
-        return seg
+    results = []
+    for pol in polygons:
+        seg = {}  # pairs of x,y pixels
+        pol_simplified = pol.simplify(simpify_factor, preserve_topology=False)
 
-    except:
+        try:
+            xy = np.asarray(pol_simplified.boundary.xy, dtype="int32")
+            seg['x'] = xy[0].tolist()
+            seg['y'] = xy[1].tolist()
+            seg['size'] = size
+            results.append(seg)
 
-        return None
+        except:
+            pass
+
+    return results
 
 
 def mask_to_polygons_layer(mask):
-    all_polygons = []
+    shapes = []
     for shape, value in features.shapes(mask.astype(np.int16), mask=(mask > 0),
                                         transform=rasterio.Affine(1.0, 0, 0, 0, 1.0, 0)):
-        return shapely.geometry.shape(shape)
-        all_polygons.append(shapely.geometry.shape(shape))
+        shapes.append(shapely.geometry.shape(shape))
 
-    all_polygons = shapely.geometry.MultiPolygon(all_polygons)
-    if not all_polygons.is_valid:
-        all_polygons = all_polygons.buffer(0)
-        if all_polygons.type == 'Polygon':
-            all_polygons = shapely.geometry.MultiPolygon([all_polygons])
-    return all_polygons
+    return shapes
 
 
 def mask_folder2seg_results(folder, simpify_factor=3):
@@ -260,7 +266,7 @@ def make_edge(mask_filename, save_name='mask_edge.png', is_save=True):
 
 
 if __name__ == '__main__':
-    test_mask = "test_mask.png"
-    mask_folder = 'D:\python\qgis\\filtered_masks'
+    test_mask = "test.png"
     # print(mask2seg(test_mask))
-    seg_res = mask_folder2seg_results(mask_folder)
+    seg_res = mask2seg(test_mask, cls_num=3)
+    print(seg_res)

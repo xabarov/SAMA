@@ -18,9 +18,8 @@ class SaverWorker(QtCore.QThread):
         self.queue.append(s)
 
     def run(self):
-        last_data = self.queue[-1]
-        self.queue = []
-        with open(last_data.filename, 'w') as f:
-            json.dump(last_data.json_data, f)
-
-
+        if len(self.queue) > 0:
+            last_data = self.queue[-1]
+            self.queue = []
+            with open(last_data.filename, 'w', encoding='utf8') as f:
+                json.dump(last_data.json_data, f)
