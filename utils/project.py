@@ -223,9 +223,9 @@ class ProjectHandler:
 
     def delete_label(self, label_name):
         labels = []
-        for label in labels:
+        for label in self.data['labels']:
             if label != label_name:
-                labels.append(labels)
+                labels.append(label)
         self.set_labels(labels)
 
     def del_image(self, image_name):
@@ -317,6 +317,9 @@ class ProjectHandler:
         self.delete_label_color(from_cls_name)
 
     def exportToYOLOSeg(self, export_dir):
+
+        self.clear_not_existing_images()
+
         if os.path.isdir(export_dir):
             for image in self.data["images"]:
                 if len(image["shapes"]):  # чтобы не создавать пустых файлов
@@ -325,6 +328,8 @@ class ProjectHandler:
                     # im = cv2.imread(fullname)  # height, width
                     txt_yolo_name = hf.convert_image_name_to_txt_name(filename)
                     # im_shape = im.shape
+                    if not os.path.exists(fullname):
+                        continue
 
                     width, height = Image.open(fullname).size
                     im_shape = [height, width]
@@ -341,7 +346,21 @@ class ProjectHandler:
             return True
         return False
 
+    def clear_not_existing_images(self):
+        images = []
+        im_path = self.get_image_path()
+        for im in self.data['images']:
+            if os.path.exists(os.path.join(im_path, im['filename'])):
+                images.append(im)
+            else:
+                print(f"Checking files: image {im['filename']} doesn't exist")
+
+        self.data['images'] = images
+
+
     def exportToCOCO(self, export_сoco_name):
+
+        self.clear_not_existing_images()
 
         if os.path.isdir(os.path.dirname(export_сoco_name)):
             export_json = {}
@@ -360,6 +379,9 @@ class ProjectHandler:
                 im_full_path = os.path.join(self.data["path_to_images"], filename)
                 # im = cv2.imread(im_full_path)
                 # im_shape = im.shape
+
+                if not os.path.exists(im_full_path):
+                    continue
 
                 width, height = Image.open(im_full_path).size
                 im_shape = [height, width]
@@ -428,6 +450,8 @@ class ProjectHandler:
         return False
 
     def exportToYOLOBox(self, export_dir):
+
+        self.clear_not_existing_images()
 
         if os.path.isdir(export_dir):
             for image in self.data["images"]:

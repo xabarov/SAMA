@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-
 PALETTE = [
     (252, 66, 123, 120),
     (192, 57, 43, 120),
@@ -22,17 +21,12 @@ PALETTE = [
 
 PALETTE_SEG = [
     [0, 0, 0],  # фон
-    [235, 77, 75],  # РО квадратный, красный
-    [238, 90, 36],  # РО круглый, оранжевый
-    [255, 221, 89],  # МЗ, желтый
-    [165, 94, 234],  # РУ, фиалетовый
-    [209, 216, 224],  # Градирня большая круглая, светло-серая
-    [165, 177, 194],  # Градирня вентиляторная круглая, темно-серая
-    [119, 140, 163],  # Градирня вентиляторная прямоугольная, серая, еще темнее
-    [69, 170, 242]  # вода, голубой]
+    [69, 170, 242],  # вода, голубой
+    [235, 77, 75]  # пар, красный
+
 ]
 
-CLASSES_SEG = ('background', 'ro_kv', 'ro_cil', 'mz', 'ru', 'gr_b', 'gr_vent_kr', 'gr_vent_pr', 'water')
+CLASSES_SEG = ('background', 'water', 'vapor')
 
 CLASSES_RU = ["РО кв", "РО", "МЗ", "Турбина", "РУ", "БНС", "Градирня пасс", "Град.вент.кр", "Град.вент.пр",
               "Градирня акт", "БСС", "ДГС"]
@@ -87,7 +81,6 @@ CNN_LIST = [
 ]
 
 CNN_DEFAULT = 'YOLOv8'
-CNN_MAP_DEFAULT = "Cascade R-CNN"
 
 CNN_TYPES = ["YOLO8", "YOLO5", "YOLOR", "MM_OD", "MM_MASK", "D2_OD", "D2_MASK", "D2_RETINA"]
 
@@ -174,8 +167,8 @@ CNN_DICT = {
 }
 
 SEG_DICT = {
-    "PSPNet": {"weights": "mm_segmentation\checkpoints\latest_palette.pth",
-               "config": "mm_segmentation\configs\\aes_custom_config_large.py"}
+    "PSPNet": {"weights": "mm_segmentation\checkpoints\pspnet_r50-d8_aes.pth",
+               "config": "mm_segmentation\configs\pspnet_r50-d8_aes.py"}
 }
 
 

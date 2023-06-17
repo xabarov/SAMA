@@ -84,7 +84,7 @@ def seg_res_to_masks(seg_res, mask_new_folder, img_width, img_height):
 
         pol = Polygon(pol)
 
-        mask_image = features.rasterize([pol], out_shape=(img_height, img_width), fill=0, default_value=255)
+        mask_image = features.rasterize([pol], out_shape=(img_height, img_width), fill=255, default_value=cls)
 
         if cls not in created_mask_dict:
             created_mask_dict[cls] = 0
@@ -98,6 +98,80 @@ def seg_res_to_masks(seg_res, mask_new_folder, img_width, img_height):
         new_path = os.path.join(mask_new_folder, mask_name)
 
         cv2.imwrite(new_path, mask_image)
+
+
+def seg_res_from_yolo_label(yolo_label_path, image_width, image_height):
+    seg_results = []
+    if os.path.exists(yolo_label_path):
+        with open(yolo_label_path, 'r') as f:
+            for line in f:
+                cls_and_xy = line.split()
+                cls = int(cls_and_xy[0])
+                x_points = []
+                y_points = []
+                for i in range(1, len(cls_and_xy), 2):
+                    x_points.append(float(cls_and_xy[i]) * image_width)
+                    y_points.append(float(cls_and_xy[i + 1]) * image_height)
+                seg = {'cls': cls, 'seg': {'x': x_points, 'y': y_points}}
+
+                seg_results.append(seg)
+
+    return seg_results
+
+
+def create_png_from_yolo(yolo_label_path, image_path, save_path, background_cls=0):
+    img = Image.open(image_path)
+
+    img_width, img_height = img.size
+
+    seg_reults = seg_res_from_yolo_label(yolo_label_path, img_width, img_height)
+
+    final_mask = np.zeros((img_height, img_width))
+    final_mask[:, :] = 0
+
+    for seg in seg_reults:
+        cls = seg['cls']
+        if background_cls == 0:
+            cls += 1
+
+        x_mass = seg['seg']['x']
+        y_mass = seg['seg']['y']
+
+        pol = []
+        for x, y in zip(x_mass, y_mass):
+            pol.append((x, y))
+
+        pol = Polygon(pol)
+
+        mask_image = features.rasterize([pol], out_shape=(img_height, img_width),
+                                        fill=background_cls,
+                                        default_value=cls)
+
+        final_mask[mask_image == cls] = cls
+    cv2.imwrite(save_path, final_mask)
+
+
+def create_seg_annotations_from_yolo_seg(images_folder, yolo_seg_folder, png_save_folder, img_suffix='jpg'):
+    if not os.path.exists(png_save_folder):
+        os.makedirs(png_save_folder)
+
+    print(f'Start annotation creation')
+
+    for im in os.listdir(images_folder):
+        if im.endswith(img_suffix):
+
+            base_img_name = im.split('.' + img_suffix)[0]
+            txt_name = base_img_name + '.txt'
+            txt_path = os.path.join(yolo_seg_folder, txt_name)
+            if not os.path.exists(txt_path):
+                print(f"    label {txt_path} doesn't exists")
+                continue
+            png_name = base_img_name + '.png'
+            png_path = os.path.join(png_save_folder, png_name)
+            create_png_from_yolo(txt_path, os.path.join(images_folder, im), png_path)
+            print(f'    annotation for {im} done')
+
+    print(f'Annotation creation done')
 
 
 def calc_areas(seg_results, lrm, verbose=False, cls_names=None, scale=1):
@@ -155,7 +229,6 @@ def yolo8masks2points(yolo_mask, simplify_factor=3, width=1280, height=1280):
 
 
 def mask2seg(mask_filename, simpify_factor=3, cls_num=None):
-
     img_data = cv2.imread(mask_filename)
 
     if not cls_num:
@@ -266,8 +339,35 @@ def make_edge(mask_filename, save_name='mask_edge.png', is_save=True):
     return temp_edge
 
 
+def get_images_not_match(train_folder, val_folder, add_folder):
+    all_images = os.listdir(add_folder)
+    train_images = os.listdir(train_folder)
+    val_images = os.listdir(val_folder)
+
+    all_old = train_images + val_images
+
+    new_images = [im for im in all_images if im not in all_old]
+    return new_images
+
+
+def create_png(dataset_path):
+    for folder in ['train', 'val']:
+        images_path = f'{dataset_path}\images\\{folder}'
+        labels_path = f'{dataset_path}\labels\\{folder}'
+        mask_path = f'{dataset_path}\\annotations\\{folder}'
+        create_seg_annotations_from_yolo_seg(images_path, labels_path, mask_path)
+
+
 if __name__ == '__main__':
-    test_mask = "test.png"
-    # print(mask2seg(test_mask))
-    seg_res = mask2seg(test_mask, cls_num=3)
-    print(seg_res)
+
+    # train_folder= 'D:\python\datasets\\aes_seg\images\\train'
+    # val_folder = 'D:\python\datasets\\aes_seg\images\\val'
+    # big_folder = 'D:\python\datasets\\aes_2200_copy'
+    #
+    # print(get_images_not_match(train_folder, val_folder, big_folder))
+
+    for folder in ['train', 'val']:
+        images_path = f'D:\python\datasets\\aes_seg\images\\{folder}'
+        labels_path = f'D:\python\datasets\\aes_seg\labels\\{folder}'
+        mask_path = f'D:\python\datasets\\aes_seg\\annotations\\{folder}'
+        create_seg_annotations_from_yolo_seg(images_path, labels_path, mask_path)

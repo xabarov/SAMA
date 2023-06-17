@@ -1,10 +1,8 @@
-from PyQt5.QtWidgets import QLabel, QWidget, QGroupBox, QFormLayout, QComboBox, QVBoxLayout, \
-    QHBoxLayout, QPushButton, QSlider, QDoubleSpinBox
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QLabel, QGroupBox, QFormLayout, QComboBox, QVBoxLayout, QDoubleSpinBox
 
-from utils.settings_handler import AppSettings
 from utils import cls_settings
 from ui.settings_window_base import SettingsWindowBase
+from ui.edit_with_button import EditWithButton
 
 import numpy as np
 
