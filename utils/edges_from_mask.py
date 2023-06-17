@@ -137,7 +137,9 @@ def yolo8masks2points(yolo_mask, simplify_factor=3, width=1280, height=1280):
 
     img_data = np.asarray(img_data[:, :], dtype=np.double)
 
-    polygon = mask_to_polygons_layer(img_data).simplify(simplify_factor, preserve_topology=False)
+    polygons = mask_to_polygons_layer(img_data)
+
+    polygon = polygons[0].simplify(simplify_factor, preserve_topology=False)
 
     try:
         xy = np.asarray(polygon.boundary.xy, dtype="float")
@@ -153,7 +155,6 @@ def yolo8masks2points(yolo_mask, simplify_factor=3, width=1280, height=1280):
 
 
 def mask2seg(mask_filename, simpify_factor=3, cls_num=None):
-
 
     img_data = cv2.imread(mask_filename)
 

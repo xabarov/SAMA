@@ -41,8 +41,9 @@ class ImportFromYOLODialog(QWidget):
 
         self.dataset_layout.addWidget(self.dataset_label)
         self.dataset_layout.addWidget(self.dataset_combo)
-        self.dataset_label.setEnabled(False)
-        self.dataset_combo.setEnabled(False)
+        self.dataset_label.setVisible(False)
+        self.dataset_combo.setVisible(False)
+        self.dataset_combo.currentTextChanged.connect(self.on_dataset_change)
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setMinimum(0)
@@ -89,6 +90,7 @@ class ImportFromYOLODialog(QWidget):
 
         self.mainLayout = QVBoxLayout()
         self.mainLayout.addWidget(self.yaml_edit_with_button)
+        self.mainLayout.addLayout(self.dataset_layout)
         self.mainLayout.addLayout(save_images_layout)
         self.mainLayout.addWidget(self.save_images_edit_with_button)
 
@@ -102,13 +104,16 @@ class ImportFromYOLODialog(QWidget):
 
         self.resize(int(width), int(height))
 
+    def on_dataset_change(self, dataset_type):
+        self.data["selected_dataset"] = dataset_type
+
     def on_checkbox_clicked(self):
         self.is_copy_images = self.save_images_checkbox.isChecked()
         self.save_images_edit_with_button.setVisible(self.is_copy_images)
 
     def on_ok(self):
         self.yaml_edit_with_button.setEnabled(False)
-        self.dataset_combo.setEnabled(False)
+        self.dataset_combo.setVisible(False)
         self.cancelBtn.setEnabled(False)
         self.okBtn.setEnabled(False)
         self.data['is_copy_images'] = self.is_copy_images
@@ -137,8 +142,8 @@ class ImportFromYOLODialog(QWidget):
                 self.data["selected_dataset"] = self.dataset_combo.currentText()
                 self.data['yaml_path'] = yaml_name
 
-                self.dataset_label.setEnabled(True)
-                self.dataset_combo.setEnabled(True)
+                self.dataset_label.setVisible(True)
+                self.dataset_combo.setVisible(True)
 
     def getData(self):
         return self.data

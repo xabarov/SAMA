@@ -19,6 +19,7 @@ class ProjectHandler:
 
     def __init__(self):
         self.init()
+        self.saver = SaverWorker()
 
     def check_json(self, json_project_data):
         for field in ["path_to_images", "images", "labels", "labels_color"]:
@@ -72,12 +73,12 @@ class ProjectHandler:
 
     def save(self, json_path, on_save_callback=None):
 
-        worker = SaverWorker(json_path, self.data)
+        self.saver.enqueue(json_path, self.data)
         if on_save_callback:
-            worker.finished.connect(on_save_callback)
+            self.saver.finished.connect(on_save_callback)
 
-        if not worker.isRunning():
-            worker.start()
+        if not self.saver.isRunning():
+            self.saver.start()
 
 
     def set_data(self, data):

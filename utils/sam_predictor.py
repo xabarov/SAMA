@@ -1,5 +1,6 @@
 from rasterio import features
 from segment_anything import sam_model_registry, SamPredictor
+from utils.edges_from_mask import mask_to_polygons_layer
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -67,29 +68,29 @@ def predict_by_points(predictor, input_point, input_label, multi=True):
         return [masks]
 
 
-def mask_to_polygons_layer(mask):
-    for shape, value in features.shapes(mask.astype(np.int16), mask=(mask > 0),
-                                        transform=rasterio.Affine(1.0, 0, 0, 0, 1.0, 0)):
-        return shapely.geometry.shape(shape)
-
-
 def mask_to_seg(mask, simplify_factor=2):
     img_data = np.asarray(mask[:, :], dtype=np.double)
-    polygon = mask_to_polygons_layer(img_data).simplify(simplify_factor, preserve_topology=False)
+    polygons = mask_to_polygons_layer(img_data)
 
-    try:
-        xy = np.asarray(polygon.boundary.xy, dtype="int32")
-        points = []
+    results = []
+    for pol in polygons:
+        pol_simplified = pol.simplify(simplify_factor, preserve_topology=False)
 
-        xs = xy[0].tolist()
-        ys = xy[1].tolist()
-        for x, y in zip(xs, ys):
-            points.append([x, y])
-        return points
+        try:
+            xy = np.asarray(pol_simplified.boundary.xy, dtype="int32")
+            points = []
 
-    except:
+            xs = xy[0].tolist()
+            ys = xy[1].tolist()
+            for x, y in zip(xs, ys):
+                points.append([x, y])
 
-        return None
+            results.append(points)
+
+        except:
+            pass
+
+    return results
 
 
 def predict_by_box(predictor, input_box, is_best=True):

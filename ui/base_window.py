@@ -633,6 +633,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.project_data.save(self.loaded_proj_name, on_save_callback=self.reload_project)
 
         else:
+            self.fill_labels_combo_from_project()
             self.save_project_as(on_save_callback=self.reload_project)
             # self.on_checking_project_success(self.project_data.get_image_path())
 
@@ -1180,7 +1181,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.cls_combo.clear()
             self.labels_on_tek_image.clear()
             self.images_list_widget.clear()
-            self.del_im_from_proj_clicked()
+            self.view.clearScene()
 
     def save_project(self):
         """

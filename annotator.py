@@ -248,33 +248,35 @@ class Annotator(MainWindow):
         alpha_tek = self.settings.read_alpha()
         self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
 
-    def add_sam_polygon_to_scene(self, sam_mask, id):
+    def add_sam_polygon_to_scene(self, sam_mask):
         points_mass = mask_to_seg(sam_mask)
 
-        if points_mass:
-            shapely_pol = Polygon(points_mass)
-            area = shapely_pol.area
-            if area > config.POLYGON_AREA_THRESHOLD:
+        if len(points_mass) > 0:
+            for points in points_mass:
+                shapely_pol = Polygon(points)
+                area = shapely_pol.area
+                if area > config.POLYGON_AREA_THRESHOLD:
 
-                cls_num = self.cls_combo.currentIndex()
-                cls_name = self.cls_combo.itemText(cls_num)
-                alpha_tek = self.settings.read_alpha()
-                color = self.project_data.get_label_color(cls_name)
+                    cls_num = self.cls_combo.currentIndex()
+                    cls_name = self.cls_combo.itemText(cls_num)
+                    alpha_tek = self.settings.read_alpha()
+                    color = self.project_data.get_label_color(cls_name)
 
-                self.view.add_polygon_to_scene(cls_num, points_mass, color, alpha_tek, id=id)
-                self.write_scene_to_project_data()
-                self.fill_labels_on_tek_image_list_widget()
-            else:
-                if self.settings.read_lang() == 'RU':
-                    self.statusBar().showMessage(
-                        f"Метку сделать не удалось. Площадь маски слишком мала {area:0.3f}. Попробуйте еще раз", 3000)
+                    self.view.add_polygon_to_scene(cls_num, points, color, alpha_tek, id=None)
+                    self.write_scene_to_project_data()
+                    self.fill_labels_on_tek_image_list_widget()
                 else:
-                    self.statusBar().showMessage(
-                        f"Can't create label. Area of label is too small {area:0.3f}. Try again", 3000)
+                    if self.settings.read_lang() == 'RU':
+                        self.statusBar().showMessage(
+                            f"Метку сделать не удалось. Площадь маски слишком мала {area:0.3f}. Попробуйте еще раз",
+                            3000)
+                    else:
+                        self.statusBar().showMessage(
+                            f"Can't create label. Area of label is too small {area:0.3f}. Try again", 3000)
 
-                self.view.remove_label_id(id)
-                self.write_scene_to_project_data()
-                self.fill_labels_on_tek_image_list_widget()
+                    self.view.remove_label_id(id)
+                    self.write_scene_to_project_data()
+                    self.fill_labels_on_tek_image_list_widget()
         else:
             self.view.remove_label_id(id)
             self.write_scene_to_project_data()
@@ -292,7 +294,7 @@ class Annotator(MainWindow):
         if len(input_box):
             if self.image_set and not self.image_setter.isRunning():
                 mask = predict_by_box(self.sam, input_box)
-                self.add_sam_polygon_to_scene(mask, self.view.get_unique_label_id())
+                self.add_sam_polygon_to_scene(mask)
 
         self.view.end_drawing()
         self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
@@ -320,7 +322,7 @@ class Annotator(MainWindow):
                 if self.image_set and not self.image_setter.isRunning():
                     masks = predict_by_points(self.sam, input_point, input_label, multi=False)
                     for mask in masks:
-                        self.add_sam_polygon_to_scene(mask, id=self.view.get_unique_label_id())
+                        self.add_sam_polygon_to_scene(mask)
 
             else:
                 self.view.remove_active()
@@ -451,7 +453,6 @@ class Annotator(MainWindow):
         """
         mask_results = self.CNN_worker.mask_results
         shape = self.cv2_image.shape
-
 
         for res in mask_results:
             for i, mask in enumerate(res['masks']):
