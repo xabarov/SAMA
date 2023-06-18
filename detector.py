@@ -19,6 +19,8 @@ from utils.sam_predictor import load_model as sam_load_model
 from utils import cls_settings
 from utils.edges_from_mask import yolo8masks2points
 from utils.sam_predictor import mask_to_seg, predict_by_points, predict_by_box
+from utils.segmenter_worker import SegmenterWorker
+
 from gd.gd_worker import GroundingSAMWorker
 
 from gd.gd_sam import load_model as gd_load_model
@@ -60,8 +62,6 @@ class Detector(MainWindow):
 
         self.handle_cuda_models()
 
-
-
     def createActions(self):
         super(Detector, self).createActions()
 
@@ -82,6 +82,11 @@ class Detector(MainWindow):
             "Синхронизировать имена меток" if self.settings.read_lang() == 'RU' else "Fill label names from AI model",
             self, enabled=False,
             triggered=self.sync_labels)
+
+        self.segmentImage = QAction(
+            "Сегментация" if self.settings.read_lang() == 'RU' else "Segment image",
+            self, enabled=False,
+            triggered=self.segment_image)
 
         # AI Annotators
         self.aiAnnotatorPointsAct = QAction(
@@ -123,6 +128,7 @@ class Detector(MainWindow):
         self.classifierMenu.addAction(self.detectAct)
         self.classifierMenu.addAction(self.detectScanAct)
         self.classifierMenu.addAction(self.syncLabelsAct)
+        self.classifierMenu.addAction(self.segmentImage)
 
         self.annotatorMenu.addAction(self.balanceAct)
         self.annotatorExportMenu.addAction(self.exportToESRIAct)
@@ -191,6 +197,7 @@ class Detector(MainWindow):
         self.aiAnnotatorMethodMenu.setEnabled(True)
         self.GroundingDINOSamAct.setEnabled(True)
         self.exportToESRIAct.setEnabled(True)
+        self.segmentImage.setEnabled(True)
         self.image_set = False
         self.queue_image_to_sam(image_name)
         lrm = hf.try_read_lrm(image_name)
@@ -220,6 +227,77 @@ class Detector(MainWindow):
                 "Нейросеть SAM готова к сегментации" if self.settings.read_lang() == 'RU' else "SAM ready to work",
                 3000)
             self.image_set = True
+
+    def on_segment_start(self):
+        print('Started')
+        self.start_gif(is_prog_load=True)
+
+    def on_segment_finished(self):
+        print('Finished')
+        mask_results = self.seg_worker.mask_results
+        for mask_result in mask_results:
+            cls_name = mask_result['class_name']
+
+            if cls_name == 'background':
+                # background
+                continue
+
+            cls_num = mask_result['cls_num']
+            color = cls_settings.PALETTE_SEG[cls_num]
+            points_mass = mask_result['points']
+
+            self.view.add_group_of_points(points_mass, cls_name=cls_name, color=color,
+                                          alpha=self.settings.read_alpha())
+
+        self.splash.finish(self)
+        # for points in points_mass:
+        #     cls_num = self.project_data.get_label_num(cls_name)
+        #     if cls_num == -1:
+        #         cls_num = 0
+        #     self.add_segment_polygon_to_scene(points, cls_num)
+
+    def add_segment_polygon_to_scene(self, points, cls_num):
+
+        if len(points) > 0:
+            shapely_pol = Polygon(points)
+            area = shapely_pol.area
+            if area > config.POLYGON_AREA_THRESHOLD:
+
+                cls_name = self.cls_combo.itemText(cls_num)
+                alpha_tek = self.settings.read_alpha()
+                color = self.project_data.get_label_color(cls_name)
+
+                self.view.add_polygon_to_scene(cls_num, points, color, alpha_tek, id=None)
+                self.write_scene_to_project_data()
+                self.fill_labels_on_tek_image_list_widget()
+            else:
+                if self.settings.read_lang() == 'RU':
+                    self.statusBar().showMessage(
+                        f"Метку сделать не удалось. Площадь маски слишком мала {area:0.3f}. Попробуйте еще раз", 3000)
+                else:
+                    self.statusBar().showMessage(
+                        f"Can't create label. Area of label is too small {area:0.3f}. Try again", 3000)
+
+        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+
+    def segment_image(self):
+
+        config = "D:\python\\aia_git\\ai_annotator\mm_segmentation\configs\psp_aes.py"
+        checkpoint = "D:\python\\aia_git\\ai_annotator/mm_segmentation/checkpoints/iter_52000_83_59.pth"
+
+        im = self.cv2_image
+
+        palette = cls_settings.PALETTE_SEG
+        classes = cls_settings.CLASSES_SEG
+        self.seg_worker = SegmenterWorker(image_path=im, config_path=config, checkpoint_path=checkpoint,
+                                          palette=palette,
+                                          classes=classes, device='cuda')
+
+        self.seg_worker.started.connect(self.on_segment_start)
+        self.seg_worker.finished.connect(self.on_segment_finished)
+
+        if not self.seg_worker.isRunning():
+            self.seg_worker.start()
 
     def export_to_esri(self):
 
@@ -307,6 +385,15 @@ class Detector(MainWindow):
 
         self.settings_window.show()
 
+    def close_project(self):
+        super(Detector, self).close_project()
+
+        self.balanceAct.setEnabled(False)
+        self.detectAct.setEnabled(False)
+        self.detectScanAct.setEnabled(False)
+        self.syncLabelsAct.setEnabled(False)
+        self.segmentImage.setEnabled(False)
+
     def about(self):
         """
         Окно о приложении
@@ -322,6 +409,7 @@ class Detector(MainWindow):
         self.detectAct.setEnabled(True)
         self.detectScanAct.setEnabled(True)
         self.syncLabelsAct.setEnabled(True)
+        self.segmentImage.setEnabled(True)
 
     def handle_cuda_models(self):
 
@@ -387,33 +475,35 @@ class Detector(MainWindow):
         alpha_tek = self.settings.read_alpha()
         self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
 
-    def add_sam_polygon_to_scene(self, sam_mask, id):
+    def add_sam_polygon_to_scene(self, sam_mask):
         points_mass = mask_to_seg(sam_mask)
 
-        if points_mass:
-            shapely_pol = Polygon(points_mass)
-            area = shapely_pol.area
-            if area > config.POLYGON_AREA_THRESHOLD:
+        if len(points_mass) > 0:
+            for points in points_mass:
+                shapely_pol = Polygon(points)
+                area = shapely_pol.area
+                if area > config.POLYGON_AREA_THRESHOLD:
 
-                cls_num = self.cls_combo.currentIndex()
-                cls_name = self.cls_combo.itemText(cls_num)
-                alpha_tek = self.settings.read_alpha()
-                color = self.project_data.get_label_color(cls_name)
+                    cls_num = self.cls_combo.currentIndex()
+                    cls_name = self.cls_combo.itemText(cls_num)
+                    alpha_tek = self.settings.read_alpha()
+                    color = self.project_data.get_label_color(cls_name)
 
-                self.view.add_polygon_to_scene(cls_num, points_mass, color, alpha_tek, id=id)
-                self.write_scene_to_project_data()
-                self.fill_labels_on_tek_image_list_widget()
-            else:
-                if self.settings.read_lang() == 'RU':
-                    self.statusBar().showMessage(
-                        f"Метку сделать не удалось. Площадь маски слишком мала {area:0.3f}. Попробуйте еще раз", 3000)
+                    self.view.add_polygon_to_scene(cls_num, points, color, alpha_tek, id=None)
+                    self.write_scene_to_project_data()
+                    self.fill_labels_on_tek_image_list_widget()
                 else:
-                    self.statusBar().showMessage(
-                        f"Can't create label. Area of label is too small {area:0.3f}. Try again", 3000)
+                    if self.settings.read_lang() == 'RU':
+                        self.statusBar().showMessage(
+                            f"Метку сделать не удалось. Площадь маски слишком мала {area:0.3f}. Попробуйте еще раз",
+                            3000)
+                    else:
+                        self.statusBar().showMessage(
+                            f"Can't create label. Area of label is too small {area:0.3f}. Try again", 3000)
 
-                self.view.remove_label_id(id)
-                self.write_scene_to_project_data()
-                self.fill_labels_on_tek_image_list_widget()
+                    self.view.remove_label_id(id)
+                    self.write_scene_to_project_data()
+                    self.fill_labels_on_tek_image_list_widget()
         else:
             self.view.remove_label_id(id)
             self.write_scene_to_project_data()
@@ -431,7 +521,7 @@ class Detector(MainWindow):
         if len(input_box):
             if self.image_set and not self.image_setter.isRunning():
                 mask = predict_by_box(self.sam, input_box)
-                self.add_sam_polygon_to_scene(mask, self.view.get_unique_label_id())
+                self.add_sam_polygon_to_scene(mask)
 
         self.view.end_drawing()
         self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
@@ -459,7 +549,7 @@ class Detector(MainWindow):
                 if self.image_set and not self.image_setter.isRunning():
                     masks = predict_by_points(self.sam, input_point, input_label, multi=False)
                     for mask in masks:
-                        self.add_sam_polygon_to_scene(mask, id=self.view.get_unique_label_id())
+                        self.add_sam_polygon_to_scene(mask)
 
             else:
                 self.view.remove_active()

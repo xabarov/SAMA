@@ -1183,6 +1183,17 @@ class MainWindow(QtWidgets.QMainWindow):
             self.images_list_widget.clear()
             self.view.clearScene()
 
+        self.printAct.setEnabled(False)
+
+        self.polygonAct.setEnabled(False)
+        self.circleAct.setEnabled(False)
+        self.squareAct.setEnabled(False)
+
+        self.exportAnnToYoloBoxAct.setEnabled(False)
+        self.exportAnnToYoloSegAct.setEnabled(False)
+        self.exportAnnToCOCOAct.setEnabled(False)
+
+
     def save_project(self):
         """
         Сохранение проекта
@@ -1610,7 +1621,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.is_asked_before_close:
             event.accept()
         else:
-            self.exit_box = OkCancelDialog(self, title='Quit', text='Are you really want to quit?', on_ok=self.on_quit)
+            title = 'Выйти' if self.settings.read_lang() == 'RU' else 'Quit'
+            text = 'Вы точно хотите выйти?' if self.settings.read_lang() == 'RU' else'Are you really want to quit?'
+            self.exit_box = OkCancelDialog(self, title=title, text=text, on_ok=self.on_quit)
             event.ignore()
 
 

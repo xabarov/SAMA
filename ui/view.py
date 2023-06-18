@@ -1,6 +1,6 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtGui import QPolygonF, QColor, QPen
-from PyQt5.QtWidgets import QAction, QMenu
+from PyQt5.QtGui import QPolygonF, QColor, QPen, QPainter
+from PyQt5.QtWidgets import QAction, QMenu, QGraphicsItem
 from PyQt5.QtWidgets import QApplication
 
 from utils import config
@@ -10,6 +10,7 @@ from utils.ids_worker import IdsSetterWorker
 from ui.signals_and_slots import PolygonDeleteConnection, PolygonPressedConnection, PolygonEndDrawing, MaskEndDrawing, \
     PolygonChangeClsNumConnection, LoadIdProgress
 from ui.polygons import GrPolygonLabel, GrEllipsLabel
+from ui.grapic_group import GrGroup
 
 import numpy as np
 from shapely import Polygon, Point
@@ -82,8 +83,11 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.positive_points = []
         self.right_clicked_points = []
         self.left_clicked_points = []
+        self.groups = []
 
         self.create_actions()
+
+        self.setRenderHint(QPainter.Antialiasing)
 
     def set_brushes(self):
         # Кисти для активного элемента, узла, позитивного и негативного промпта SAM
@@ -665,7 +669,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.scene().addItem(negative_point)
 
     def clear_ai_points(self):
-        
+
         for p in self.negative_points:
             self.remove_item(p, is_delete_id=False)
         for p in self.positive_points:
@@ -1161,3 +1165,17 @@ class GraphicsView(QtWidgets.QGraphicsView):
         else:
             if self.active_item and self.active_item.cls_num == -1:
                 self.remove_active()
+
+    def add_group_of_points(self, points, cls_name, color, alpha):
+
+        self.groups = []
+        group = GrGroup(cls_name=cls_name, alpha_percent=alpha, color=color, group_id=len(self.groups)+1)
+        group.add_points(points)
+
+        # group.setZValue(1)
+        group.setOpacity(alpha)
+        group.setFlag(QGraphicsItem.ItemIsMovable)
+        self.groups.append(group)
+        self.scene().addItem(group)
+
+

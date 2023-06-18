@@ -10,6 +10,7 @@ from ultralytics import YOLO
 from ui.input_dialog import PromptInputDialog
 from ui.show_image_widget import ShowImgWindow
 from ui.settings_window import SettingsWindow
+from ui.progress import ProgressWindow
 
 from utils.predictor import SAMImageSetter
 from utils.cnn_worker import CNN_worker
@@ -54,6 +55,8 @@ class Annotator(MainWindow):
         self.view.mask_end_drawing.on_mask_end_drawing.connect(self.ai_mask_end_drawing)
 
         self.handle_cuda_models()
+
+        self.detected_shapes = []
 
     def createActions(self):
         super(Annotator, self).createActions()
@@ -434,6 +437,10 @@ class Annotator(MainWindow):
                                      linear_dim=0.0923)
 
         self.CNN_worker.started.connect(self.on_cnn_started)
+        self.progress_bar = ProgressWindow(self,
+                                           'Обнаружение объектов...' if self.settings.read_lang() == 'RU' else 'Object detection...')
+
+        self.CNN_worker.psnt_connection.percent.connect(self.progress_bar_changed)
         self.CNN_worker.finished.connect(self.on_cnn_finished)
 
         if not self.CNN_worker.isRunning():
@@ -443,28 +450,44 @@ class Annotator(MainWindow):
         """
         При начале классификации
         """
-        self.start_gif(is_prog_load=True)
-        str_text = "{0:s} CNN started detection...".format(self.started_cnn)
-        print(str_text)
+        self.progress_bar.show()
+        self.statusBar().showMessage(
+            f"Начинаю поиск объектов на изображении..." if self.settings.read_lang() == 'RU' else f"Start searching object on image...",
+            3000)
 
     def on_cnn_finished(self):
         """
         При завершении классификации
         """
-        mask_results = self.CNN_worker.mask_results
-        shape = self.cv2_image.shape
+        self.detected_shapes = []
+        for res in self.CNN_worker.mask_results:
 
-        for res in mask_results:
-            for i, mask in enumerate(res['masks']):
-                points = yolo8masks2points(mask, simplify_factor=3, width=shape[1], height=shape[0])
-                cls_num = res['classes'][i]
-                self.view.add_polygon_to_scene(cls_num, points, color=cls_settings.PALETTE[cls_num])
+            shape_id = self.view.get_unique_label_id()
+
+            cls_num = res['cls_num']
+            points = res['points']
+
+            color = None
+            label = self.project_data.get_label_name(cls_num)
+            if label:
+                color = self.project_data.get_label_color(label)
+            if not color:
+                color = cls_settings.PALETTE[cls_num]
+
+            self.view.add_polygon_to_scene(cls_num, points, color=color, id=shape_id)
+
+            shape = {'id': shape_id, 'cls_num': cls_num, 'points': points, 'conf': res['conf']}
+            self.detected_shapes.append(shape)
 
         self.write_scene_to_project_data()
         self.fill_labels_on_tek_image_list_widget()
         self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
-        self.splash.finish(self)
+        self.progress_bar.hide()
+
+        self.statusBar().showMessage(
+            f"Найдено {len(self.CNN_worker.mask_results)} объектов" if self.settings.read_lang() == 'RU' else f"{len(self.CNN_worker.mask_results)} objects has been detected",
+            3000)
 
     def grounding_sam_pressed(self):
 

@@ -201,6 +201,37 @@ def calc_areas(seg_results, lrm, verbose=False, cls_names=None, scale=1):
     return areas
 
 
+def segmentation_to_polygons(mm_seg_predicitons, cls_num):
+    points_mass = []
+    shape = mm_seg_predicitons.shape
+    mask = np.zeros((shape[0], shape[1]))
+    mask[mm_seg_predicitons == cls_num] = 255
+    polygons = mask_to_polygons_layer(mask)
+    for pol in polygons:
+        try:
+            points = []
+            xy = np.asarray(pol.boundary.xy, dtype="float")
+            x_mass = xy[0].tolist()
+            y_mass = xy[1].tolist()
+            for x, y in zip(x_mass, y_mass):
+                points.append([x, y])
+            points_mass.append(points)
+        except:
+            pass
+    return points_mass
+
+
+def segmentation_to_points(mm_seg_predicitons, cls_num):
+    mask = mm_seg_predicitons == cls_num
+    points_xx_yy = np.asarray(np.where(mask==True))
+    yy = points_xx_yy[0]
+    xx = points_xx_yy[1]
+    points = []
+    for x, y in zip(xx, yy):
+        points.append([x, y])
+    return points
+
+
 def yolo8masks2points(yolo_mask, simplify_factor=3, width=1280, height=1280):
     points = []
     img_data = yolo_mask[0] > 128
