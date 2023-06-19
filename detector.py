@@ -1,4 +1,4 @@
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtWidgets import QAction, QMessageBox, QMenu, QToolBar, QToolButton
 from PyQt5.QtGui import QIcon, QCursor
 
@@ -30,6 +30,8 @@ import matplotlib.pyplot as plt
 import utils.help_functions as hf
 import cv2
 import os
+
+import numpy as np
 
 
 class Detector(MainWindow):
@@ -234,20 +236,21 @@ class Detector(MainWindow):
 
     def on_segment_finished(self):
         print('Finished')
-        mask_results = self.seg_worker.mask_results
-        for mask_result in mask_results:
-            cls_name = mask_result['class_name']
+        predictions = self.seg_worker.results['predictions']
+        shape = predictions.shape
 
+        for cls_num, cls_name in enumerate(cls_settings.CLASSES_SEG):
             if cls_name == 'background':
-                # background
                 continue
+            mask = predictions == cls_num
 
-            cls_num = mask_result['cls_num']
-            color = cls_settings.PALETTE_SEG[cls_num]
-            points_mass = mask_result['points']
-
-            self.view.add_group_of_points(points_mass, cls_name=cls_name, color=color,
-                                          alpha=self.settings.read_alpha())
+            segment_np = np.zeros((shape[0], shape[1], 3))
+            segment_np[:, :] = [0, 0, 0]
+            segment_np[mask, :] = cls_settings.PALETTE_SEG[cls_num]
+            temp_folder = self.handle_temp_folder()
+            segment_name = os.path.join(temp_folder, f'segment_{cls_name}.jpg')
+            cv2.imwrite(segment_name, segment_np)
+            self.view.add_segment_pixmap(QtGui.QPixmap(segment_name), opacity=0.5, z_value=100 + cls_num)
 
         self.splash.finish(self)
         # for points in points_mass:
@@ -282,8 +285,8 @@ class Detector(MainWindow):
 
     def segment_image(self):
 
-        config = "D:\python\\aia_git\\ai_annotator\mm_segmentation\configs\psp_aes.py"
-        checkpoint = "D:\python\\aia_git\\ai_annotator/mm_segmentation/checkpoints/iter_52000_83_59.pth"
+        config = os.path.join(os.getcwd(), cls_settings.SEG_DICT['PSPNet']['config'])
+        checkpoint = os.path.join(os.getcwd(), cls_settings.SEG_DICT['PSPNet']['weights'])
 
         im = self.cv2_image
 
@@ -501,11 +504,9 @@ class Detector(MainWindow):
                         self.statusBar().showMessage(
                             f"Can't create label. Area of label is too small {area:0.3f}. Try again", 3000)
 
-                    self.view.remove_label_id(id)
                     self.write_scene_to_project_data()
                     self.fill_labels_on_tek_image_list_widget()
         else:
-            self.view.remove_label_id(id)
             self.write_scene_to_project_data()
             self.fill_labels_on_tek_image_list_widget()
 
@@ -615,7 +616,7 @@ class Detector(MainWindow):
 
     def load_sam(self):
         sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_CHECKPOINT)
-        return sam_load_model(sam_model_path, model_type="vit_h", device=self.settings.read_platform())
+        return sam_load_model(sam_model_path, device=self.settings.read_platform())
 
     def queue_image_to_sam(self, image_name):
 

@@ -1,5 +1,5 @@
 from rasterio import features
-from segment_anything import sam_model_registry, SamPredictor
+from segment_anything import sam_model_registry, SamPredictor, build_sam
 from utils.edges_from_mask import mask_to_polygons_layer
 
 import numpy as np

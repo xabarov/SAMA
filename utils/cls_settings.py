@@ -167,8 +167,8 @@ CNN_DICT = {
 }
 
 SEG_DICT = {
-    "PSPNet": {"weights": "mm_segmentation\checkpoints\pspnet_r50-d8_aes.pth",
-               "config": "mm_segmentation\configs\pspnet_r50-d8_aes.py"}
+    "PSPNet": {"weights": "mm_segmentation\checkpoints\iter_52000_83_59.pth",
+               "config": "mm_segmentation\configs\psp_aes.py"}
 }
 
 

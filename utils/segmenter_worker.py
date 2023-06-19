@@ -17,7 +17,7 @@ class SegmenterWorker(QtCore.QThread):
         self.device = device
 
         self.results = None
-        self.mask_results = None
+        # self.mask_results = None
 
         # Example
         # print(result['visualization'].shape)
@@ -47,14 +47,14 @@ class SegmenterWorker(QtCore.QThread):
                                checkpoint_path=self.checkpoint_path, palette=self.palette, classes=self.classes,
                                device=self.device)
 
-        mask_results = []
-        predictions = self.results['predictions']
-        for i in range(len(self.classes)):
-            points_mass = segmentation_to_points(predictions, i)
-            mask_result = {'class_name': self.classes[i], 'cls_num': i, 'points': points_mass}
-            mask_results.append(mask_result)
-
-        self.mask_results = mask_results
+        # mask_results = []
+        # predictions = self.results['predictions']
+        # for i in range(len(self.classes)):
+        #     points_mass = segmentation_to_points(predictions, i)
+        #     mask_result = {'class_name': self.classes[i], 'cls_num': i, 'points': points_mass}
+        #     mask_results.append(mask_result)
+        #
+        # self.mask_results = mask_results
 
 
 if __name__ == '__main__':

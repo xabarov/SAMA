@@ -25,17 +25,6 @@ class DetectorGeoTIFF(Detector):
         self.image_types = ['jpg', 'png', 'tiff', 'jpeg', 'tif']
         self.map_geotiff_names = {}
 
-    def handle_temp_folder(self):
-        temp_folder = os.path.join(os.getcwd(), 'temp')
-        if not os.path.exists(temp_folder):
-            os.makedirs(temp_folder)
-
-        return temp_folder
-
-    def clear_temp_folder(self):
-        temp_folder = os.path.join(os.getcwd(), 'temp')
-        if os.path.exists(temp_folder):
-            shutil.rmtree(temp_folder)
 
     def detect(self):
         # на вход воркера - исходное изображение
@@ -123,16 +112,6 @@ class DetectorGeoTIFF(Detector):
 
     def open_image(self, image_name):
 
-        self.printAct.setEnabled(True)
-
-        self.polygonAct.setEnabled(True)
-        self.circleAct.setEnabled(True)
-        self.squareAct.setEnabled(True)
-
-        self.exportAnnToYoloBoxAct.setEnabled(True)
-        self.exportAnnToYoloSegAct.setEnabled(True)
-        self.exportAnnToCOCOAct.setEnabled(True)
-
         if image_name.split('.')[-1] == 'tif':
             # GeoTIFF
             message = f"Загружаю {os.path.basename(image_name)}..." if self.settings.read_lang() == 'RU' else f"Loading {os.path.basename(image_name)}..."
@@ -160,23 +139,25 @@ class DetectorGeoTIFF(Detector):
 
             self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
 
+            self.cv2_image = image
+            # cv2.imshow('test bgr', self.cv2_image)
+            # cv2.waitKey(0)
+
+            self.aiAnnotatorPointsAct.setEnabled(True)
+            self.aiAnnotatorMaskAct.setEnabled(True)
+            self.aiAnnotatorMethodMenu.setEnabled(True)
+            self.GroundingDINOSamAct.setEnabled(True)
+            self.exportToESRIAct.setEnabled(True)
+            self.image_set = False
+            self.queue_image_to_sam(image_name)
+            lrm = hf.try_read_lrm(image_name)
+            if lrm:
+                self.lrm = lrm
+
         else:
-            image = cv2.imread(image_name)
+            super(DetectorGeoTIFF, self).open_image(image_name)
 
-        self.cv2_image = image
-        # cv2.imshow('test bgr', self.cv2_image)
-        # cv2.waitKey(0)
 
-        self.aiAnnotatorPointsAct.setEnabled(True)
-        self.aiAnnotatorMaskAct.setEnabled(True)
-        self.aiAnnotatorMethodMenu.setEnabled(True)
-        self.GroundingDINOSamAct.setEnabled(True)
-        self.exportToESRIAct.setEnabled(True)
-        self.image_set = False
-        self.queue_image_to_sam(image_name)
-        lrm = hf.try_read_lrm(image_name)
-        if lrm:
-            self.lrm = lrm
 
 
 if __name__ == '__main__':

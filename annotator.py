@@ -277,11 +277,9 @@ class Annotator(MainWindow):
                         self.statusBar().showMessage(
                             f"Can't create label. Area of label is too small {area:0.3f}. Try again", 3000)
 
-                    self.view.remove_label_id(id)
                     self.write_scene_to_project_data()
                     self.fill_labels_on_tek_image_list_widget()
         else:
-            self.view.remove_label_id(id)
             self.write_scene_to_project_data()
             self.fill_labels_on_tek_image_list_widget()
 
@@ -391,7 +389,7 @@ class Annotator(MainWindow):
 
     def load_sam(self):
         sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_CHECKPOINT)
-        return sam_load_model(sam_model_path, model_type="vit_h", device=self.settings.read_platform())
+        return sam_load_model(sam_model_path, device=self.settings.read_platform())
 
     def queue_image_to_sam(self, image_name):
 

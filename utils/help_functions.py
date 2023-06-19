@@ -334,10 +334,10 @@ def filter_masks(masks_results, conf_thres=0.2, iou_filter=0.3):
     unique_results = []
     skip_nums = []
     for i in range(len(masks_results)):
-        if masks_results[i]['conf'] < conf_thres:
+        if float(masks_results[i]['conf']) < conf_thres:
             continue
 
-        mask_union = None
+        biggest_mask = None
 
         if i in skip_nums:
             continue
@@ -350,7 +350,11 @@ def filter_masks(masks_results, conf_thres=0.2, iou_filter=0.3):
             if masks_results[i]['cls_num'] != masks_results[j]['cls_num']:
                 continue
 
-            pol1 = Polygon(masks_results[i]['points'])
+            if biggest_mask:
+                pol1 = Polygon(biggest_mask['points'])
+            else:
+                pol1 = Polygon(masks_results[i]['points'])
+
             pol2 = Polygon(masks_results[j]['points'])
 
             un = pol1.union(pol2)
@@ -361,15 +365,13 @@ def filter_masks(masks_results, conf_thres=0.2, iou_filter=0.3):
 
                 if iou > iou_filter:
 
-                    if pol1.area > pol2.area:
-                        mask_union = masks_results[i]
-                    else:
-                        mask_union = masks_results[j]
+                    if pol1.area < pol2.area:
+                        biggest_mask = masks_results[j]
 
                     skip_nums.append(j)
 
-        if mask_union:
-            unique_results.append(mask_union)
+        if biggest_mask:
+            unique_results.append(biggest_mask)
         else:
             unique_results.append(masks_results[i])
 

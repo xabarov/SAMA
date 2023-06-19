@@ -84,6 +84,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.right_clicked_points = []
         self.left_clicked_points = []
         self.groups = []
+        self.segments = []
 
         self.create_actions()
 
@@ -130,6 +131,19 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         if self.is_rubber_mode:
             self.on_rb_mode_change(False)
+
+    def add_segment_pixmap(self, segment_pixmap, opacity=0.5, z_value=100):
+        segment = QtWidgets.QGraphicsPixmapItem()
+        segment.setOpacity(opacity)
+        segment.setZValue(z_value)
+
+        self.scene().addItem(segment)
+        segment.setPixmap(segment_pixmap)
+        self.segments.append(segment)
+
+    def remove_all_segments(self):
+        for s in self.segments:
+            self.scene().removeItem(s)
 
     def clearScene(self):
         """
@@ -1169,7 +1183,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
     def add_group_of_points(self, points, cls_name, color, alpha):
 
         self.groups = []
-        group = GrGroup(cls_name=cls_name, alpha_percent=alpha, color=color, group_id=len(self.groups)+1)
+        group = GrGroup(cls_name=cls_name, alpha_percent=alpha, color=color, group_id=len(self.groups) + 1)
         group.add_points(points)
 
         # group.setZValue(1)
@@ -1177,5 +1191,3 @@ class GraphicsView(QtWidgets.QGraphicsView):
         group.setFlag(QGraphicsItem.ItemIsMovable)
         self.groups.append(group)
         self.scene().addItem(group)
-
-

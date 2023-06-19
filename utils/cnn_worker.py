@@ -8,6 +8,7 @@ import torch
 import cv2
 from . import help_functions as hf
 import math
+from copy import deepcopy
 
 
 class CNN_worker(QtCore.QThread):
@@ -29,7 +30,7 @@ class CNN_worker(QtCore.QThread):
         self.mask_results = []
 
         self.img_ld = linear_dim
-        self.train_ld = 0.12
+        self.train_ld = 0.11
         self.train_img_px = 8000  # в реальности - 1280, но это ужатые 8000 с ld = 0.0923
 
         self.psnt_connection = LoadPercentConnection()
@@ -55,18 +56,24 @@ class CNN_worker(QtCore.QThread):
 
             self.psnt_connection.percent.emit(0)
 
+            self.run_yolo8(img_path_full, False)
+
             if self.img_ld:
                 frag_size = int(self.train_img_px * self.train_ld / self.img_ld)
             else:
                 frag_size = 1280
 
             if math.fabs(frag_size - 1280) < 300:
-                self.run_yolo8(img_path_full, False)
+                self.psnt_connection.percent.emit(100)
+                return
+
+            scanning_results = [res for res in self.mask_results]
 
             parts = hf.split_into_fragments(img, frag_size)
             crop_x_y_sizes, x_parts_num, y_parts_num = hf.calc_parts(shape[1], shape[0], frag_size)
 
-            scanning_results = []
+            print(f'Crop image into {x_parts_num}x{y_parts_num}')
+            print(crop_x_y_sizes)
 
             part_tek = 0
             for part, part_size in zip(parts, crop_x_y_sizes):

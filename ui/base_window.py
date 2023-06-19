@@ -939,11 +939,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.exportAnnToYoloSegAct.setEnabled(True)
         self.exportAnnToCOCOAct.setEnabled(True)
 
-
         image = cv2.imread(image_name)
         self.cv2_image = image
 
         self.image_set = True
+
+    def handle_temp_folder(self):
+        temp_folder = os.path.join(os.getcwd(), 'temp')
+        if not os.path.exists(temp_folder):
+            os.makedirs(temp_folder)
+
+        return temp_folder
+
+    def clear_temp_folder(self):
+        temp_folder = os.path.join(os.getcwd(), 'temp')
+        if os.path.exists(temp_folder):
+            shutil.rmtree(temp_folder)
 
     def print_(self):
         """
