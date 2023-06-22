@@ -160,12 +160,16 @@ class Annotator(MainWindow):
         self.aiAnnotatorMethodMenu.setIcon(QIcon(self.icon_folder + "/ai.png"))
         self.aiAnnotatorPointsAct.setIcon(QIcon(self.icon_folder + "/mouse.png"))
         self.aiAnnotatorMaskAct.setIcon(QIcon(self.icon_folder + "/ai_select.png"))
+        self.detectAllImagesAct.setIcon(QIcon(self.icon_folder + "/detect_all.png"))
+
+        self.syncLabelsAct.setIcon(QIcon(self.icon_folder + "/sync.png"))
+
         self.GroundingDINOSamAct.setIcon(QIcon(self.icon_folder + "/dino.png"))
 
         self.balanceAct.setIcon(QIcon(self.icon_folder + "/bar-chart.png"))
 
         # classifier
-        self.detectAct.setIcon(QIcon(self.icon_folder + "/detect_all.png"))
+        self.detectAct.setIcon(QIcon(self.icon_folder + "/detect.png"))
 
     def open_image(self, image_name):
         super(Annotator, self).open_image(image_name)

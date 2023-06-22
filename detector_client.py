@@ -273,11 +273,13 @@ class DetectorClient(MainWindow):
         super(DetectorClient, self).set_icons()
         self.balanceAct.setIcon(QIcon(self.icon_folder + "/bar-chart.png"))
 
+        self.aiAnnotatorMethodMenu.setIcon(QIcon(self.icon_folder + "/ai.png"))
         self.aiAnnotatorPointsAct.setIcon(QIcon(self.icon_folder + "/mouse.png"))
         self.aiAnnotatorMaskAct.setIcon(QIcon(self.icon_folder + "/ai_select.png"))
 
+        self.syncLabelsAct.setIcon(QIcon(self.icon_folder + "/sync.png"))
         # classifier
-        self.detectAct.setIcon(QIcon(self.icon_folder + "/detect_all.png"))
+        self.detectAct.setIcon(QIcon(self.icon_folder + "/detect.png"))
         self.detectScanAct.setIcon(QIcon(self.icon_folder + "/slide.png"))
 
     def open_image(self, image_name):

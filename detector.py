@@ -91,6 +91,8 @@ class Detector(Annotator):
         super(Detector, self).set_icons()
         # AI
         self.detectScanAct.setIcon(QIcon(self.icon_folder + "/slide.png"))
+        self.segmentImage.setIcon(QIcon(self.icon_folder + "/seg.png"))
+        self.exportToESRIAct.setIcon(QIcon(self.icon_folder + "/esri_shp.png"))
 
     def open_image(self, image_name):
 
