@@ -15,7 +15,7 @@ class CNN_worker(QtCore.QThread):
 
     def __init__(self, model, conf_thres=0.7, iou_thres=0.5,
                  img_name="selected_area.png", img_path=None,
-                 scanning=False, linear_dim=0.0923):
+                 scanning=False, linear_dim=0.0923, images_list=None):
 
         super(CNN_worker, self).__init__()
 
@@ -25,9 +25,11 @@ class CNN_worker(QtCore.QThread):
 
         self.img_name = img_name
         self.img_path = img_path
+        self.image_list = images_list
         self.scanning = scanning
 
         self.mask_results = []
+        self.image_list_results = []
 
         self.img_ld = linear_dim
         self.train_ld = 0.11
@@ -39,24 +41,59 @@ class CNN_worker(QtCore.QThread):
 
         torch.cuda.empty_cache()
 
+        if self.image_list:
+            self.run_yolo8_image_list(self.image_list)
+            return
+
         if self.img_path == None:
             print("img_path doesn't set. Stop detection")
             return
 
-        else:
-            img_path_full = os.path.join(self.img_path, self.img_name)
+        img_path_full = os.path.join(self.img_path, self.img_name)
 
         self.run_yolo8(img_path_full, self.scanning)
 
-    def run_yolo8(self, img_path_full, is_scanning):
+    def run_yolo8_image_list(self, image_list):
+        self.psnt_connection.percent.emit(0)
+        self.image_list_results = []
+        id_tek = 0
+
+        for im_num, img_path_full in enumerate(image_list):
+            img = cv2.imread(img_path_full)
+            image_height, image_width = img.shape[1], img.shape[0]
+
+            results = predict_and_return_masks(self.model, img, conf=self.conf_thres,
+                                               iou=self.iou_thres, save_txt=False)
+            image_data = {'filename': os.path.basename(img_path_full), 'shapes': []}
+            shapes = []
+            for res in results:
+                for i, mask in enumerate(res['masks']):
+                    points = yolo8masks2points(mask, simplify_factor=3, width=image_width, height=image_height)
+                    if not points:
+                        continue
+                    cls_num = res['classes'][i]
+
+                    shape = {'id': id_tek, 'cls_num': cls_num, 'points': points}
+                    id_tek += 1
+                    shapes.append(shape)
+
+            image_data['shapes'] = shapes
+            self.image_list_results.append(image_data)
+
+            self.psnt_connection.percent.emit(int(im_num*100.0/len(image_list)))
+
+        self.psnt_connection.percent.emit(100)
+
+    def run_yolo8(self, img_path_full, is_scanning, is_progress_show=True):
         img = cv2.imread(img_path_full)
         shape = img.shape
 
         if is_scanning:
 
-            self.psnt_connection.percent.emit(0)
+            if is_progress_show:
+                self.psnt_connection.percent.emit(0)
 
-            self.run_yolo8(img_path_full, False)
+            self.run_yolo8(img_path_full, is_scanning=False, is_progress_show=False)
 
             if self.img_ld:
                 frag_size = int(self.train_img_px * self.train_ld / self.img_ld)
@@ -64,7 +101,8 @@ class CNN_worker(QtCore.QThread):
                 frag_size = 1280
 
             if math.fabs(frag_size - 1280) < 300:
-                self.psnt_connection.percent.emit(100)
+                if is_progress_show:
+                    self.psnt_connection.percent.emit(100)
                 return
 
             scanning_results = [res for res in self.mask_results]
@@ -96,20 +134,23 @@ class CNN_worker(QtCore.QThread):
                         scanning_results.append({'cls_num': cls_num, 'points': points_shifted, 'conf': conf})
 
                 part_tek += 1
-                self.psnt_connection.percent.emit(90.0 * part_tek / len(parts))
+                if is_progress_show:
+                    self.psnt_connection.percent.emit(90.0 * part_tek / len(parts))
 
             self.mask_results = hf.filter_masks(scanning_results, conf_thres=self.conf_thres, iou_filter=0.05)
 
-            self.psnt_connection.percent.emit(100)
+            if is_progress_show:
+                self.psnt_connection.percent.emit(100)
 
         else:
+            if is_progress_show:
+                self.psnt_connection.percent.emit(0)
 
-            self.psnt_connection.percent.emit(0)
-
-            results = predict_and_return_masks(self.model, img_path_full, conf=self.conf_thres,
+            results = predict_and_return_masks(self.model, img, conf=self.conf_thres,
                                                iou=self.iou_thres, save_txt=False)
 
-            self.psnt_connection.percent.emit(50)
+            if is_progress_show:
+                self.psnt_connection.percent.emit(50)
 
             mask_results = []
             for res in results:
@@ -122,5 +163,5 @@ class CNN_worker(QtCore.QThread):
                     mask_results.append({'cls_num': cls_num, 'points': points, 'conf': conf})
 
             self.mask_results = mask_results
-
-            self.psnt_connection.percent.emit(100)
+            if is_progress_show:
+                self.psnt_connection.percent.emit(100)

@@ -56,6 +56,9 @@ class Annotator(MainWindow):
 
         self.handle_cuda_models()
 
+        self.scanning_mode = False
+        self.lrm = None
+
         self.detected_shapes = []
 
     def createActions(self):
@@ -65,11 +68,21 @@ class Annotator(MainWindow):
                                   self,
                                   enabled=False, triggered=self.on_dataset_balance_clicked)
 
+        self.syncLabelsAct = QAction(
+            "Синхронизировать имена меток" if self.settings.read_lang() == 'RU' else "Fill label names from AI model",
+            self, enabled=False,
+            triggered=self.sync_labels)
+
         # Object detector
         self.detectAct = QAction(
             "Обнаружить объекты за один проход" if self.settings.read_lang() == 'RU' else "Detect objects", self,
             shortcut="Ctrl+Y", enabled=False,
             triggered=self.detect)
+
+        self.detectAllImagesAct = QAction(
+            "Обнаружить объекты на всех изображениях" if self.settings.read_lang() == 'RU' else "Detect objects at all image",
+            self, enabled=False,
+            triggered=self.detect_all_images)
 
         # AI Annotators
         self.aiAnnotatorPointsAct = QAction(
@@ -89,12 +102,37 @@ class Annotator(MainWindow):
             triggered=self.grounding_sam_pressed,
             checkable=True)
 
+    def sync_labels(self):
+        if self.yolo:
+            names = self.yolo.names  # dict like {0:name1, 1:name2...}
+            self.cls_combo.clear()
+            labels = []
+            for key in names:
+                label = names[key]
+                self.cls_combo.addItem(label)
+                labels.append(label)
+
+            self.project_data.set_labels(labels)
+            self.project_data.set_labels_colors(labels, rewrite=True)
+
+    def toggle_act(self, is_active):
+        super(Annotator, self).toggle_act(is_active)
+        self.aiAnnotatorMethodMenu.setEnabled(is_active)
+        self.aiAnnotatorPointsAct.setEnabled(is_active)
+        self.aiAnnotatorMaskAct.setEnabled(is_active)
+        self.aiAnnotatorMethodMenu.setEnabled(is_active)
+
+        self.syncLabelsAct.setEnabled(is_active)
+
+        self.GroundingDINOSamAct.setEnabled(is_active)
+        self.balanceAct.setEnabled(is_active)
+        self.detectAllImagesAct.setEnabled(is_active)
+        self.detectAct.setEnabled(is_active)
+
     def createMenus(self):
         super(Annotator, self).createMenus()
 
         self.aiAnnotatorMethodMenu = QMenu("С помощью ИИ" if self.settings.read_lang() == 'RU' else "AI", self)
-
-        self.aiAnnotatorMethodMenu.setEnabled(False)
 
         self.aiAnnotatorMethodMenu.addAction(self.aiAnnotatorPointsAct)
         self.aiAnnotatorMethodMenu.addAction(self.aiAnnotatorMaskAct)
@@ -104,6 +142,8 @@ class Annotator(MainWindow):
 
         self.classifierMenu = QMenu("Классификатор" if self.settings.read_lang() == 'RU' else "Classifier", self)
         self.classifierMenu.addAction(self.detectAct)
+        self.classifierMenu.addAction(self.detectAllImagesAct)
+        self.classifierMenu.addAction(self.syncLabelsAct)
         self.annotatorMenu.addAction(self.balanceAct)
 
         self.menuBar().clear()
@@ -129,10 +169,7 @@ class Annotator(MainWindow):
 
     def open_image(self, image_name):
         super(Annotator, self).open_image(image_name)
-        self.aiAnnotatorPointsAct.setEnabled(True)
-        self.aiAnnotatorMaskAct.setEnabled(True)
-        self.aiAnnotatorMethodMenu.setEnabled(True)
-        self.GroundingDINOSamAct.setEnabled(True)
+
         self.image_set = False
         self.queue_image_to_sam(image_name)
 
@@ -181,11 +218,6 @@ class Annotator(MainWindow):
                           "<p>Программа для разметки изображений с поддержкой автоматической сегментации</p>" if
                           self.settings.read_lang() == 'RU' else "<p>Labeling Data for Object Detection and Instance Segmentation "
                                                                  "with Segment Anything Model (SAM) and GroundingDINO.</p>")
-
-    def on_checking_project_success(self, dataset_dir):
-        super(Annotator, self).on_checking_project_success(dataset_dir)
-        self.balanceAct.setEnabled(True)
-        self.detectAct.setEnabled(True)
 
     def handle_cuda_models(self):
 
@@ -255,19 +287,15 @@ class Annotator(MainWindow):
         points_mass = mask_to_seg(sam_mask)
 
         if len(points_mass) > 0:
+            filtered_points_mass = []
             for points in points_mass:
                 shapely_pol = Polygon(points)
                 area = shapely_pol.area
+
                 if area > config.POLYGON_AREA_THRESHOLD:
 
-                    cls_num = self.cls_combo.currentIndex()
-                    cls_name = self.cls_combo.itemText(cls_num)
-                    alpha_tek = self.settings.read_alpha()
-                    color = self.project_data.get_label_color(cls_name)
+                    filtered_points_mass.append(points)
 
-                    self.view.add_polygon_to_scene(cls_num, points, color, alpha_tek, id=None)
-                    self.write_scene_to_project_data()
-                    self.fill_labels_on_tek_image_list_widget()
                 else:
                     if self.settings.read_lang() == 'RU':
                         self.statusBar().showMessage(
@@ -277,8 +305,14 @@ class Annotator(MainWindow):
                         self.statusBar().showMessage(
                             f"Can't create label. Area of label is too small {area:0.3f}. Try again", 3000)
 
-                    self.write_scene_to_project_data()
-                    self.fill_labels_on_tek_image_list_widget()
+            cls_num = self.cls_combo.currentIndex()
+            cls_name = self.cls_combo.itemText(cls_num)
+            alpha_tek = self.settings.read_alpha()
+            color = self.project_data.get_label_color(cls_name)
+
+            self.view.add_polygons_group_to_scene(cls_num, filtered_points_mass, color, alpha_tek)
+            self.write_scene_to_project_data()
+            self.fill_labels_on_tek_image_list_widget()
         else:
             self.write_scene_to_project_data()
             self.fill_labels_on_tek_image_list_widget()
@@ -426,19 +460,22 @@ class Annotator(MainWindow):
         conf_thres_set = self.settings.read_conf_thres()
         iou_thres_set = self.settings.read_iou_thres()
 
-        str_text = "Начинаю классифкацию СНС {0:s}".format(self.started_cnn)
-        print(str_text)
+        if self.scanning_mode:
+            str_text = "Начинаю классифкацию СНС {0:s} сканирующим окном".format(self.started_cnn)
+        else:
+            str_text = "Начинаю классифкацию СНС {0:s}".format(self.started_cnn)
+
+        self.statusBar().showMessage(str_text, 3000)
 
         self.CNN_worker = CNN_worker(model=self.yolo, conf_thres=conf_thres_set, iou_thres=iou_thres_set,
                                      img_name=img_name, img_path=img_path,
-                                     scanning=False,
-                                     linear_dim=0.0923)
+                                     scanning=self.scanning_mode,
+                                     linear_dim=self.lrm)
 
         self.CNN_worker.started.connect(self.on_cnn_started)
-        self.progress_bar = ProgressWindow(self,
-                                           'Обнаружение объектов...' if self.settings.read_lang() == 'RU' else 'Object detection...')
 
-        self.CNN_worker.psnt_connection.percent.connect(self.progress_bar_changed)
+        self.progress_toolbar.set_signal(self.CNN_worker.psnt_connection.percent)
+
         self.CNN_worker.finished.connect(self.on_cnn_finished)
 
         if not self.CNN_worker.isRunning():
@@ -448,15 +485,20 @@ class Annotator(MainWindow):
         """
         При начале классификации
         """
-        self.progress_bar.show()
+        self.progress_toolbar.show_progressbar()
         self.statusBar().showMessage(
             f"Начинаю поиск объектов на изображении..." if self.settings.read_lang() == 'RU' else f"Start searching object on image...",
             3000)
+
 
     def on_cnn_finished(self):
         """
         При завершении классификации
         """
+
+        if self.scanning_mode:
+            self.scanning_mode = False
+
         self.detected_shapes = []
         for res in self.CNN_worker.mask_results:
 
@@ -477,11 +519,10 @@ class Annotator(MainWindow):
             shape = {'id': shape_id, 'cls_num': cls_num, 'points': points, 'conf': res['conf']}
             self.detected_shapes.append(shape)
 
+        self.progress_toolbar.hide_progressbar()
         self.write_scene_to_project_data()
         self.fill_labels_on_tek_image_list_widget()
         self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
-
-        self.progress_bar.hide()
 
         self.statusBar().showMessage(
             f"Найдено {len(self.CNN_worker.mask_results)} объектов" if self.settings.read_lang() == 'RU' else f"{len(self.CNN_worker.mask_results)} objects has been detected",
@@ -496,8 +537,11 @@ class Annotator(MainWindow):
 
     def start_grounddino(self):
         prompt = self.prompt_input_dialog.getPrompt()
+        self.prompt_input_dialog.close()
 
         if prompt:
+
+            self.progress_toolbar.show_progressbar()
 
             self.prompt_cls_name = self.prompt_input_dialog.getClsName()
             self.prompt_cls_num = self.prompt_input_dialog.getClsNumber()
@@ -515,7 +559,8 @@ class Annotator(MainWindow):
                                                 grounding_dino_model=self.gd_model,
                                                 prompt=prompt)
 
-            self.prompt_input_dialog.set_progress(10)
+
+            self.progress_toolbar.set_percent(10)
 
             self.gd_worker.finished.connect(self.on_gd_worker_finished)
 
@@ -527,19 +572,24 @@ class Annotator(MainWindow):
 
     def on_gd_worker_finished(self):
         masks = self.gd_worker.getMasks()
+        self.progress_toolbar.set_percent(50)
 
         shape = self.cv2_image.shape
+        points_mass = []
         for i, mask in enumerate(masks):
             self.prompt_input_dialog.set_progress(10 + int(90.0 * i / len(masks)))
             points = yolo8masks2points(mask * 255, simplify_factor=3, width=shape[1], height=shape[0])
             if points:
-                self.view.add_polygon_to_scene(self.prompt_cls_num, points,
-                                               color=self.project_data.get_label_color(self.prompt_cls_name))
+                points_mass.append(points)
+            self.progress_toolbar.set_percent(50 + int(i+1)*100.0/len(masks))
+
+        self.view.add_polygons_group_to_scene(self.prompt_cls_num, points_mass,
+                                              color=self.project_data.get_label_color(self.prompt_cls_name))
 
         self.write_scene_to_project_data()
         self.fill_labels_on_tek_image_list_widget()
         self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
-        self.prompt_input_dialog.close()
+        self.progress_toolbar.hide_progressbar()
 
     def on_dataset_balance_clicked(self):
         balance_data = self.project_data.calc_dataset_balance()
@@ -560,9 +610,56 @@ class Annotator(MainWindow):
         ax.tick_params(axis='x', rotation=70)
         plt.title('Баланс меток')
 
-        plt.savefig('temp.jpg')
-        fileName = 'temp.jpg'
+        temp_folder = self.handle_temp_folder()
+        fileName = os.path.join(temp_folder, 'balance.jpg')
+        plt.savefig(fileName)
+
         ShowImgWindow(self, title='Баланс меток', img_file=fileName, icon_folder=self.icon_folder)
+
+    def detect_all_images(self):
+        """
+        Запуск классификации
+        img_name - имя изображения
+        img_path - путь к изображению
+        """
+
+        self.started_cnn = self.settings.read_cnn_model()
+
+        conf_thres_set = self.settings.read_conf_thres()
+        iou_thres_set = self.settings.read_iou_thres()
+
+        str_text = "Начинаю классифкацию СНС {0:s}".format(self.started_cnn)
+
+        self.statusBar().showMessage(str_text, 3000)
+
+        images_list = [os.path.join(self.dataset_dir, im_name) for im_name in self.dataset_images]
+
+        self.CNN_worker = CNN_worker(model=self.yolo, conf_thres=conf_thres_set, iou_thres=iou_thres_set,
+                                     img_name=None, img_path=None,
+                                     images_list=images_list,
+                                     scanning=None)
+
+        self.CNN_worker.started.connect(self.on_cnn_started)
+
+        self.progress_toolbar.set_signal(self.CNN_worker.psnt_connection.percent)
+
+        self.CNN_worker.finished.connect(self.on_all_images_finished)
+
+        if not self.CNN_worker.isRunning():
+            self.CNN_worker.start()
+
+    def on_all_images_finished(self):
+        """
+        При завершении классификации всех изображений
+        """
+
+        self.progress_toolbar.hide_progressbar()
+
+        self.project_data.set_all_images(self.CNN_worker.image_list_results)
+
+        self.load_image_data(self.tek_image_name)
+        self.fill_labels_on_tek_image_list_widget()
+        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
 
 if __name__ == '__main__':

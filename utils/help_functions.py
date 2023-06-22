@@ -40,6 +40,24 @@ def get_extension(filename):
     return coords_calc.get_ext(filename)
 
 
+def convert_point_coords_to_geo(point_x, point_y, image_name):
+    img = Image.open(image_name)
+
+    img_width, img_height = img.size
+
+    geo_extent = coords_calc.get_geo_extent(image_name)
+
+    lat_min, lat_max, lon_min, lon_max = geo_extent
+    x = lon_min + (float(point_x) / img_width) * abs(lon_max - lon_min)
+    y = lat_min + (1.0 - float(point_y) / img_height) * abs(lat_max - lat_min)
+
+    return x, y
+
+
+def is_dicts_equals(dict1, dict2):
+    return all((dict1.get(k) == v for k, v in dict2.items()))
+
+
 def convert_shapes_to_esri(shapes, image_name, crs='epsg:4326', out_shapefile='esri_shapefile.shp'):
     img = Image.open(image_name)
 
@@ -342,7 +360,7 @@ def filter_masks(masks_results, conf_thres=0.2, iou_filter=0.3):
         if i in skip_nums:
             continue
 
-        for j in range(i+1, len(masks_results)):
+        for j in range(i + 1, len(masks_results)):
 
             if j in skip_nums:
                 continue

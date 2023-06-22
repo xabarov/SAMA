@@ -7,8 +7,8 @@ from utils import config
 from utils import help_functions as hf
 from utils.ids_worker import IdsSetterWorker
 
-from ui.signals_and_slots import PolygonDeleteConnection, PolygonPressedConnection, PolygonEndDrawing, MaskEndDrawing, \
-    PolygonChangeClsNumConnection, LoadIdProgress
+from ui.signals_and_slots import PolygonDeleteConnection, ViewMouseCoordsConnection, PolygonPressedConnection, \
+    PolygonEndDrawing, MaskEndDrawing, PolygonChangeClsNumConnection, LoadIdProgress
 from ui.polygons import GrPolygonLabel, GrEllipsLabel
 from ui.grapic_group import GrGroup
 
@@ -35,6 +35,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.polygon_delete = PolygonDeleteConnection()
         self.polygon_cls_num_change = PolygonChangeClsNumConnection()
         self.load_ids_conn = LoadIdProgress()
+        self.mouse_move_conn = ViewMouseCoordsConnection()
+
         if on_rubber_band_mode:
             # connect SIGNAL on_rubber_band_mode TO SLOT
             on_rubber_band_mode.connect(self.on_rb_mode_change)
@@ -66,7 +68,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
         # Кисти
         self.set_brushes()
 
-        self.setMouseTracking(False)
+        # self.setMouseTracking(False)
+        self.setMouseTracking(True)
         self.fat_point = None
         self.drag_mode = "No"
         self.dragged_vertex = None
@@ -89,6 +92,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.create_actions()
 
         self.setRenderHint(QPainter.Antialiasing)
+
+        self.last_added = []
 
     def set_brushes(self):
         # Кисти для активного элемента, узла, позитивного и негативного промпта SAM
@@ -347,8 +352,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         return None
 
-    def set_ids_from_project(self, project_data):
+    def set_ids_from_project(self, project_data, on_set_callback=None):
         self.ids_worker = IdsSetterWorker(images_data=project_data['images'])
+        self.on_set_callback = on_set_callback
         self.ids_worker.load_ids_conn.percent.connect(self.on_load_percent_change)
 
         self.ids_worker.finished.connect(self.on_ids_worker_finished)
@@ -362,6 +368,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
     def on_ids_worker_finished(self):
         print('Loading project finished')
         self.labels_ids = self.ids_worker.get_labels_ids()
+        if self.on_set_callback:
+            self.on_set_callback()
 
     def get_unique_label_id(self):
         id_tek = 0
@@ -374,7 +382,20 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if id in self.labels_ids:
             self.labels_ids.remove(id)
 
-    def add_polygon_to_scene(self, cls_num, point_mass, color=None, alpha=50, id=None):
+    def remove_last_changes(self):
+        for item_id in self.last_added:
+            print(f'Remove {item_id}')
+            self.remove_shape_by_id(item_id)
+        self.last_added = []
+
+    def add_polygons_group_to_scene(self, cls_num, point_of_points_mass, color=None, alpha=50):
+        self.last_added = []
+        for points_mass in point_of_points_mass:
+            id = self.get_unique_label_id()
+            self.last_added.append(id)
+            self.add_polygon_to_scene(cls_num, points_mass, color=color, alpha=alpha, id=id, is_save_last=False)
+
+    def add_polygon_to_scene(self, cls_num, point_mass, color=None, alpha=50, id=None, is_save_last=True):
         """
         Добавление полигона на сцену
         color - цвет. Если None - будет выбран цвет, соответствующий номеру класса из config.COLORS
@@ -386,6 +407,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         if id == None:
             id = self.get_unique_label_id()
+            if is_save_last:
+                self.last_added = []
+                self.last_added.append(id)
 
         if id not in self.labels_ids:
             self.labels_ids.append(id)
@@ -536,7 +560,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
             if not self.box_start_point:
                 self.drag_mode = "RubberBandStartDrawMode"
                 self.box_start_point = lp
-                self.setMouseTracking(True)
+                # self.setMouseTracking(True)
 
             return
 
@@ -545,11 +569,11 @@ class GraphicsView(QtWidgets.QGraphicsView):
             if self.drawing_type == "Polygon":
 
                 # Режим рисования, добавляем точки к текущему полигону
-
-                poly = self.active_item.polygon()
-                poly.append(lp)
-                self.active_item.setPolygon(poly)
-                self.crop_by_pixmap_size(self.active_item)
+                if self.active_item:
+                    poly = self.active_item.polygon()
+                    poly.append(lp)
+                    self.active_item.setPolygon(poly)
+                    self.crop_by_pixmap_size(self.active_item)
 
             elif self.drawing_type == "Ellips":
 
@@ -558,14 +582,14 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 if not self.ellipse_start_point:
                     self.drag_mode = "EllipsStartDrawMode"
                     self.ellipse_start_point = lp
-                    self.setMouseTracking(True)
+                    # self.setMouseTracking(True)
 
             elif self.drawing_type == "Box":
 
                 if not self.box_start_point:
                     self.drag_mode = "BoxStartDrawMode"
                     self.box_start_point = lp
-                    self.setMouseTracking(True)
+                    # self.setMouseTracking(True)
 
             elif self.drawing_type == "AiPoints":
                 if 'Left Click' in modifierName:
@@ -581,7 +605,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 if not self.box_start_point:
                     self.drag_mode = "BoxStartDrawMode"
                     self.box_start_point = lp
-                    self.setMouseTracking(True)
+                    # self.setMouseTracking(True)
 
         else:
 
@@ -598,7 +622,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                         # Начинаем тянуть
                         self.drag_mode = "PolygonVertexMove"
                         self.dragged_vertex = lp
-                        self.setMouseTracking(False)
+                        # self.setMouseTracking(False)
                 else:
                     # Нажали по грани
                     if 'Ctrl' in modifierName:
@@ -626,7 +650,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     # иначе - поменять цвет
                     self.drag_mode = "PolygonMoveMode"
                     self.start_point = lp
-                    self.setMouseTracking(True)
+                    # self.setMouseTracking(True)
 
                 else:
                     # кликнули не по активной. Если по какой-то другой - изменить активную
@@ -735,11 +759,12 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def mouseMoveEvent(self, event: QtGui.QMouseEvent):
 
+        sp = self.mapToScene(event.pos())
+        lp = self.pixmap_item.mapFromScene(sp)
+        self.mouse_move_conn.on_mouse_move.emit(lp.x(), lp.y())
+
         if self.is_rubber_mode:
             if self.drag_mode == "RubberBandStartDrawMode" or self.drag_mode == "RubberBandContinueDrawMode":
-                sp = self.mapToScene(event.pos())
-                lp = self.pixmap_item.mapFromScene(sp)
-
                 width = abs(lp.x() - self.box_start_point.x())
                 height = abs(lp.y() - self.box_start_point.y())
 
@@ -758,8 +783,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if self.active_item:
 
             if self.drag_mode == "EllipsStartDrawMode" or self.drag_mode == "EllipseContinueDrawMode":
-                sp = self.mapToScene(event.pos())
-                lp = self.pixmap_item.mapFromScene(sp)
 
                 width = abs(lp.x() - self.ellipse_start_point.x())
                 height = abs(lp.y() - self.ellipse_start_point.y())
@@ -769,8 +792,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 self.drag_mode = "EllipseContinueDrawMode"
 
             elif self.drag_mode == "BoxStartDrawMode" or self.drag_mode == "BoxContinueDrawMode":
-                sp = self.mapToScene(event.pos())
-                lp = self.pixmap_item.mapFromScene(sp)
 
                 width = abs(lp.x() - self.box_start_point.x())
                 height = abs(lp.y() - self.box_start_point.y())
@@ -786,8 +807,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 self.drag_mode = "BoxContinueDrawMode"
 
             elif self.drag_mode == "PolygonMoveMode":
-                sp = self.mapToScene(event.pos())
-                lp = self.pixmap_item.mapFromScene(sp)
 
                 delta_x = lp.x() - self.start_point.x()
                 delta_y = lp.y() - self.start_point.y()
@@ -802,10 +821,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
             else:
                 # Если активная - отслеживаем ее узлы
-
-                sp = self.mapToScene(event.pos())
-                lp = self.pixmap_item.mapFromScene(sp)
-
                 self.remove_fat_point_from_scene()  # сперва убираем предыдущую точку
 
                 point_closed = self.get_point_near_by_active_polygon_vertex(lp)
@@ -840,7 +855,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if self.is_rubber_mode:
             if self.drag_mode == "RubberBandContinueDrawMode":
 
-                self.setMouseTracking(True)
+                # self.setMouseTracking(True)
                 self.is_drawing = False
                 self.box_start_point = None
                 self.drag_mode = "No"
@@ -860,7 +875,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 self.change_dragged_polygon_vertex_to_point(lp)
 
             self.drag_mode = "No"
-            self.setMouseTracking(True)
+            # self.setMouseTracking(True)
 
         elif self.drag_mode == "PolygonMoveMode":
             sp = self.mapToScene(event.pos())
@@ -879,10 +894,10 @@ class GraphicsView(QtWidgets.QGraphicsView):
             self.crop_by_pixmap_size(self.active_item)
 
             self.drag_mode = "No"
-            self.setMouseTracking(True)
+            # self.setMouseTracking(True)
 
         elif self.drag_mode == "EllipseContinueDrawMode":
-            self.setMouseTracking(True)
+            # self.setMouseTracking(True)
             self.is_drawing = False
             self.ellipse_start_point = None
             self.drag_mode = "No"
@@ -902,7 +917,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         elif self.drag_mode == "BoxContinueDrawMode":
 
-            self.setMouseTracking(True)
+            # self.setMouseTracking(True)
             self.is_drawing = False
             self.box_start_point = None
             self.drag_mode = "No"
@@ -1062,7 +1077,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         alpha - прозрачность в процентах
         """
 
-        self.setMouseTracking(False)
+        # self.setMouseTracking(False)
         is_drawing_old = self.is_drawing
         self.is_drawing = True
 
@@ -1146,7 +1161,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def end_drawing(self):
         self.is_drawing = False
-        self.setMouseTracking(True)
+        # self.setMouseTracking(True)
         self.remove_fat_point_from_scene()
 
         if self.drawing_type in ["Polygon", "Ellips", "Box"]:

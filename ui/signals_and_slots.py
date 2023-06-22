@@ -52,3 +52,11 @@ class LoadIdProgress(Ps2Core.QObject):
 
 class RubberBandModeConnection(Ps2Core.QObject):
     on_rubber_mode_change = Signal(bool)
+
+
+class ViewMouseCoordsConnection(Ps2Core.QObject):
+    on_mouse_move = Signal(float, float)
+
+
+class ProjectSaveLoadConn(Ps2Core.QObject):
+    on_finished = Signal(bool)

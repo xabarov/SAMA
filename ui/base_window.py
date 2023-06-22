@@ -1,40 +1,37 @@
+import os
+import shutil
+import sys
+
+import cv2
+import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QMovie, QPainter, QIcon, QColor
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, QToolButton, QComboBox, QLabel, \
-    QColorDialog, QListWidget, QProgressBar
+    QColorDialog, QListWidget
 from PyQt5.QtWidgets import QApplication
+from qt_material import apply_stylesheet
 
-from utils import help_functions as hf
-
-from utils import config
-
-from utils.project import ProjectHandler
-from utils.importer import Importer
-from utils.settings_handler import AppSettings
-
-from ui.settings_window_base import SettingsWindowBase
 from ui.ask_del_polygon import AskDelWindow
-from ui.splash_screen import MovieSplashScreen
-from ui.view import GraphicsView
+from ui.create_project_dialog import CreateProjectDialog
+from ui.edit_with_button import EditWithButton
+from ui.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog
 from ui.input_dialog import CustomInputDialog, CustomComboDialog
-from ui.show_image_widget import ShowImgWindow
+from ui.ok_cancel_dialog import OkCancelDialog
 from ui.panels import ImagesPanel, LabelsPanel
+from ui.settings_window_base import SettingsWindowBase
+from ui.show_image_widget import ShowImgWindow
 from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection, ThemeChangeConnection, \
     RubberBandModeConnection
-from ui.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog
-from ui.edit_with_button import EditWithButton
-from ui.ok_cancel_dialog import OkCancelDialog
-from ui.progress import ProgressWindow
-from ui.create_project_dialog import CreateProjectDialog
+from ui.splash_screen import MovieSplashScreen
+from ui.view import GraphicsView
+from ui.toolbars import ProgressBarToolbar
 
-import cv2
-import numpy as np
-import os
-import shutil
-
-import sys
-from qt_material import apply_stylesheet
+from utils import config
+from utils import help_functions as hf
+from utils.importer import Importer
+from utils.project import ProjectHandler
+from utils.settings_handler import AppSettings
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -390,7 +387,7 @@ class MainWindow(QtWidgets.QMainWindow):
         cls_names = np.array(['no name'])
         self.cls_combo.addItems(cls_names)
         self.cls_combo.setMinimumWidth(150)
-        self.cls_combo.setEnabled(True)
+        self.cls_combo.setEnabled(False)
 
         self.labelSettingsToolBar.addWidget(label)
         self.labelSettingsToolBar.addWidget(self.cls_combo)
@@ -401,6 +398,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.labelSettingsToolBar.addSeparator()
         self.labelSettingsToolBar.addAction(self.add_label)
         self.labelSettingsToolBar.addSeparator()
+
+        self.progress_toolbar = ProgressBarToolbar(self,
+                                                   right_padding=self.toolBarRight.width())
+        self.labelSettingsToolBar.addWidget(self.progress_toolbar)
 
         self.addToolBar(QtCore.Qt.TopToolBarArea, self.labelSettingsToolBar)
 
@@ -823,7 +824,7 @@ class MainWindow(QtWidgets.QMainWindow):
         color_dialog.exec()
         rgb = color_dialog.selectedColor().getRgb()
         rgba = (rgb[0], rgb[1], rgb[2], self.settings.read_alpha())
-        print(rgba)
+        # print(rgba)
 
         self.project_data.set_label_color(cls_txt, color=rgba)
 
@@ -925,24 +926,38 @@ class MainWindow(QtWidgets.QMainWindow):
         self.annotatorExportMenu.setIcon(QIcon(self.icon_folder + "/export.png"))
         self.annotatorImportMenu.setIcon(QIcon(self.icon_folder + "/import.png"))
 
+    def toggle_act(self, is_active):
+
+        self.fitToWindowAct.setEnabled(is_active)
+        self.zoomInAct.setEnabled(is_active)
+        self.zoomOutAct.setEnabled(is_active)
+
+        self.selectAreaAct.setEnabled(is_active)
+
+        self.saveProjAct.setEnabled(is_active)
+        self.saveProjAsAct.setEnabled(is_active)
+
+        self.printAct.setEnabled(is_active)
+
+        self.polygonAct.setEnabled(is_active)
+        self.circleAct.setEnabled(is_active)
+        self.squareAct.setEnabled(is_active)
+
+        self.exportAnnToYoloBoxAct.setEnabled(is_active)
+        self.exportAnnToYoloSegAct.setEnabled(is_active)
+        self.exportAnnToCOCOAct.setEnabled(is_active)
+        self.cls_combo.setEnabled(is_active)
+
     def open_image(self, image_name):
 
         self.view.setPixmap(QtGui.QPixmap(image_name))
         self.view.fitInView(self.view.pixmap_item, QtCore.Qt.KeepAspectRatio)
-        self.printAct.setEnabled(True)
-
-        self.polygonAct.setEnabled(True)
-        self.circleAct.setEnabled(True)
-        self.squareAct.setEnabled(True)
-
-        self.exportAnnToYoloBoxAct.setEnabled(True)
-        self.exportAnnToYoloSegAct.setEnabled(True)
-        self.exportAnnToCOCOAct.setEnabled(True)
 
         image = cv2.imread(image_name)
         self.cv2_image = image
 
         self.image_set = True
+        self.toggle_act(self.image_set)
 
     def handle_temp_folder(self):
         temp_folder = os.path.join(os.getcwd(), 'temp')
@@ -953,6 +968,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def clear_temp_folder(self):
         temp_folder = os.path.join(os.getcwd(), 'temp')
+        # print(temp_folder)
         if os.path.exists(temp_folder):
             shutil.rmtree(temp_folder)
 
@@ -1028,7 +1044,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.create_new_proj_dialog.hide()
         self.save_project_as(proj_name=self.loaded_proj_name, on_save_callback=self.reload_project)
 
-
     def fill_images_label(self, image_names):
 
         self.images_list_widget.clear()
@@ -1036,9 +1051,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self.images_list_widget.addItem(name)
 
     def progress_bar_changed(self, percent):
-        self.progress_bar.set_progress(percent)
-        if percent == 100:
-            self.progress_bar.hide()
+        # print(percent)
+        if self.progress_bar.isVisible():
+            self.progress_bar.set_progress(percent)
+            if percent == 100:
+                self.progress_bar.hide()
 
     def on_change_project_name(self):
         dataset_dir = self.change_path_window.getEditText()
@@ -1067,15 +1084,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def on_checking_project_success(self, dataset_dir):
 
-        self.progress_bar = ProgressWindow(self,
-                                           title='Загрузка проекта...' if self.settings.read_lang() == 'RU' else 'Loading project...')
-
-        self.view.load_ids_conn.percent.connect(self.progress_bar_changed)
-
-        self.view.set_ids_from_project(self.project_data.get_data())
-
         self.dataset_dir = dataset_dir
-        self.dataset_images = self.filter_images_names(dataset_dir)
+        # ProgressBar
+        self.progress_toolbar.set_signal(self.view.load_ids_conn.percent)
+        self.progress_toolbar.show_progressbar()
+
+        self.view.set_ids_from_project(self.project_data.get_data(), on_set_callback=self.on_view_ids_set)
+
+    def on_view_ids_set(self):
+
+        self.progress_toolbar.hide_progressbar()
+        self.dataset_images = self.filter_images_names(self.dataset_dir)
 
         self.fill_labels_combo_from_project()
 
@@ -1086,21 +1105,11 @@ class MainWindow(QtWidgets.QMainWindow):
             # Открытие изображения
             self.open_image(self.tek_image_path)
 
-            self.fitToWindowAct.setEnabled(True)
-            self.zoomInAct.setEnabled(True)
-            self.zoomOutAct.setEnabled(True)
-
-            self.selectAreaAct.setEnabled(True)
-
-            self.saveProjAct.setEnabled(True)
-            self.saveProjAsAct.setEnabled(True)
-
             main_geom = self.geometry().getCoords()
             self.scaleFactor = (main_geom[2] - main_geom[0]) / self.cv2_image.shape[1]
 
             self.load_image_data(self.tek_image_name)
 
-            self.view.setMouseTracking(True)
             self.fill_labels_on_tek_image_list_widget()
             self.fill_images_label(self.dataset_images)
 
@@ -1125,25 +1134,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.close_project()
 
         self.loaded_proj_name = project_name
-        is_success = self.project_data.load(project_name)
+        self.project_data.load(project_name, on_load_callback=self.on_load_project)
 
-        if not is_success:
-            msgbox = QMessageBox()
-            msgbox.setIcon(QMessageBox.Information)
-            msgbox.setText(
-                f"Ошибка открытия файла {self.loaded_proj_name}" if self.settings.read_lang() == 'RU' else f"Error in opening file {self.loaded_proj_name}")
-            if self.settings.read_lang() == 'RU':
-                msgbox.setInformativeText(
-                    f"Файл {self.loaded_proj_name} должен быть в формате .json и содержать поля:\n\t"
-                    f"path_to_images\n\timages\n\t\tfilename\n\t\tshapes\n\t")
-            else:
-                msgbox.setInformativeText(
-                    f"File {self.loaded_proj_name} not in project format")
-            msgbox.setWindowTitle(
-                f"Ошибка открытия файла {self.loaded_proj_name}" if self.settings.read_lang() == 'RU' else "Error")
-            msgbox.exec()
-
-            return
+    def on_load_project(self):
 
         dataset_dir = self.project_data.get_image_path()
 
@@ -1194,16 +1187,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.images_list_widget.clear()
             self.view.clearScene()
 
-        self.printAct.setEnabled(False)
-
-        self.polygonAct.setEnabled(False)
-        self.circleAct.setEnabled(False)
-        self.squareAct.setEnabled(False)
-
-        self.exportAnnToYoloBoxAct.setEnabled(False)
-        self.exportAnnToYoloSegAct.setEnabled(False)
-        self.exportAnnToCOCOAct.setEnabled(False)
-
+        self.toggle_act(False)
 
     def save_project(self):
         """
@@ -1551,6 +1535,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tutorial.scaleImage(0.4)
         self.tutorial.show()
 
+    def undo(self):
+        # print('Undo')
+        self.view.remove_last_changes()
+        self.write_scene_to_project_data()
+        self.fill_labels_on_tek_image_list_widget()
+
     def keyPressEvent(self, e):
         # e.accept()
         # print(e.key())
@@ -1602,6 +1592,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.break_drawing()
 
+        elif (e.key() == 90 or e.key() == 1071) and 'Ctrl' in modifierName:
+            # Ctrl + Z
+
+            self.undo()
+
         elif (e.key() == 67 or e.key() == 1057) and 'Ctrl' in modifierName:
             # Ctrl + C
 
@@ -1620,22 +1615,24 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def on_quit(self):
         self.exit_box.hide()
-
-        self.write_size_pos()
-
         self.hide()  # Скрываем окно
 
+        self.write_size_pos()
         self.is_asked_before_close = True
+
         self.close()
 
     def closeEvent(self, event):
+
         if self.is_asked_before_close:
+            self.clear_temp_folder()
             event.accept()
         else:
-            title = 'Выйти' if self.settings.read_lang() == 'RU' else 'Quit'
-            text = 'Вы точно хотите выйти?' if self.settings.read_lang() == 'RU' else'Are you really want to quit?'
-            self.exit_box = OkCancelDialog(self, title=title, text=text, on_ok=self.on_quit)
             event.ignore()
+            title = 'Выйти' if self.settings.read_lang() == 'RU' else 'Quit'
+            text = 'Вы точно хотите выйти?' if self.settings.read_lang() == 'RU' else 'Are you really want to quit?'
+            self.exit_box = OkCancelDialog(self, title=title, text=text, on_ok=self.on_quit)
+            self.exit_box.setMinimumWidth(300)
 
 
 if __name__ == '__main__':

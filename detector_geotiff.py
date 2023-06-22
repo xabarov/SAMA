@@ -12,7 +12,6 @@ import utils.help_functions as hf
 import sys
 import os
 import cv2
-import shutil
 
 
 class DetectorGeoTIFF(Detector):
@@ -24,7 +23,14 @@ class DetectorGeoTIFF(Detector):
         # For GeoTIFF support
         self.image_types = ['jpg', 'png', 'tiff', 'jpeg', 'tif']
         self.map_geotiff_names = {}
+        self.view.mouse_move_conn.on_mouse_move.connect(self.on_view_mouse_move)
 
+    def on_view_mouse_move(self, x, y):
+        if self.image_set:
+            if self.tek_image_name.split('.')[-1] == 'tif':
+                geo_x, geo_y = hf.convert_point_coords_to_geo(x, y, self.tek_image_path)
+                self.statusBar().showMessage(
+                    f"{geo_x:.6f}, {geo_y:.6f}")
 
     def detect(self):
         # на вход воркера - исходное изображение
@@ -42,9 +48,11 @@ class DetectorGeoTIFF(Detector):
         prompt = self.prompt_input_dialog.getPrompt()
 
         if self.tek_image_name.split('.')[-1] == 'tif':
-            img_name = self.map_geotiff_names[self.tek_image_name]
+            img_name = os.path.basename(self.map_geotiff_names[self.tek_image_path])
+            full_img_path = os.path.join(self.handle_temp_folder(), img_name)
         else:
-            img_name = self.tek_image_name
+            img_name = os.path.basename(self.tek_image_path)
+            full_img_path = os.path.join(self.dataset_dir, img_name)
 
         if prompt:
 
@@ -60,7 +68,7 @@ class DetectorGeoTIFF(Detector):
                                                config.PATH_TO_GROUNDING_DINO_CHECKPOINT)
 
             self.gd_worker = GroundingSAMWorker(config_file=config_file, grounded_checkpoint=grounded_checkpoint,
-                                                sam_predictor=self.sam, tek_image_path=img_name,
+                                                sam_predictor=self.sam, tek_image_path=full_img_path,
                                                 grounding_dino_model=self.gd_model,
                                                 prompt=prompt)
 
@@ -143,11 +151,8 @@ class DetectorGeoTIFF(Detector):
             # cv2.imshow('test bgr', self.cv2_image)
             # cv2.waitKey(0)
 
-            self.aiAnnotatorPointsAct.setEnabled(True)
-            self.aiAnnotatorMaskAct.setEnabled(True)
-            self.aiAnnotatorMethodMenu.setEnabled(True)
-            self.GroundingDINOSamAct.setEnabled(True)
-            self.exportToESRIAct.setEnabled(True)
+            self.toggle_act(True)
+
             self.image_set = False
             self.queue_image_to_sam(image_name)
             lrm = hf.try_read_lrm(image_name)
@@ -156,8 +161,6 @@ class DetectorGeoTIFF(Detector):
 
         else:
             super(DetectorGeoTIFF, self).open_image(image_name)
-
-
 
 
 if __name__ == '__main__':

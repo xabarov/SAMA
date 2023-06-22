@@ -258,7 +258,7 @@ def convert_coco_to_coords(coco_label_file, dat_file, img_file_name):
     lat_start = min_max[0]
     lat_finish = min_max[1]
     delta_lat = lat_finish - lat_start
-    grad_lat_in_pix = delta_lat / im_height
+    grad_lat_in_pix = delta_lat / img_height
 
     lon_start = min_max[2]
     lon_finish = min_max[3]
@@ -317,7 +317,7 @@ def crop_from_coords(dat_file, img_file_name, x_min, x_max, y_min, y_max, save_d
     lat_start = min_max[0]
     lat_finish = min_max[1]
     delta_lat = lat_finish - lat_start
-    grad_lat_in_pix = delta_lat / im_height
+    grad_lat_in_pix = delta_lat / img_height
 
     lon_start = min_max[2]
     lon_finish = min_max[3]
@@ -363,7 +363,7 @@ def convert_yolo_to_coords(yolo_label_file, dat_file, img_file_name):
     lat_start = min_max[0]
     lat_finish = min_max[1]
     delta_lat = lat_finish - lat_start
-    grad_lat_in_pix = delta_lat / im_height
+    grad_lat_in_pix = delta_lat / img_height
 
     lon_start = min_max[2]
     lon_finish = min_max[3]

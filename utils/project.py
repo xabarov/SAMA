@@ -8,7 +8,7 @@ import os
 from PIL import Image
 
 from shapely import Polygon
-from utils.saver_worker import SaverWorker
+from utils.saver_worker import SaverLoaderWorker
 
 
 class ProjectHandler:
@@ -19,7 +19,7 @@ class ProjectHandler:
 
     def __init__(self):
         self.init()
-        self.saver = SaverWorker()
+
 
     def check_json(self, json_project_data):
         for field in ["path_to_images", "images", "labels", "labels_color"]:
@@ -37,6 +37,12 @@ class ProjectHandler:
         self.data["labels"] = []
         self.data["labels_color"] = {}
         self.is_loaded = False
+        self.saver_loader = SaverLoaderWorker()
+        self.save_queue = []
+        self.load_queue = []
+        self.saver_mode = None
+        self.save_callback = None
+        self.load_callback = None
 
     def calc_dataset_balance(self):
         cls_nums = {}
@@ -49,20 +55,58 @@ class ProjectHandler:
                     cls_nums[cls_num] += 1
         return cls_nums
 
-    def load(self, json_path):
-        if os.path.exists(json_path):
-            with open(json_path, 'r') as f:
-                data = json.load(f)
+    def load(self, json_path, on_load_callback=None):
+        self.saver_loader.enqueue_load(json_path)
 
-                if not self.check_json(data):
-                    return False
+        self.load_callback = on_load_callback
 
-                self.data = data
-                self.update_ids()
-                self.is_loaded = True
-                return True
+        if not self.saver_loader.isRunning():
 
-        return False
+            self.saver_loader.on_load.on_finished.connect(self.on_load_end)
+
+            self.saver_loader.start()
+        else:
+            if self.saver_mode == 'load':
+                self.saver_loader.on_load.on_finished.connect(self.restart)
+            else:
+                self.saver_loader.on_save.on_finished.connect(self.restart)
+
+        self.saver_loader.change_mode('load')
+        self.saver_mode = 'load'
+
+    def on_load_end(self):
+        self.data = self.saver_loader.last_version.json_data
+        self.is_loaded = True
+        if self.load_callback:
+            self.load_callback()
+
+    def save(self, json_path, on_save_callback=None):
+
+        self.saver_loader.enqueue_save(json_path, self.data)
+
+        self.save_callback = on_save_callback
+
+        if not self.saver_loader.isRunning():
+            if on_save_callback:
+                self.saver_loader.on_save.on_finished.connect(on_save_callback)
+            self.saver_loader.start()
+
+        else:
+            if self.saver_mode == 'load':
+                self.saver_loader.on_load.on_finished.connect(self.restart)
+            else:
+                self.saver_loader.on_save.on_finished.connect(self.restart)
+
+        self.saver_loader.change_mode('save')
+        self.saver_mode = 'save'
+
+    def restart(self):
+        if not self.saver_loader.isRunning():
+            if self.save_callback:
+                self.saver_loader.on_save.on_finished.connect(save_callback)
+            if self.load_callback:
+                self.saver_loader.on_load.on_finished.connect(load_callback)
+            self.saver_loader.start()
 
     def update_ids(self):
         id_num = 0
@@ -70,16 +114,6 @@ class ProjectHandler:
             for shape in im['shapes']:
                 shape['id'] = id_num
                 id_num += 1
-
-    def save(self, json_path, on_save_callback=None):
-
-        self.saver.enqueue(json_path, self.data)
-        if on_save_callback:
-            self.saver.finished.connect(on_save_callback)
-
-        if not self.saver.isRunning():
-            self.saver.start()
-
 
     def set_data(self, data):
         self.data = data
@@ -200,6 +234,9 @@ class ProjectHandler:
 
     def set_labels_names(self, labels):
         self.data["labels"] = labels
+
+    def set_all_images(self, images_new):
+        self.data["images"] = images_new
 
     def set_image_data(self, image_data):
         image_name = image_data["filename"]
@@ -356,7 +393,6 @@ class ProjectHandler:
                 print(f"Checking files: image {im['filename']} doesn't exist")
 
         self.data['images'] = images
-
 
     def exportToCOCO(self, export_сoco_name):
 
