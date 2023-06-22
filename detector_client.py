@@ -20,7 +20,7 @@ from ui.edit_with_button import EditWithButton
 from utils import cls_settings
 from utils import config
 from utils.cnn_worker_client import CNNWorkerClient
-from utils.predictor import SAMImageSetterClient, SAMPredictByPointsClient, SAMPredictByMaskClient
+from utils.sam_predictor_client import SAMImageSetterClient, SAMPredictByPointsClient, SAMPredictByMaskClient
 
 from shapely import Polygon
 

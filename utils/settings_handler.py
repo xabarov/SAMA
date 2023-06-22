@@ -1,8 +1,6 @@
 from utils import config
 from PyQt5.QtCore import QSettings, QPoint, QSize
 
-from torch import cuda
-
 import os
 from utils.config import DOMEN_NAME
 
@@ -51,25 +49,11 @@ class AppSettings:
         return os.path.join("ui/icons/", theme_type)
 
     def write_platform(self, platform):
-        if platform == 'Auto':
-            if cuda.is_available():
-                platform = 'cuda'
-            else:
-                platform = 'cpu'
         self.qt_settings.setValue("main/platform", platform)
 
     def read_platform(self):
         platform = self.qt_settings.value("main/platform")
-        if not platform:
-            if cuda.is_available():
-                platform = 'cuda'
-            else:
-                platform = 'cpu'
-            self.write_platform(platform)
-            return platform
-
-        else:
-            return platform
+        return platform
 
     def write_alpha(self, alpha):
         self.qt_settings.setValue("main/alpha", alpha)
