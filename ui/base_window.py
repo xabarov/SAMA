@@ -33,6 +33,7 @@ from utils.importer import Importer
 from utils.project import ProjectHandler
 from utils.settings_handler import AppSettings
 
+basedir = os.path.dirname(__file__)
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
@@ -67,7 +68,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Settings
         self.settings = AppSettings()
-        self.icon_folder = self.settings.get_icon_folder()
+        self.icon_folder = os.path.join(basedir, self.settings.get_icon_folder())
         # last_ for not recreate if not change
         self.last_theme = self.settings.read_theme()
 

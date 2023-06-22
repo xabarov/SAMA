@@ -4,6 +4,7 @@ from PyQt5.QtCore import QSettings, QPoint, QSize
 from torch import cuda
 
 import os
+from utils.config import DOMEN_NAME
 
 
 class AppSettings:
@@ -36,6 +37,13 @@ class AppSettings:
 
     def read_theme(self):
         return self.qt_settings.value("main/theme", 'dark_blue.xml')
+
+    def read_server_name(self):
+        return self.qt_settings.value("main/server", DOMEN_NAME)
+
+    def write_server_name(self, server_name):
+
+        self.qt_settings.setValue("main/server", server_name)
 
     def get_icon_folder(self):
         theme_str = self.read_theme()

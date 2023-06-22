@@ -95,3 +95,5 @@ PATH_TO_GROUNDING_DINO_CHECKPOINT = 'gd/groundingdino_swinb_cogcoor.pth'  # 'gd\
 PATH_TO_SAM_CHECKPOINT = 'sam_models\sam_vit_h_4b8939.pth'
 
 LANGUAGE = 'RU'  # ENG
+
+DOMEN_NAME = 'http://127.0.0.1:5000'

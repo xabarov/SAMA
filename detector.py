@@ -35,8 +35,6 @@ class Detector(Annotator):
             self, enabled=False,
             triggered=self.detect_scan)
 
-
-
         self.segmentImage = QAction(
             "Сегментация" if self.settings.read_lang() == 'RU' else "Segment image",
             self, enabled=False,
@@ -239,7 +237,6 @@ class Detector(Annotator):
         super(Detector, self).toggle_act(is_active)
 
         self.detectScanAct.setEnabled(is_active)
-
 
         self.segmentImage.setEnabled(is_active)
 

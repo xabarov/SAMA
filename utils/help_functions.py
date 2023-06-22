@@ -25,6 +25,7 @@ def try_read_lrm(image_name):
         map_name = name_without_ext + map_ext
         if os.path.exists(map_name):
             coords_net = coords_calc.load_coords(map_name)
+            Image.MAX_IMAGE_PIXELS = None
             img = Image.open(image_name)
 
             img_width, img_height = img.size
