@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import requests
 from PyQt5 import QtCore
 from PyQt5 import QtWidgets
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QCursor
 from PyQt5.QtWidgets import QAction, QMessageBox, QMenu
 from PyQt5.QtWidgets import QToolBar, QToolButton
 from qt_material import apply_stylesheet
@@ -20,6 +20,9 @@ from ui.edit_with_button import EditWithButton
 from utils import cls_settings
 from utils import config
 from utils.cnn_worker_client import CNNWorkerClient
+from utils.predictor import SAMImageSetterClient, SAMPredictByPointsClient, SAMPredictByMaskClient
+
+from shapely import Polygon
 
 
 class DetectorClient(MainWindow):
@@ -30,6 +33,21 @@ class DetectorClient(MainWindow):
 
         # Detector
         self.started_cnn = None
+
+        # SAM
+        self.image_set = False
+        self.image_setter = SAMImageSetterClient(self.settings.read_server_name())
+
+        self.sam_by_points_client = SAMPredictByPointsClient(self.settings.read_server_name())
+        self.sam_by_points_client.finished.connect(self.on_sam_by_points_finished)
+
+        self.sam_by_mask_client = SAMPredictByMaskClient(self.settings.read_server_name())
+        self.sam_by_mask_client.finished.connect(self.on_sam_by_mask_finished)
+
+        self.image_setter.finished.connect(self.on_image_set)
+        self.queue_to_image_setter = []
+
+        self.view.mask_end_drawing.on_mask_end_drawing.connect(self.ai_mask_end_drawing)
 
         self.scanning_mode = False
         self.lrm = None
@@ -56,6 +74,18 @@ class DetectorClient(MainWindow):
             "Синхронизировать имена меток" if self.settings.read_lang() == 'RU' else "Fill label names from AI model",
             self, enabled=False,
             triggered=self.sync_labels)
+
+        self.aiAnnotatorPointsAct = QAction(
+            "Сегментация по точкам" if self.settings.read_lang() == 'RU' else "SAM by points",
+            self, enabled=False, shortcut="Ctrl+A",
+            triggered=self.ai_points_pressed,
+            checkable=True)
+
+        self.aiAnnotatorMaskAct = QAction(
+            "Сегментация внутри бокса" if self.settings.read_lang() == 'RU' else "SAM by box", self,
+            enabled=False, shortcut="Ctrl+M",
+            triggered=self.ai_mask_pressed,
+            checkable=True)
 
         self.exportToESRIAct = QAction(
             "Экспорт в ESRI shapefile" if self.settings.read_lang() == 'RU' else "Export to ESRI shapefile", self,
@@ -131,6 +161,7 @@ class DetectorClient(MainWindow):
         self.statusBar().showMessage(
             f"Начинаю поиск объектов на изображении..." if self.settings.read_lang() == 'RU' else f"Start searching object on image...",
             3000)
+        self.start_gif(is_prog_load=True)
 
     def on_cnn_finished(self):
         """
@@ -168,12 +199,17 @@ class DetectorClient(MainWindow):
             f"Найдено {len(self.CNN_worker.mask_results)} объектов" if self.settings.read_lang() == 'RU' else f"{len(self.CNN_worker.mask_results)} objects has been detected",
             3000)
 
+        self.splash.finish(self)
+
     def toggle_act(self, is_active):
         super(DetectorClient, self).toggle_act(is_active)
         self.balanceAct.setEnabled(is_active)
         self.detectAct.setEnabled(is_active)
         self.detectScanAct.setEnabled(is_active)
         self.exportToESRIAct.setEnabled(is_active)
+
+        self.aiAnnotatorPointsAct.setEnabled(is_active)
+        self.aiAnnotatorMaskAct.setEnabled(is_active)
 
         self.syncLabelsAct.setEnabled(is_active)
 
@@ -186,6 +222,13 @@ class DetectorClient(MainWindow):
         self.classifierMenu.addAction(self.syncLabelsAct)
 
         self.annotatorMenu.addAction(self.balanceAct)
+
+        self.aiAnnotatorMethodMenu = QMenu("С помощью ИИ" if self.settings.read_lang() == 'RU' else "AI", self)
+
+        self.aiAnnotatorMethodMenu.addAction(self.aiAnnotatorPointsAct)
+        self.aiAnnotatorMethodMenu.addAction(self.aiAnnotatorMaskAct)
+
+        self.AnnotatorMethodMenu.addMenu(self.aiAnnotatorMethodMenu)
 
         self.menuBar().clear()
         self.menuBar().addMenu(self.fileMenu)
@@ -230,16 +273,59 @@ class DetectorClient(MainWindow):
         super(DetectorClient, self).set_icons()
         self.balanceAct.setIcon(QIcon(self.icon_folder + "/bar-chart.png"))
 
+        self.aiAnnotatorPointsAct.setIcon(QIcon(self.icon_folder + "/mouse.png"))
+        self.aiAnnotatorMaskAct.setIcon(QIcon(self.icon_folder + "/ai_select.png"))
+
         # classifier
         self.detectAct.setIcon(QIcon(self.icon_folder + "/detect_all.png"))
         self.detectScanAct.setIcon(QIcon(self.icon_folder + "/slide.png"))
 
     def open_image(self, image_name):
         super(DetectorClient, self).open_image(image_name)
+
+        self.image_set = False
+        self.queue_image_to_sam(image_name)
         lrm = hf.try_read_lrm(image_name)
         if lrm:
             self.lrm = lrm
             print(self.lrm)
+
+    def reload_image(self):
+        super(DetectorClient, self).reload_image()
+        self.view.clear_ai_points()
+
+    def queue_image_to_sam(self, image_name):
+
+        if not self.image_setter.isRunning():
+            self.image_setter.set_image(self.tek_image_path)
+            self.statusBar().showMessage(
+                "Начинаю загружать изображение в нейросеть SAM..." if self.settings.read_lang() == 'RU' else "Start loading image to SAM...",
+                3000)
+            self.image_setter.start()
+        else:
+            self.queue_to_image_setter.append(image_name)
+
+            self.statusBar().showMessage(
+                f"Изображение {os.path.split(image_name)[-1]} добавлено в очередь на обработку." if self.settings.read_lang() == 'RU' else f"Image {os.path.split(image_name)[-1]} is added to queue...",
+                3000)
+
+    def on_image_set(self):
+
+        if len(self.queue_to_image_setter) != 0:
+            image_name = self.queue_to_image_setter[-1]
+            self.image_set = False
+            self.image_setter.set_image(image_name)
+            self.queue_to_image_setter = []
+            self.statusBar().showMessage(
+                "Нейросеть SAM еще не готова. Подождите секунду..." if self.settings.read_lang() == 'RU' else "SAM is loading. Please wait...",
+                3000)
+            self.image_setter.start()
+
+        else:
+            self.statusBar().showMessage(
+                "Нейросеть SAM готова к сегментации" if self.settings.read_lang() == 'RU' else "SAM ready to work",
+                3000)
+            self.image_set = True
 
     def export_to_esri(self):
 
@@ -347,6 +433,132 @@ class DetectorClient(MainWindow):
                           "<p><b>AI Detector Client</b></p>"
                           "<p>Программа для обнаружения объектов на изображении</p>" if
                           self.settings.read_lang() == 'RU' else "<p>Object Detection and Instance Segmentation program.</p>")
+
+    def ai_points_pressed(self):
+
+        self.ann_type = "AiPoints"
+        self.set_labels_color()
+        cls_txt = self.cls_combo.currentText()
+        cls_num = self.cls_combo.currentIndex()
+
+        label_color = self.project_data.get_label_color(cls_txt)
+
+        alpha_tek = self.settings.read_alpha()
+
+        self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
+
+    def ai_mask_pressed(self):
+
+        self.ann_type = "AiMask"
+        self.set_labels_color()
+        cls_txt = self.cls_combo.currentText()
+        cls_num = self.cls_combo.currentIndex()
+
+        label_color = self.project_data.get_label_color(cls_txt)
+
+        alpha_tek = self.settings.read_alpha()
+        self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
+
+    def start_drawing(self):
+        super(DetectorClient, self).start_drawing()
+        self.view.clear_ai_points()
+
+    def break_drawing(self):
+        super(DetectorClient, self).break_drawing()
+        if self.ann_type == "AiPoints":
+            self.view.clear_ai_points()
+            self.view.remove_active()
+
+    def end_drawing(self):
+        super(DetectorClient, self).end_drawing()
+
+        if self.ann_type == "AiPoints":
+
+            self.view.setCursor(QCursor(QtCore.Qt.BusyCursor))
+
+            input_point, input_label = self.view.get_sam_input_points_and_labels()
+
+            # print(input_point, input_label)
+
+            if len(input_label):
+                if self.image_set and not self.image_setter.isRunning():
+
+                    self.sam_by_points_client.set_inputs(input_point, input_label)
+
+                    if not self.sam_by_points_client.isRunning():
+                        self.sam_by_points_client.start()
+
+            else:
+                self.view.remove_active()
+
+            self.view.clear_ai_points()
+            self.view.end_drawing()
+
+            self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
+
+            self.write_scene_to_project_data()
+            self.fill_labels_on_tek_image_list_widget()
+
+            self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+
+    def on_sam_by_points_finished(self):
+        for points_mass in self.sam_by_points_client.points_mass:
+            self.add_sam_polygon_to_scene(points_mass)
+
+    def add_sam_polygon_to_scene(self, points_mass):
+
+        if len(points_mass) > 0:
+            filtered_points_mass = []
+            for points in points_mass:
+                shapely_pol = Polygon(points)
+                area = shapely_pol.area
+
+                if area > config.POLYGON_AREA_THRESHOLD:
+
+                    filtered_points_mass.append(points)
+
+                else:
+                    if self.settings.read_lang() == 'RU':
+                        self.statusBar().showMessage(
+                            f"Метку сделать не удалось. Площадь маски слишком мала {area:0.3f}. Попробуйте еще раз",
+                            3000)
+                    else:
+                        self.statusBar().showMessage(
+                            f"Can't create label. Area of label is too small {area:0.3f}. Try again", 3000)
+
+            cls_num = self.cls_combo.currentIndex()
+            cls_name = self.cls_combo.itemText(cls_num)
+            alpha_tek = self.settings.read_alpha()
+            color = self.project_data.get_label_color(cls_name)
+
+            self.view.add_polygons_group_to_scene(cls_num, filtered_points_mass, color, alpha_tek)
+            self.write_scene_to_project_data()
+            self.fill_labels_on_tek_image_list_widget()
+        else:
+            self.write_scene_to_project_data()
+            self.fill_labels_on_tek_image_list_widget()
+
+        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+
+    def ai_mask_end_drawing(self):
+
+        self.view.setCursor(QCursor(QtCore.Qt.BusyCursor))
+        input_box = self.view.get_sam_mask_input()
+
+        self.view.remove_active()
+
+        if len(input_box):
+            if self.image_set and not self.image_setter.isRunning():
+                self.sam_by_mask_client.set_input_box(input_box)
+                if not self.sam_by_mask_client.isRunning():
+                    self.sam_by_mask_client.start()
+
+        self.view.end_drawing()
+        self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
+
+    def on_sam_by_mask_finished(self):
+        points_mass = self.sam_by_mask_client.points_mass
+        self.add_sam_polygon_to_scene(points_mass=points_mass)
 
 
 if __name__ == '__main__':
