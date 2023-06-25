@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QLabel, QGroupBox, QFormLayout, QComboBox, QVBoxLayout, QDoubleSpinBox
+from PyQt5.QtWidgets import QLabel, QGroupBox, QFormLayout, QComboBox, QVBoxLayout, QDoubleSpinBox, QCheckBox
 
 from utils import cls_settings
 from ui.settings_window_base import SettingsWindowBase
@@ -72,6 +72,11 @@ class SettingsWindow(SettingsWindowBase):
         self.IOU_spin.setSingleStep(0.01)
         classifier_layout.addRow(QLabel("IOU порог:" if self.lang == 'RU' else "IoU threshold"), self.IOU_spin)
 
+        self.SAM_HQ_checkbox = QCheckBox()
+        self.SAM_HQ_checkbox.setChecked(bool(self.settings.read_sam_hq()))
+        sam_hq_label = QLabel('Использовать SAM HQ' if self.lang == 'RU' else 'Use SAM HQ')
+        classifier_layout.addRow(sam_hq_label, self.SAM_HQ_checkbox)
+
         self.classifierGroupBox.setLayout(classifier_layout)
 
     def on_ok_clicked(self):
@@ -82,3 +87,5 @@ class SettingsWindow(SettingsWindowBase):
         self.settings.write_cnn_model(self.cnns[self.cnn_combo.currentIndex()])
         self.settings.write_iou_thres(self.IOU_spin.value())
         self.settings.write_conf_thres(self.conf_thres_spin.value())
+
+        self.settings.write_sam_hq(int(self.SAM_HQ_checkbox.isChecked()))

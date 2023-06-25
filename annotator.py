@@ -38,6 +38,7 @@ class Annotator(MainWindow):
 
         # Current CUDA model
         self.last_platform = self.settings.read_platform()
+        self.last_sam_use_hq = self.settings.read_sam_hq()
         self.message_cuda_available()
 
         # Detector
@@ -223,17 +224,20 @@ class Annotator(MainWindow):
                           self.settings.read_lang() == 'RU' else "<p>Labeling Data for Object Detection and Instance Segmentation "
                                                                  "with Segment Anything Model (SAM) and GroundingDINO.</p>")
 
-    def handle_cuda_models(self):
-
-        # Start on Loading Animation
-        self.start_gif(is_prog_load=True)
-
+    def handle_sam_model(self):
         self.sam = self.load_sam()
         self.image_setter = SAMImageSetter()
         self.image_setter.set_predictor(self.sam)
         self.image_setter.finished.connect(self.on_image_set)
         if self.tek_image_path:
             self.queue_image_to_sam(self.tek_image_path)
+
+    def handle_cuda_models(self):
+
+        # Start on Loading Animation
+        self.start_gif(is_prog_load=True)
+
+        self.handle_sam_model()
 
         cfg_path, weights_path = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8')
         config_path = os.path.join(os.getcwd(), cfg_path)
@@ -256,11 +260,11 @@ class Annotator(MainWindow):
     def on_settings_closed(self):
         super(Annotator, self).on_settings_closed()
         platform = self.settings.read_platform()
+        sam_hq = self.settings.read_sam_hq()
 
-        if platform != self.last_platform:
-            self.sam = self.load_sam()
+        if platform != self.last_platform or sam_hq != self.last_sam_use_hq:
+            self.handle_sam_model()
             self.last_platform = platform
-            self.message_cuda_available()
 
     def ai_points_pressed(self):
 
@@ -426,8 +430,13 @@ class Annotator(MainWindow):
         return gd_load_model(config_file, grounded_checkpoint, device=self.settings.read_platform())
 
     def load_sam(self):
-        sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_CHECKPOINT)
-        return sam_load_model(sam_model_path, device=self.settings.read_platform())
+        use_hq = self.settings.read_sam_hq()
+        if use_hq:
+            sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_HQ_CHECKPOINT)
+        else:
+            sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_CHECKPOINT)
+
+        return sam_load_model(sam_model_path, device=self.settings.read_platform(), use_sam_hq=use_hq)
 
     def queue_image_to_sam(self, image_name):
 
@@ -493,7 +502,6 @@ class Annotator(MainWindow):
         self.statusBar().showMessage(
             f"Начинаю поиск объектов на изображении..." if self.settings.read_lang() == 'RU' else f"Start searching object on image...",
             3000)
-
 
     def on_cnn_finished(self):
         """
@@ -563,7 +571,6 @@ class Annotator(MainWindow):
                                                 grounding_dino_model=self.gd_model,
                                                 prompt=prompt)
 
-
             self.progress_toolbar.set_percent(10)
 
             self.gd_worker.finished.connect(self.on_gd_worker_finished)
@@ -585,7 +592,7 @@ class Annotator(MainWindow):
             points = yolo8masks2points(mask * 255, simplify_factor=3, width=shape[1], height=shape[0])
             if points:
                 points_mass.append(points)
-            self.progress_toolbar.set_percent(50 + int(i+1)*100.0/len(masks))
+            self.progress_toolbar.set_percent(50 + int(i + 1) * 100.0 / len(masks))
 
         self.view.add_polygons_group_to_scene(self.prompt_cls_num, points_mass,
                                               color=self.project_data.get_label_color(self.prompt_cls_name))

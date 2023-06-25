@@ -10,6 +10,12 @@ class AppSettings:
         self.qt_settings = QSettings(config.QT_SETTINGS_COMPANY, app_name)
         self.write_lang(config.LANGUAGE)
 
+    def write_sam_hq(self, use_hq):
+        self.qt_settings.setValue("cnn/sam_hq", use_hq)
+
+    def read_sam_hq(self):
+        return self.qt_settings.value("cnn/sam_hq", 1)
+
     def write_size_pos_settings(self, size, pos):
         self.qt_settings.beginGroup("main_window")
         self.qt_settings.setValue("size", size)
@@ -30,7 +36,6 @@ class AppSettings:
         return self.qt_settings.value("main/lang", 'ENG')
 
     def write_theme(self, theme):
-
         self.qt_settings.setValue("main/theme", theme)
 
     def read_theme(self):
@@ -40,7 +45,6 @@ class AppSettings:
         return self.qt_settings.value("main/server", DOMEN_NAME)
 
     def write_server_name(self, server_name):
-
         self.qt_settings.setValue("main/server", server_name)
 
     def get_icon_folder(self):

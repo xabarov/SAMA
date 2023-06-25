@@ -1,5 +1,5 @@
 from rasterio import features
-from segment_anything import sam_model_registry, SamPredictor, build_sam
+from segment_anything import sam_model_registry, SamPredictor, build_sam, build_sam_hq
 from utils.edges_from_mask import mask_to_polygons_layer
 
 import numpy as np
@@ -34,13 +34,14 @@ def show_box(box, ax):
     ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='green', facecolor=(0, 0, 0, 0), lw=2))
 
 
-def load_model(model_path, model_type="vit_h", device="cuda"):
+def load_model(model_path, device="cuda", use_sam_hq=True):
     sam_checkpoint = model_path
 
-    sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
-    sam.to(device=device)
-
-    predictor = SamPredictor(sam)
+    # initialize SAM
+    if use_sam_hq:
+        predictor = SamPredictor(build_sam_hq(checkpoint=sam_checkpoint).to(device))
+    else:
+        predictor = SamPredictor(build_sam(checkpoint=sam_checkpoint).to(device))
 
     return predictor
 
