@@ -27,7 +27,6 @@ class ProgressBarToolbar(QWidget):
 
     def set_percent(self, percent):
         self.progress_bar.setValue(percent)
-        print(percent)
         if percent >= 100:
             self.hide_progressbar()
 

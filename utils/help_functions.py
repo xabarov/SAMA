@@ -37,6 +37,43 @@ def try_read_lrm(image_name):
         return coords_calc.lrm_from_gdal_data(image_name, gdal_data)
 
 
+def read_min_max_stat(path_to_doverit):
+    stat = {}
+    with open(path_to_doverit, 'r') as f:
+        for line in f:
+            line = line.strip().split(';')
+            stat[line[0]] = (float(line[3]), float(line[4]))
+
+    return stat
+
+
+def calc_areas(seg_results, lrm, verbose=False, cls_names=None, scale=1):
+    if verbose:
+        print(f"Старт вычисления площадей с lrm={lrm:0.3f}, всего {len(seg_results)} объектов:")
+
+    areas = []
+    for seg in seg_results:
+        x_mass = seg.seg['x']
+        y_mass = seg.seg['y']
+        cls = seg.cls
+
+        pol = []
+        for x, y in zip(x_mass, y_mass):
+            pol.append((x, y))
+
+        pol = Polygon(pol)
+
+        area = pol.area * lrm * lrm * scale * scale
+        areas.append(area)
+
+        if verbose:
+            if cls_names:
+                cls = cls_names[cls]
+            print(f"\tплощадь {cls}: {area:0.3f} кв.м")
+
+    return areas
+
+
 def get_extension(filename):
     return coords_calc.get_ext(filename)
 
@@ -395,6 +432,30 @@ def filter_masks(masks_results, conf_thres=0.2, iou_filter=0.3):
             unique_results.append(masks_results[i])
 
     return unique_results
+
+
+def calc_area_by_points(points, lrm):
+    pol = Polygon(points)
+
+    return pol.area * lrm * lrm
+
+
+def filter_results_by_areas(det_results, areas, stat):
+    det_results_filtered = []
+    for i, res in enumerate(det_results):
+
+        cls_eng = cls_settings.CLASSES_ENG[int(res.cls)]
+        cls_dic = cls_settings.CLASSES_RU[int(res.cls)]
+
+        if cls_eng in stat:
+            area = areas[i]
+            if area < 0.9 * stat[cls_eng][0] or area > 1.1 * stat[cls_eng][1]:
+                print(
+                    f"\t\tплощадь {cls_dic} вне наблюдаемых границ +/- 10 %. Этот объект отфильтрован.")
+                continue
+            det_results_filtered.append(res)
+
+    return det_results_filtered
 
 
 if __name__ == '__main__':

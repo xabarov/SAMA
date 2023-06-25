@@ -10,19 +10,17 @@ from PyQt5.QtGui import QIcon, QCursor
 from PyQt5.QtWidgets import QAction, QMessageBox, QMenu
 from PyQt5.QtWidgets import QToolBar, QToolButton
 from qt_material import apply_stylesheet
+from shapely import Polygon
 
 import utils.help_functions as hf
 from ui.base_window import MainWindow
+from ui.edit_with_button import EditWithButton
 from ui.settings_window_client import SettingsWindowClient
 from ui.show_image_widget import ShowImgWindow
-from ui.edit_with_button import EditWithButton
-
 from utils import cls_settings
 from utils import config
 from utils.cnn_worker_client import CNNWorkerClient
 from utils.sam_predictor_client import SAMImageSetterClient, SAMPredictByPointsClient, SAMPredictByMaskClient
-
-from shapely import Polygon
 
 
 class DetectorClient(MainWindow):
@@ -290,7 +288,6 @@ class DetectorClient(MainWindow):
         lrm = hf.try_read_lrm(image_name)
         if lrm:
             self.lrm = lrm
-            print(self.lrm)
 
     def reload_image(self):
         super(DetectorClient, self).reload_image()

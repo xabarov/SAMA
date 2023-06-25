@@ -1,10 +1,9 @@
 from PyQt5 import QtCore, QtWidgets, QtGui
-from detector import Detector
+from detector_client import DetectorClient
 from PyQt5.QtGui import QCursor
 
 from utils import config
 from utils.gdal_translate import convert_geotiff
-from gd.gd_worker import GroundingSAMWorker
 
 from qt_material import apply_stylesheet
 
@@ -14,7 +13,7 @@ import os
 import cv2
 
 
-class DetectorGeoTIFF(Detector):
+class DetectorGeoTIFFClient(DetectorClient):
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -44,68 +43,32 @@ class DetectorGeoTIFF(Detector):
 
         self.run_detection(img_name=img_name, img_path=img_path)
 
-    def start_grounddino(self):
-        prompt = self.prompt_input_dialog.getPrompt()
-
-        if self.tek_image_name.split('.')[-1] == 'tif':
-            img_name = os.path.basename(self.map_geotiff_names[self.tek_image_path])
-            full_img_path = os.path.join(self.handle_temp_folder(), img_name)
-        else:
-            img_name = os.path.basename(self.tek_image_path)
-            full_img_path = os.path.join(self.dataset_dir, img_name)
-
-        if prompt:
-
-            self.prompt_cls_name = self.prompt_input_dialog.getClsName()
-            self.prompt_cls_num = self.prompt_input_dialog.getClsNumber()
-
-            if prompt not in self.prompts:
-                self.prompts.append(prompt)
-
-            config_file = os.path.join(os.getcwd(),
-                                       config.PATH_TO_GROUNDING_DINO_CONFIG)
-            grounded_checkpoint = os.path.join(os.getcwd(),
-                                               config.PATH_TO_GROUNDING_DINO_CHECKPOINT)
-
-            self.gd_worker = GroundingSAMWorker(config_file=config_file, grounded_checkpoint=grounded_checkpoint,
-                                                sam_predictor=self.sam, tek_image_path=full_img_path,
-                                                grounding_dino_model=self.gd_model,
-                                                prompt=prompt)
-
-            self.prompt_input_dialog.set_progress(10)
-
-            self.gd_worker.finished.connect(self.on_gd_worker_finished)
-
-            if not self.gd_worker.isRunning():
-                self.statusBar().showMessage(
-                    f"Начинаю поиск {self.prompt_cls_name} на изображении..." if self.settings.read_lang() == 'RU' else f"Start searching {self.prompt_cls_name} on image...",
-                    3000)
-                self.gd_worker.start()
-
     def on_image_set(self):
 
         if len(self.queue_to_image_setter) != 0:
+
+            self.image_set = False
+
             image_name = self.queue_to_image_setter[-1]  # geo_tif_names
 
             if image_name.split('.')[-1] == 'tif':
                 if image_name in self.map_geotiff_names:
                     jpg_path = self.map_geotiff_names[image_name]
-                    image = cv2.imread(jpg_path)
                 else:
 
                     temp_folder = self.handle_temp_folder()  # if not exist
                     jpg_path = os.path.join(temp_folder,
                                             os.path.basename(image_name).split('.')[0] + '.jpg')
 
-                    image = convert_geotiff(image_name, jpg_path)
+                    convert_geotiff(image_name, jpg_path)
 
                     self.map_geotiff_names[image_name] = jpg_path
-            else:
-                image = cv2.imread(image_name)
 
-            self.cv2_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            self.image_set = False
-            self.image_setter.set_image(self.cv2_image)
+                self.image_setter.set_image(jpg_path)  # !!!
+
+            else:
+                self.image_setter.set_image(image_name)
+
             self.queue_to_image_setter = []
             self.statusBar().showMessage(
                 "Нейросеть SAM еще не готова. Подождите секунду..." if self.settings.read_lang() == 'RU' else "SAM is loading. Please wait...",
@@ -160,7 +123,7 @@ class DetectorGeoTIFF(Detector):
                 self.lrm = lrm
 
         else:
-            super(DetectorGeoTIFF, self).open_image(image_name)
+            super(DetectorGeoTIFFClient, self).open_image(image_name)
 
 
 if __name__ == '__main__':
@@ -171,6 +134,6 @@ if __name__ == '__main__':
 
     apply_stylesheet(app, theme='dark_blue.xml', extra=extra)
 
-    w = DetectorGeoTIFF()
+    w = DetectorGeoTIFFClient()
     w.show()
     sys.exit(app.exec_())

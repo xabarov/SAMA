@@ -1,1 +1,0 @@
-PATH_TO_SAM_CHECKPOINT = 'sam_models\sam_vit_h_4b8939.pth'

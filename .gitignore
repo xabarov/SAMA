@@ -158,3 +158,9 @@ projects/*
 *.pdf
 *.docx
 gd/GroundingDINO/models--bert-base-uncased/*
+
+nuclear_power/*
+detector_nuclear.py
+yolov8/weights/*
+*.whl
+*.psd

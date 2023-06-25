@@ -366,7 +366,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.load_ids_conn.percent.emit(percent)
 
     def on_ids_worker_finished(self):
-        print('Loading project finished')
         self.labels_ids = self.ids_worker.get_labels_ids()
         if self.on_set_callback:
             self.on_set_callback()
@@ -384,7 +383,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def remove_last_changes(self):
         for item_id in self.last_added:
-            print(f'Remove {item_id}')
             self.remove_shape_by_id(item_id)
         self.last_added = []
 
@@ -1187,7 +1185,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 menu.exec(event.globalPos())
 
     def on_rb_mode_change(self, is_active):
-        print(f'Rubber mode: {is_active}')
         self.is_rubber_mode = is_active
         if is_active:
             self.start_drawing(type='RubberBand')

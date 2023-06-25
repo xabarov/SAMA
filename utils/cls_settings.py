@@ -37,7 +37,7 @@ CLASSES_ENG = ["ro_pf", "ro_sf", "mz_v", "mz_ot", "ru_ot", "bns_ot", "gr_b", "gr
 CLASS_CONFIDENCE_MULTIPLIER = [0.7, 1.0, 0.7, 0.7, 0.9, 0.6, 1.0, 0.7, 0.7,
                                1.0, 0.2, 0.3]
 
-PATH_TO_DOVERIT_STAT = "doverit_stat_aes2.csv"
+PATH_TO_DOVERIT_STAT = "nuclear_power/doverit_stat_aes2.csv"
 
 CNN_LIST = [
     # 'YOLOv3',
