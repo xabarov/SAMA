@@ -32,9 +32,8 @@ class CNNWorkerClient(QtCore.QThread):
         self.image_path = image_path
 
     def run(self):
-        url = f'{self.server}/detect'
+        url = f'{self.server}/detect?conf={self.conf}&iou={self.iou}&lrm={self.lrm}'
         files = {'file': open(self.image_path, 'rb')}
-        response = requests.post(url, files=files,
-                                 headers={'conf': str(self.conf), 'iou': str(self.iou), 'lrm': str(self.lrm)})
+        response = requests.post(url, files=files)
 
         self.mask_results = decode(json.loads(response.text))

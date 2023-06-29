@@ -319,13 +319,11 @@ class Annotator(MainWindow):
             color = self.project_data.get_label_color(cls_name)
 
             self.view.add_polygons_group_to_scene(cls_num, filtered_points_mass, color, alpha_tek)
-            self.write_scene_to_project_data()
-            self.fill_labels_on_tek_image_list_widget()
-        else:
+
             self.write_scene_to_project_data()
             self.fill_labels_on_tek_image_list_widget()
 
-        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+            self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
     def ai_mask_end_drawing(self):
 
@@ -374,9 +372,6 @@ class Annotator(MainWindow):
             self.view.end_drawing()
 
             self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
-
-            self.write_scene_to_project_data()
-            self.fill_labels_on_tek_image_list_widget()
 
             self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
@@ -585,20 +580,10 @@ class Annotator(MainWindow):
         masks = self.gd_worker.getMasks()
         self.progress_toolbar.set_percent(50)
 
-        shape = self.cv2_image.shape
-        points_mass = []
         for i, mask in enumerate(masks):
-            self.prompt_input_dialog.set_progress(10 + int(90.0 * i / len(masks)))
-            points = yolo8masks2points(mask * 255, simplify_factor=3, width=shape[1], height=shape[0])
-            if points:
-                points_mass.append(points)
+            self.add_sam_polygon_to_scene(mask)
             self.progress_toolbar.set_percent(50 + int(i + 1) * 100.0 / len(masks))
 
-        self.view.add_polygons_group_to_scene(self.prompt_cls_num, points_mass,
-                                              color=self.project_data.get_label_color(self.prompt_cls_name))
-
-        self.write_scene_to_project_data()
-        self.fill_labels_on_tek_image_list_widget()
         self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
         self.progress_toolbar.hide_progressbar()
 

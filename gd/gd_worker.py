@@ -33,8 +33,7 @@ class GroundingSAMWorker(QtCore.QThread):
         self.tek_image_path = tek_image_path
 
     def run(self):
-        self.masks = predict(self.grounding_dino_model, self.tek_image_path, self.prompt, config_file=self.config_file,
-                             grounded_checkpoint=self.grounded_checkpoint,
+        self.masks = predict(self.grounding_dino_model, self.tek_image_path, self.prompt,
                              sam_predictor=self.sam_predictor
                              )
 

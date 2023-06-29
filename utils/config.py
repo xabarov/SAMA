@@ -97,4 +97,4 @@ PATH_TO_SAM_HQ_CHECKPOINT = 'sam_models/sam_hq_vit_h.pth'
 
 LANGUAGE = 'RU'  # ENG
 
-DOMEN_NAME = 'http://127.0.0.1:5000'
+DOMEN_NAME = 'http://127.0.0.1:8000'

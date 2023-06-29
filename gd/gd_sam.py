@@ -129,10 +129,8 @@ def save_mask_data(output_dir, mask_list, box_list, label_list):
         json.dump(json_data, f)
 
 
-def predict(model, image_path, text_prompt, config_file="GroundingDINO/groundingdino/config/GroundingDINO_SwinT_OGC.py",
-            grounded_checkpoint="./groundingdino_swint_ogc.pth",
+def predict(model, image_path, text_prompt,
             sam_predictor=None,
-            # sam_checkpoint='../sam_models/sam_vit_h_4b8939.pth',
             box_threshold=0.3, text_threshold=0.25, device='cuda'):
     # load image
     image_pil, image = load_image(image_path)
@@ -142,12 +140,6 @@ def predict(model, image_path, text_prompt, config_file="GroundingDINO/grounding
     boxes_filt, pred_phrases = get_grounding_output(
         model, image, text_prompt, box_threshold, text_threshold, device='cpu'
     )
-
-    # initialize SAM
-    # predictor = SamPredictor(build_sam(checkpoint=sam_checkpoint).to(device))
-    image = cv2.imread(image_path)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    # predictor.set_image(image)
 
     size = image_pil.size
     H, W = size[1], size[0]

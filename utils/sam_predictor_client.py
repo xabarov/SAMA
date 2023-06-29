@@ -16,6 +16,7 @@ class SAMImageSetterClient(QtCore.QThread):
         files = {'file': open(self.image_path, 'rb')}
 
         self.response = requests.post(url, files=files)
+        print(self.response.text)
 
 
 class SAMPredictByPointsClient(QtCore.QThread):
@@ -51,6 +52,6 @@ class SAMPredictByMaskClient(QtCore.QThread):
     def run(self):
         url = f'{self.server}/sam_box'
 
-        sam_res = requests.post(url, json={'input_box': self.input_box})
+        sam_res = requests.post(url, json=self.input_box)
 
         self.points_mass = json.loads(sam_res.text)
