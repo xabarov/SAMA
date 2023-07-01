@@ -1085,8 +1085,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
             if id == None:
                 if is_drawing_old:
-                    id = self.active_item.id
-                    self.remove_active()
+                    if self.active_item:
+                        id = self.active_item.id
+                        self.remove_active()
                 else:
                     id = self.get_unique_label_id()
 

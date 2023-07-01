@@ -355,7 +355,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.toolBarRight = QToolBar("Менеджер разметок" if self.settings.read_lang() == 'RU' else "Labeling Bar", self)
 
         # Labels
-        self.toolBarRight.addWidget(LabelsPanel(self, self.break_drawing, self.icon_folder,
+        self.toolBarRight.addWidget(LabelsPanel(self, self.break_drawing, self.clean_all_labels, self.icon_folder,
                                                 on_color_change_signal=self.on_theme_change_connection.on_theme_change,
                                                 on_labels_count_change=self.labels_count_conn.on_labels_count_change))
 
@@ -376,6 +376,15 @@ class MainWindow(QtWidgets.QMainWindow):
         # Add panels to toolbars
 
         self.addToolBar(QtCore.Qt.RightToolBarArea, self.toolBarRight)
+
+    def clean_all_labels(self):
+        self.view.remove_all_polygons()
+        if self.tek_image_name:
+            self.view.end_drawing()
+            self.write_scene_to_project_data()
+            self.fill_labels_on_tek_image_list_widget()
+
+        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
     def create_top_toolbar(self):
 

@@ -54,39 +54,70 @@ class ImagesPanel(QWidget):
 
 
 class LabelsPanel(QWidget):
-    def __init__(self, parent, del_label_from_image_act, icon_folder, button_size=30, on_color_change_signal=None,
+    def __init__(self, parent, del_label_from_image_act, clear_all_labels, icon_folder, button_size=30,
+                 on_color_change_signal=None,
                  on_labels_count_change=None):
         super().__init__(parent)
 
         # Панель изображений - заголовок
-        header = QHBoxLayout()
-        header.addWidget(QLabel("Список меток" if config.LANGUAGE == 'RU' else "Labels list"))
+        self.header = QHBoxLayout()
+        self.header.addWidget(QLabel("Список меток" if config.LANGUAGE == 'RU' else "Labels list"))
+        self.del_label_from_image_act = del_label_from_image_act
+        self.on_color_change_signal = on_color_change_signal
+        self.on_labels_count_change = on_labels_count_change
+        self.button_size = button_size
+        self.icon_folder = icon_folder
+        self.clear_all_labels = clear_all_labels
 
+        # Del label
+        self.create_del_label()
+
+        # Clean labels
+        self.create_clean_button()
+
+        if self.on_color_change_signal:
+            self.on_color_change_signal.connect(self.on_color_change)
+
+        if self.on_labels_count_change:
+            self.on_labels_count_change.connect(self.on_lbs_count_change)
+
+        self.setLayout(self.header)
+
+    def create_del_label(self):
         self.del_im_button = QPushButton()
         self.del_im_button.setEnabled(False)
-        self.del_im_button.clicked.connect(del_label_from_image_act)
-        header.addWidget(self.del_im_button)
+        self.del_im_button.clicked.connect(self.del_label_from_image_act)
+        self.header.addWidget(self.del_im_button)
 
-        self.del_im_button.setIcon((QIcon(icon_folder + "/del.png")))
-        if on_color_change_signal:
-            on_color_change_signal.connect(self.on_color_change)
+        self.del_im_button.setIcon((QIcon(self.icon_folder + "/del.png")))
 
-        if on_labels_count_change:
-            on_labels_count_change.connect(self.on_lbs_count_change)
-
-        self.del_im_button.setFixedHeight(button_size)
-
-        self.del_im_button.setFixedWidth(button_size)
+        self.del_im_button.setFixedHeight(self.button_size)
+        self.del_im_button.setFixedWidth(self.button_size)
 
         self.del_im_button.setStyleSheet("border: none;")
 
-        self.setLayout(header)
+    def create_clean_button(self):
+        self.clean_button = QPushButton()
+        self.clean_button.setEnabled(False)
+        self.clean_button.clicked.connect(self.clear_all_labels)
+        self.header.addWidget(self.clean_button)
+
+        self.clean_button.setIcon((QIcon(self.icon_folder + "/clean.png")))
+
+        self.clean_button.setFixedHeight(self.button_size)
+
+        self.clean_button.setFixedWidth(self.button_size)
+
+        self.clean_button.setStyleSheet("border: none;")
 
     def on_color_change(self, icon_folder):
         self.del_im_button.setIcon((QIcon(icon_folder + "/del.png")))
+        self.clean_button.setIcon((QIcon(icon_folder + "/clean.png")))
 
     def on_lbs_count_change(self, count):
         if count > 0:
             self.del_im_button.setEnabled(True)
-            return
-        self.del_im_button.setEnabled(False)
+            self.clean_button.setEnabled(True)
+        else:
+            self.del_im_button.setEnabled(False)
+            self.clean_button.setEnabled(False)
