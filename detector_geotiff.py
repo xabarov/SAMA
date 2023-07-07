@@ -103,7 +103,7 @@ class DetectorGeoTIFF(Detector):
             else:
                 image = cv2.imread(image_name)
 
-            self.cv2_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            self.cv2_image = image
             self.image_set = False
             self.image_setter.set_image(self.cv2_image)
             self.queue_to_image_setter = []
@@ -148,8 +148,7 @@ class DetectorGeoTIFF(Detector):
             self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
 
             self.cv2_image = image
-            # cv2.imshow('test bgr', self.cv2_image)
-            # cv2.waitKey(0)
+
 
             self.toggle_act(True)
 

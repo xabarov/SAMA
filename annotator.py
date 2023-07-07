@@ -186,8 +186,7 @@ class Annotator(MainWindow):
 
         if len(self.queue_to_image_setter) != 0:
             image_name = self.queue_to_image_setter[-1]
-            image = cv2.imread(image_name)
-            self.cv2_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            self.cv2_image = cv2.imread(image_name)
             self.image_set = False
             self.image_setter.set_image(self.cv2_image)
             self.queue_to_image_setter = []

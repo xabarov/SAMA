@@ -138,7 +138,7 @@ class Importer(QtCore.QThread):
             proj_im = {'filename': im["file_name"], 'shapes': []}
             for seg in data["annotations"]:
                 if seg["image_id"] == im_id:
-                    cls = seg["category_id"]
+                    cls = seg["category_id"] - 1
                     points = [[seg["segmentation"][0][i], seg["segmentation"][0][i + 1]] for i in
                               range(0, len(seg["segmentation"][0]), 2)]
                     shape = {"id": id_num, "cls_num": cls, 'points': points}

@@ -1470,7 +1470,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
             # Обрезаем изображение и сохраняем
             cropped_image = self.cv2_image[left_top_y:right_bottom_y, left_top_x:right_bottom_x]
-            cropped_image = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
 
             image_name = hf.create_unique_image_name(self.tek_image_name)
             im_full_name = os.path.join(self.dataset_dir, image_name)

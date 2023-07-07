@@ -111,8 +111,7 @@ class DetectorGeoTIFFClient(DetectorClient):
             self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
 
             self.cv2_image = image
-            # cv2.imshow('test bgr', self.cv2_image)
-            # cv2.waitKey(0)
+
 
             self.toggle_act(True)
 

@@ -1,12 +1,9 @@
-from rasterio import features
-from segment_anything import sam_model_registry, SamPredictor, build_sam, build_sam_hq
-from utils.edges_from_mask import mask_to_polygons_layer
-
-import numpy as np
-import matplotlib.pyplot as plt
 import cv2
-import rasterio
-import shapely
+import matplotlib.pyplot as plt
+import numpy as np
+from segment_anything import SamPredictor, build_sam, build_sam_hq
+
+from utils.edges_from_mask import mask_to_polygons_layer
 
 
 def show_mask(mask, ax, random_color=False):
