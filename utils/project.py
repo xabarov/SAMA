@@ -76,6 +76,7 @@ class ProjectHandler:
 
     def on_load_end(self):
         self.data = self.saver_loader.last_version.json_data
+        self.update_ids()
         self.is_loaded = True
         if self.load_callback:
             self.load_callback()

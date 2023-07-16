@@ -54,6 +54,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.drawing_type = "Polygon"
         self.active_item = None
         self.labels_ids = []
+        self.last_label_id = -1
 
         if not active_color:
             self.active_color = config.ACTIVE_COLOR
@@ -367,19 +368,33 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def on_ids_worker_finished(self):
         self.labels_ids = self.ids_worker.get_labels_ids()
+        if len(self.labels_ids) > 0:
+            self.last_label_id = self.labels_ids[-1]
+        else:
+            self.last_label_id = 0
+
         if self.on_set_callback:
             self.on_set_callback()
 
     def get_unique_label_id(self):
+        new_id = self.last_label_id + 1
+        if new_id not in self.labels_ids:
+            self.labels_ids.append(new_id)
+            self.last_label_id = new_id
+            return new_id
+
         id_tek = 0
         while id_tek in self.labels_ids:
             id_tek += 1
-        self.labels_ids.append(id_tek)
+        self.last_label_id = id_tek + 1
+        self.labels_ids.append(self.last_label_id)
         return id_tek
 
     def remove_label_id(self, id):
         if id in self.labels_ids:
             self.labels_ids.remove(id)
+            if id == self.last_label_id:
+                self.last_label_id = self.labels_ids - 1
 
     def remove_last_changes(self):
         for item_id in self.last_added:
@@ -938,6 +953,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         if is_delete_id and item.id in self.labels_ids:
             self.labels_ids.remove(item.id)
+            if item.id == self.last_label_id:
+                self.last_label_id = self.last_label_id - 1
 
         self.scene().removeItem(item)
 
@@ -1111,10 +1128,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         elif type == "AiMask":
 
-            id = self.get_unique_label_id()
-
             self.active_item = GrPolygonLabel(None, color=color, cls_num=cls_num, alpha_percent=alpha,
-                                              id=id)
+                                              id=-1)
 
             self.add_item_to_scene_as_active(self.active_item)
 
