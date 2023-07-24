@@ -25,7 +25,7 @@ class AppSettings:
     def read_size_pos_settings(self):
         self.qt_settings.beginGroup("main_window")
         size = self.qt_settings.value("size", QSize(1200, 800))
-        pos = QPoint(0, 0) # self.qt_settings.value("pos", QPoint(50, 50))
+        pos = self.qt_settings.value("pos", QPoint(50, 50))
         self.qt_settings.endGroup()
         return size, pos
 

@@ -106,7 +106,7 @@ class GrPolygonLabel(QtWidgets.QGraphicsPolygonItem):
         return (color[0], color[1], color[2], alpha)
 
     def check_polygon(self, min_height=10, min_width=10):
-        # Проверка эллипса на мин кол-во пикселей. Можно посмотреть width, height. Если меньше порога - удалить
+        # Проверка на мин кол-во пикселей. Можно посмотреть width, height. Если меньше порога - удалить
         rect = self.boundingRect()
         tl = rect.topLeft()
         br = rect.bottomRight()

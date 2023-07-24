@@ -13,7 +13,7 @@ from ui.polygons import GrPolygonLabel, GrEllipsLabel
 from ui.grapic_group import GrGroup
 
 import numpy as np
-from shapely import Polygon, Point
+from shapely import Polygon, Point, unary_union
 
 
 class GraphicsView(QtWidgets.QGraphicsView):
@@ -53,6 +53,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         self.drawing_type = "Polygon"
         self.active_item = None
+        self.active_group = []
         self.labels_ids = []
         self.last_label_id = -1
 
@@ -106,6 +107,40 @@ class GraphicsView(QtWidgets.QGraphicsView):
     def create_actions(self):
         self.delPolyAct = QAction("Удалить полигон", self, enabled=True, triggered=self.on_del_polygon)
         self.changeClsNumAct = QAction("Изменить имя метки", self, enabled=True, triggered=self.on_change_cls_num)
+        self.mergeActivePolygons = QAction("Объединить выделенные полигоны", self, enabled=True,
+                                           triggered=self.on_merge_polygons)
+
+    def on_merge_polygons(self):
+
+        if len(self.active_group) < 2:
+            return
+        shapely_polygons = []
+        for item in self.active_group:
+            pol = item.polygon()
+            shapely_pol = Polygon([(p.x(), p.y()) for p in pol])
+            shapely_polygons.append(shapely_pol)
+
+        shapely_union = unary_union([shapely_polygons[0], shapely_polygons[1]])
+        for i in range(len(shapely_polygons) - 2):
+            shapely_union = unary_union([shapely_union, shapely_polygons[i + 2]])
+
+        if shapely_union and shapely_union.type != 'MultiPolygon':
+
+            point_mass = list(shapely_union.exterior.coords)
+            cls_num = self.active_group[0].cls_num
+            color = self.active_group[0].color
+            alpha = self.active_group[0].alpha_percent
+
+            self.add_polygon_to_scene(cls_num, point_mass, color, alpha)
+
+            for item in self.active_group:
+                self.remove_item(item, is_delete_id=True)
+
+            self.active_group = []
+            self.active_item = None
+            self.switch_all_polygons_to_default_except_active()
+
+            self.polygon_end_drawing.on_end_drawing.emit(True)
 
     def on_change_cls_num(self):
         if self.pressed_polygon:
@@ -134,6 +169,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
         scene.addItem(self._pixmap_item)
         self.pixmap_item.setPixmap(pixmap)
         self.set_fat_width()
+        self.active_item = None
+        self.active_group = []
 
         if self.is_rubber_mode:
             self.on_rb_mode_change(False)
@@ -175,6 +212,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
             found_item.setBrush(self.active_brush)
             found_item.setPen(self.active_pen)
             self.active_item = found_item
+            self.active_group = []
             self.switch_all_polygons_to_default_except_active()
 
         self.setFocus()
@@ -313,13 +351,13 @@ class GraphicsView(QtWidgets.QGraphicsView):
         for item in self.scene().items():
             # ищем, не попали ли уже в нарисованный полигон
             try:
-                if item != self.active_item:
+                if item != self.active_item and item not in self.active_group:
                     item.setBrush(QtGui.QBrush(QColor(*item.color), QtCore.Qt.SolidPattern))
                     item.setPen(QPen(QColor(*hf.set_alpha_to_max(item.color)), self.line_width, QtCore.Qt.SolidLine))
             except:
                 pass
 
-    def reset_all_polygons(self, item_clicked):
+    def reset_all_polygons(self, item_clicked, is_shift=False):
         """
         Меняем цвета и назначение полигонов на сцене в зависимости от того, по чему кликнули
         Если item_clicked был активным - снимаем активное состояние,
@@ -328,13 +366,29 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.toggle(item_clicked)
         self.polygon_clicked.id_pressed.emit(item_clicked.id)
 
-        if item_clicked == self.active_item:
-            self.active_item = None
-        else:
-            self.active_item = item_clicked
-            # Остальные - в неативное состояние
+        if is_shift:
+            if item_clicked in self.active_group:
+                active_group_new = []
+                for item in self.active_group:
+                    if item != item_clicked:
+                        active_group_new.append(item)
+                self.active_group = active_group_new
+            else:
+                self.active_group.append(item_clicked)
 
-            self.switch_all_polygons_to_default_except_active()
+        else:
+
+            self.active_group = []
+
+            if item_clicked == self.active_item:
+                self.active_item = None
+            else:
+
+                self.active_item = item_clicked
+                self.active_group.append(item_clicked)
+                # Остальные - в неативное состояние
+
+        self.switch_all_polygons_to_default_except_active()
 
     def get_pressed_polygon(self, pressed_point):
         """
@@ -559,6 +613,12 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if (modifierPressed & QtCore.Qt.ControlModifier) == QtCore.Qt.ControlModifier:
             modifierName += 'Ctrl'
 
+        if (modifierPressed & QtCore.Qt.ShiftModifier) == QtCore.Qt.ShiftModifier:
+            is_shift = True
+
+        else:
+            is_shift = False
+
         if event.buttons() == QtCore.Qt.RightButton:
             modifierName += " Right Click"
 
@@ -622,6 +682,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         else:
 
+            if 'Right Click' in modifierName:
+                return
+
             if self.check_near_by_active_pressed(lp):  # нажали рядом с активным полигоном
 
                 if self.is_close_to_fat_point(lp):
@@ -645,7 +708,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     else:
                         pressed_polygon = self.get_pressed_polygon(lp)
                         if pressed_polygon:
-                            self.reset_all_polygons(pressed_polygon)
+                            self.reset_all_polygons(pressed_polygon, is_shift=is_shift)
                         else:
                             if self.active_item:
                                 self.toggle(self.active_item)
@@ -669,11 +732,13 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     # кликнули не по активной. Если по какой-то другой - изменить активную
                     pressed_polygon = self.get_pressed_polygon(lp)
                     if pressed_polygon:
-                        self.reset_all_polygons(pressed_polygon)
+                        self.reset_all_polygons(pressed_polygon, is_shift=is_shift)
                     else:
                         if self.active_item:
-                            self.toggle(self.active_item)
                             self.active_item = None
+                        if len(self.active_group) != 0:
+                            self.active_group = []
+                        self.switch_all_polygons_to_default_except_active()
 
     def get_point_near_by_active_polygon_vertex(self, point):
         scale = self._zoom / 3.0 + 1
@@ -1187,15 +1252,32 @@ class GraphicsView(QtWidgets.QGraphicsView):
             if self.drawing_type == "AiPoints":
                 self.clear_ai_points()
 
+    def is_all_actives_same_class(self):
+        if len(self.active_group) == 0:
+            return
+        cls = self.active_group[0].cls_num
+        for i in range(1, len(self.active_group)):
+            if self.active_group[i].cls_num != cls:
+                return False
+        return True
+
     def contextMenuEvent(self, event: QtGui.QContextMenuEvent) -> None:
+
+        if self.drawing_type == "AiPoints" and self.is_drawing:
+            return
+
         if self._pixmap_item:
             sp = self.mapToScene(event.pos())
             lp = self.pixmap_item.mapFromScene(sp)
+
             self.pressed_polygon = self.get_pressed_polygon(lp)
             if self.pressed_polygon:
-                if self.drawing_type == "AiPoints" and self.is_drawing:
-                    return
                 menu = QMenu(self)
+
+                if self.pressed_polygon in self.active_group and self.is_all_actives_same_class() and len(
+                        self.active_group) > 1:
+                    menu.addAction(self.mergeActivePolygons)
+
                 menu.addAction(self.delPolyAct)
                 menu.addAction(self.changeClsNumAct)
                 menu.exec(event.globalPos())

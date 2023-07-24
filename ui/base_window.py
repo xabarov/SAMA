@@ -35,6 +35,7 @@ from utils.settings_handler import AppSettings
 
 basedir = os.path.dirname(__file__)
 
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -56,6 +57,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.polygon_clicked.id_pressed.connect(self.polygon_pressed)
         self.view.polygon_delete.id_delete.connect(self.on_polygon_delete)
         self.view.polygon_end_drawing.on_end_drawing.connect(self.on_polygon_end_draw)
+
 
         self.view.polygon_cls_num_change.pol_cls_num_and_id.connect(self.change_polygon_cls_num)
 
