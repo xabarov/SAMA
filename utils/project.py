@@ -8,7 +8,6 @@ import os
 from PIL import Image
 
 from shapely import Polygon
-from utils.saver_worker import SaverLoaderWorker
 
 
 class ProjectHandler:
@@ -19,7 +18,6 @@ class ProjectHandler:
 
     def __init__(self):
         self.init()
-
 
     def check_json(self, json_project_data):
         for field in ["path_to_images", "images", "labels", "labels_color"]:
@@ -37,12 +35,6 @@ class ProjectHandler:
         self.data["labels"] = []
         self.data["labels_color"] = {}
         self.is_loaded = False
-        self.saver_loader = SaverLoaderWorker()
-        self.save_queue = []
-        self.load_queue = []
-        self.saver_mode = None
-        self.save_callback = None
-        self.load_callback = None
 
     def calc_dataset_balance(self):
         cls_nums = {}
@@ -56,58 +48,20 @@ class ProjectHandler:
         return cls_nums
 
     def load(self, json_path, on_load_callback=None):
-        self.saver_loader.enqueue_load(json_path)
+        with open(json_path, 'r', encoding='utf8') as f:
+            self.data = json.load(f)
+            self.update_ids()
+            self.is_loaded = True
 
-        self.load_callback = on_load_callback
-
-        if not self.saver_loader.isRunning():
-
-            self.saver_loader.on_load.on_finished.connect(self.on_load_end)
-
-            self.saver_loader.start()
-        else:
-            if self.saver_mode == 'load':
-                self.saver_loader.on_load.on_finished.connect(self.restart)
-            else:
-                self.saver_loader.on_save.on_finished.connect(self.restart)
-
-        self.saver_loader.change_mode('load')
-        self.saver_mode = 'load'
-
-    def on_load_end(self):
-        self.data = self.saver_loader.last_version.json_data
-        self.update_ids()
-        self.is_loaded = True
-        if self.load_callback:
-            self.load_callback()
+            if on_load_callback:
+                on_load_callback()
 
     def save(self, json_path, on_save_callback=None):
+        with open(json_path, 'w', encoding='utf8') as f:
+            json.dump(self.data, f)
 
-        self.saver_loader.enqueue_save(json_path, self.data)
-
-        self.save_callback = on_save_callback
-
-        if not self.saver_loader.isRunning():
             if on_save_callback:
-                self.saver_loader.on_save.on_finished.connect(on_save_callback)
-            self.saver_loader.start()
-
-        else:
-            if self.saver_mode == 'load':
-                self.saver_loader.on_load.on_finished.connect(self.restart)
-            else:
-                self.saver_loader.on_save.on_finished.connect(self.restart)
-
-        self.saver_loader.change_mode('save')
-        self.saver_mode = 'save'
-
-    def restart(self):
-        if not self.saver_loader.isRunning():
-            if self.save_callback:
-                self.saver_loader.on_save.on_finished.connect(save_callback)
-            if self.load_callback:
-                self.saver_loader.on_load.on_finished.connect(load_callback)
-            self.saver_loader.start()
+                on_save_callback()
 
     def update_ids(self):
         id_num = 0
@@ -354,9 +308,26 @@ class ProjectHandler:
 
         self.delete_label_color(from_cls_name)
 
-    def exportToYOLOSeg(self, export_dir):
+    def get_export_map(self, export_label_names):
+        label_names = self.get_labels()
+        export_map = {}
+        export_cls_num = 0
+        for i, name in enumerate(label_names):
+            if name in export_label_names:
+                export_map[i] = export_cls_num
+                export_cls_num += 1
+            else:
+                export_map[i] = -1
+
+        return export_map
+
+    def exportToYOLOSeg(self, export_dir, export_label_names=None):
 
         self.clear_not_existing_images()
+
+        if not export_label_names:
+            export_label_names = self.get_labels()
+        export_map = self.get_export_map(export_label_names)
 
         if os.path.isdir(export_dir):
             for image in self.data["images"]:
@@ -375,12 +346,14 @@ class ProjectHandler:
                     with open(os.path.join(export_dir, txt_yolo_name), 'w') as f:
                         for shape in image["shapes"]:
                             cls_num = shape["cls_num"]
-                            points = shape["points"]
-                            line = f"{cls_num}"
-                            for point in points:
-                                line += f" {point[0] / im_shape[1]} {point[1] / im_shape[0]}"
+                            export_cls_num = export_map[cls_num]
+                            if export_cls_num != -1:
+                                points = shape["points"]
+                                line = f"{export_cls_num}"
+                                for point in points:
+                                    line += f" {point[0] / im_shape[1]} {point[1] / im_shape[0]}"
 
-                            f.write(f"{line}\n")
+                                f.write(f"{line}\n")
             return True
         return False
 
@@ -395,9 +368,13 @@ class ProjectHandler:
 
         self.data['images'] = images
 
-    def exportToCOCO(self, export_сoco_name):
+    def exportToCOCO(self, export_сoco_name, export_label_names=None):
 
         self.clear_not_existing_images()
+
+        if not export_label_names:
+            export_label_names = self.get_labels()
+        export_map = self.get_export_map(export_label_names)
 
         if os.path.isdir(os.path.dirname(export_сoco_name)):
             export_json = {}
@@ -439,43 +416,46 @@ class ProjectHandler:
                 for shape in image["shapes"]:
 
                     cls_num = shape["cls_num"]
-                    points = shape["points"]
-                    xs = []
-                    ys = []
-                    all_points = [[]]
-                    for point in points:
-                        xs.append(point[0])
-                        ys.append(point[1])
-                        all_points[0].append(int(point[0]))
-                        all_points[0].append(int(point[1]))
+                    export_cls_num = export_map[cls_num]
 
-                    seg = np.array(all_points[0])
+                    if export_cls_num != -1:
+                        points = shape["points"]
+                        xs = []
+                        ys = []
+                        all_points = [[]]
+                        for point in points:
+                            xs.append(point[0])
+                            ys.append(point[1])
+                            all_points[0].append(int(point[0]))
+                            all_points[0].append(int(point[1]))
 
-                    poly = np.reshape(seg, (seg.size // 2, 2))
-                    poly = Polygon(poly)
-                    area = poly.area
+                        seg = np.array(all_points[0])
 
-                    min_x = min(xs)
-                    max_x = max(xs)
-                    min_y = min(ys)
-                    max_y = max(ys)
-                    w = abs(max_x - min_x)
-                    h = abs(max_y - min_y)
+                        poly = np.reshape(seg, (seg.size // 2, 2))
+                        poly = Polygon(poly)
+                        area = poly.area
 
-                    x_center = min_x + w / 2
-                    y_center = min_y + h / 2
+                        min_x = min(xs)
+                        max_x = max(xs)
+                        min_y = min(ys)
+                        max_y = max(ys)
+                        w = abs(max_x - min_x)
+                        h = abs(max_y - min_y)
 
-                    bbox = [int(x_center), int(y_center), int(width), int(height)]
+                        x_center = min_x + w / 2
+                        y_center = min_y + h / 2
 
-                    seg = {"segmentation": all_points, "area": int(area), "bbox": bbox, "iscrowd": 0, "id": seg_id,
-                           "image_id": id_map[filename], "category_id": cls_num + 1}
-                    export_json["annotations"].append(seg)
-                    seg_id += 1
+                        bbox = [int(x_center), int(y_center), int(width), int(height)]
+
+                        seg = {"segmentation": all_points, "area": int(area), "bbox": bbox, "iscrowd": 0, "id": seg_id,
+                               "image_id": id_map[filename], "category_id": export_cls_num + 1}
+                        export_json["annotations"].append(seg)
+                        seg_id += 1
 
             export_json["licenses"] = [{"id": 0, "name": "Unknown License", "url": ""}]
             export_json["categories"] = []
 
-            for i, label in enumerate(self.data["labels"]):
+            for i, label in enumerate(export_label_names):
                 category = {"supercategory": "type", "id": i + 1, "name": label}
                 export_json["categories"].append(category)
 
@@ -486,9 +466,13 @@ class ProjectHandler:
 
         return False
 
-    def exportToYOLOBox(self, export_dir):
+    def exportToYOLOBox(self, export_dir, export_label_names=None):
 
         self.clear_not_existing_images()
+
+        if not export_label_names:
+            export_label_names = self.get_labels()
+        export_map = self.get_export_map(export_label_names)
 
         if os.path.isdir(export_dir):
             for image in self.data["images"]:
@@ -505,24 +489,28 @@ class ProjectHandler:
                     with open(os.path.join(export_dir, txt_yolo_name), 'w') as f:
                         for shape in image["shapes"]:
                             cls_num = shape["cls_num"]
-                            points = shape["points"]
-                            xs = []
-                            ys = []
-                            for point in points:
-                                xs.append(point[0])
-                                ys.append(point[1])
-                            min_x = min(xs)
-                            max_x = max(xs)
-                            min_y = min(ys)
-                            max_y = max(ys)
-                            w = abs(max_x - min_x)
-                            h = abs(max_y - min_y)
 
-                            x_center = min_x + w / 2
-                            y_center = min_y + h / 2
+                            export_cls_num = export_map[cls_num]
+                            if export_cls_num != -1:
 
-                            f.write(
-                                f"{cls_num} {x_center / im_shape[1]} {y_center / im_shape[0]} {w / im_shape[1]} {h / im_shape[0]}\n")
+                                points = shape["points"]
+                                xs = []
+                                ys = []
+                                for point in points:
+                                    xs.append(point[0])
+                                    ys.append(point[1])
+                                min_x = min(xs)
+                                max_x = max(xs)
+                                min_y = min(ys)
+                                max_y = max(ys)
+                                w = abs(max_x - min_x)
+                                h = abs(max_y - min_y)
+
+                                x_center = min_x + w / 2
+                                y_center = min_y + h / 2
+
+                                f.write(
+                                    f"{export_cls_num} {x_center / im_shape[1]} {y_center / im_shape[0]} {w / im_shape[1]} {h / im_shape[0]}\n")
 
             return True
         return False

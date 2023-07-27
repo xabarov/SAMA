@@ -120,6 +120,7 @@ celerybeat.pid
 env/
 venv/
 ENV/
+export/
 env.bak/
 venv.bak/
 
@@ -155,6 +156,7 @@ cython_debug/
 .idea/
 .gitignore
 projects/*
+export/*
 *.pdf
 *.docx
 gd/GroundingDINO/models--bert-base-uncased/*

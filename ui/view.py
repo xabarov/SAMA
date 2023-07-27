@@ -124,7 +124,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         for i in range(len(shapely_polygons) - 2):
             shapely_union = unary_union([shapely_union, shapely_polygons[i + 2]])
 
-        if shapely_union and shapely_union.type != 'MultiPolygon':
+        if shapely_union and shapely_union.geom_type != 'MultiPolygon':
 
             point_mass = list(shapely_union.exterior.coords)
             cls_num = self.active_group[0].cls_num
@@ -440,7 +440,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         id_tek = 0
         while id_tek in self.labels_ids:
             id_tek += 1
-        self.last_label_id = id_tek + 1
+        self.last_label_id = id_tek
         self.labels_ids.append(self.last_label_id)
         return id_tek
 

@@ -16,6 +16,7 @@ from ui.ask_del_polygon import AskDelWindow
 from ui.create_project_dialog import CreateProjectDialog
 from ui.edit_with_button import EditWithButton
 from ui.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog
+from ui.export_dialog import ExportDialog
 from ui.input_dialog import CustomInputDialog, CustomComboDialog
 from ui.ok_cancel_dialog import OkCancelDialog
 from ui.panels import ImagesPanel, LabelsPanel
@@ -57,7 +58,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.polygon_clicked.id_pressed.connect(self.polygon_pressed)
         self.view.polygon_delete.id_delete.connect(self.on_polygon_delete)
         self.view.polygon_end_drawing.on_end_drawing.connect(self.on_polygon_end_draw)
-
 
         self.view.polygon_cls_num_change.pol_cls_num_and_id.connect(self.change_polygon_cls_num)
 
@@ -549,33 +549,42 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def exportToYOLOBox(self):
         self.save_project()
-        export_dir = QFileDialog.getExistingDirectory(self,
-                                                      'Выберите папку для сохранения разметки' if self.settings.read_lang() == 'RU' else "Set folder",
-                                                      'images')
-        if export_dir:
-            self.project_data.exportToYOLOBox(export_dir)
-            self.on_project_export(export_format="YOLO Box")
+        self.export_dialog = ExportDialog(self, on_ok_clicked=self.on_export_dialog_ok,
+                                          label_names=self.project_data.get_labels(), export_format='yolo')
+        self.export_format = 'yolo_box'
+        self.export_dialog.show()
 
     def exportToYOLOSeg(self):
         self.save_project()
-        export_dir = QFileDialog.getExistingDirectory(self,
-                                                      'Выберите папку для сохранения разметки' if self.settings.read_lang() == 'RU' else "Set folder",
-                                                      'images')
+        self.export_dialog = ExportDialog(self, on_ok_clicked=self.on_export_dialog_ok,
+                                          label_names=self.project_data.get_labels(), export_format='yolo')
+        self.export_format = 'yolo_seg'
+        self.export_dialog.show()
+
+    def on_export_dialog_ok(self):
+        export_dir = self.export_dialog.get_export_path()
+        checked_names = self.export_dialog.get_checked_names()
         if export_dir:
-            self.project_data.exportToYOLOSeg(export_dir)
-            self.on_project_export(export_format="YOLO Seg")
+            if self.export_format == 'yolo_seg':
+                self.project_data.exportToYOLOSeg(export_dir, export_label_names=checked_names)
+                self.on_project_export(export_format="YOLO Seg")
+            elif self.export_format == 'yolo_box':
+                self.project_data.exportToYOLOBox(export_dir, export_label_names=checked_names)
+                self.on_project_export(export_format="YOLO Box")
+
+            elif self.export_format == 'coco':
+                self.project_data.exportToCOCO(export_dir, export_label_names=checked_names)
+                self.on_project_export(export_format="COCO")
+
+        self.export_dialog.hide()
 
     def exportToCOCO(self):
         self.save_project()
-        export_сoco_file, _ = QFileDialog.getSaveFileName(self,
-                                                          'Выберите имя сохраняемого файла' if self.settings.read_lang() == 'RU' else "Set export file name",
-                                                          'images',
-                                                          'JSON File (*.json)')
+        self.export_dialog = ExportDialog(self, on_ok_clicked=self.on_export_dialog_ok,
+                                          label_names=self.project_data.get_labels(), export_format='coco')
+        self.export_format = 'coco'
 
-        if export_сoco_file:
-            self.project_data.exportToCOCO(export_сoco_file)
-
-            self.on_project_export(export_format="COCO")
+        self.export_dialog.show()
 
     def importFromYOLOBox(self):
 
