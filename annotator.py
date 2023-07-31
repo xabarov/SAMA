@@ -667,7 +667,7 @@ if __name__ == '__main__':
              # 'primaryTextColor': '#ffffff',
              }
 
-    apply_stylesheet(app, theme='dark_blue.xml', extra=extra)
+    apply_stylesheet(app, theme='dark_blue.xml', extra=extra, invert_secondary=False)
 
     w = Annotator()
     w.show()

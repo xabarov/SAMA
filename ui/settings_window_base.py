@@ -11,6 +11,8 @@ class SettingsWindowBase(QWidget):
     def __init__(self, parent):
         super().__init__(parent)
 
+        self.combos = []
+
         self.import_settings()
 
         self.create_labeling_group()
@@ -19,6 +21,8 @@ class SettingsWindowBase(QWidget):
         self.stack_layouts()
 
         self.resize(500, 500)
+
+        self.change_combos_text_color()
 
     def stack_layouts(self):
         self.mainLayout = QVBoxLayout()
@@ -29,6 +33,26 @@ class SettingsWindowBase(QWidget):
         self.mainLayout.addLayout(btnLayout)
         self.setLayout(self.mainLayout)
 
+    def change_combos_text_color(self):
+
+        theme = self.settings.read_theme()
+        combo_box_color = "rgb(255,255,255)" if 'dark' in theme else " rgb(0,0,0)"
+
+        for combo in self.combos:
+            combo.setStyleSheet("QComboBox:items"
+                                "{"
+                                f"color: {combo_box_color};"
+                                "}"
+                                "QComboBox"
+                                "{"
+                                f"color: {combo_box_color};"
+                                "}"
+                                "QListView"
+                                "{"
+                                f"color: {combo_box_color};"
+                                "}"
+                                )
+
     def create_main_group(self):
         # настройки темы
 
@@ -38,6 +62,8 @@ class SettingsWindowBase(QWidget):
         layout_global = QFormLayout()
 
         self.theme_combo = QComboBox()
+        self.combos.append(self.theme_combo)
+
         self.themes = np.array(['dark_amber.xml',
                                 'dark_blue.xml',
                                 'dark_cyan.xml',
@@ -143,13 +169,13 @@ class SettingsWindowBase(QWidget):
                       self.fat_width_slider)
 
         self.labeling_group.setLayout(layout)
-        
+
     def import_settings(self):
         self.settings = AppSettings()
         self.lang = self.settings.read_lang()
         self.setWindowTitle("Настройки приложения" if self.lang == 'RU' else 'Settings')
         self.setWindowFlag(Qt.Tool)
-        
+
     def create_buttons(self):
         btnLayout = QHBoxLayout()
 
@@ -161,7 +187,7 @@ class SettingsWindowBase(QWidget):
 
         btnLayout.addWidget(self.okBtn)
         btnLayout.addWidget(self.cancelBtn)
-        
+
         return btnLayout
 
     def on_ok_clicked(self):

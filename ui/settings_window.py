@@ -33,6 +33,8 @@ class SettingsWindow(SettingsWindowBase):
         idx = np.where(self.where_vars == self.settings.read_platform())[0][0]
         self.where_calc_combo.setCurrentIndex(idx)
 
+        self.combos.append(self.where_calc_combo)
+
         # Настройки обнаружения
         self.classifierGroupBox = QGroupBox("Настройки классификации" if self.lang == 'RU' else 'Classifier')
 
@@ -42,6 +44,8 @@ class SettingsWindow(SettingsWindowBase):
         cnn_list = list(cls_settings.CNN_DICT.keys())
         self.cnns = np.array(cnn_list)
         self.cnn_combo.addItems(self.cnns)
+
+        self.combos.append(self.cnn_combo)
         cnn_label = QLabel("Модель СНС:" if self.lang == 'RU' else "Classifier model")
 
         classifier_layout.addRow(cnn_label, self.cnn_combo)

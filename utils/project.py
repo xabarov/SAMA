@@ -1,7 +1,7 @@
 import utils.config as config
 import datetime
 import utils.help_functions as hf
-import json
+import ujson
 import numpy as np
 import os
 
@@ -49,7 +49,7 @@ class ProjectHandler:
 
     def load(self, json_path, on_load_callback=None):
         with open(json_path, 'r', encoding='utf8') as f:
-            self.data = json.load(f)
+            self.data = ujson.load(f)
             self.update_ids()
             self.is_loaded = True
 
@@ -58,7 +58,7 @@ class ProjectHandler:
 
     def save(self, json_path, on_save_callback=None):
         with open(json_path, 'w', encoding='utf8') as f:
-            json.dump(self.data, f)
+            ujson.dump(self.data, f)
 
             if on_save_callback:
                 on_save_callback()
@@ -460,7 +460,7 @@ class ProjectHandler:
                 export_json["categories"].append(category)
 
             with open(export_сoco_name, 'w') as f:
-                json.dump(export_json, f)
+                ujson.dump(export_json, f)
 
             return True
 

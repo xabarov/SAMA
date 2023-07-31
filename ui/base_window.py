@@ -399,6 +399,7 @@ class MainWindow(QtWidgets.QMainWindow):
         cls_names = np.array(['no name'])
         self.cls_combo.addItems(cls_names)
         self.cls_combo.setMinimumWidth(150)
+
         self.cls_combo.setEnabled(False)
 
         self.labelSettingsToolBar.addWidget(label)
@@ -1081,6 +1082,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def on_change_project_name(self):
         dataset_dir = self.change_path_window.getEditText()
 
+        self.change_path_window.hide()
+
         if not os.path.exists(dataset_dir):
 
             msgbox = QMessageBox()
@@ -1315,10 +1318,30 @@ class MainWindow(QtWidgets.QMainWindow):
 
         extra = {'density_scale': density,
                  # 'font_size': '14px',
-                 # 'primaryTextColor': primary_color
+                 # 'primaryTextColor': primary_color,
+                 # 'secondaryTextColor': '#ffffff'
                  }
 
-        apply_stylesheet(app, theme=theme, extra=extra)
+        invert_secondary = False if 'dark' in theme else True
+
+
+        apply_stylesheet(app, theme=theme, extra=extra, invert_secondary=invert_secondary)
+
+        combo_box_color = "rgb(255,255,255)" if 'dark' in theme else " rgb(0,0,0)"
+
+        self.cls_combo.setStyleSheet("QComboBox:items"
+                                     "{"
+                                     f"color: {combo_box_color};"
+                                     "}"
+                                     "QComboBox"
+                                     "{"
+                                     f"color: {combo_box_color};"
+                                     "}"
+                                     "QListView"
+                                     "{"
+                                     f"color: {combo_box_color};"
+                                     "}"
+                                     )
 
         self.on_theme_change_connection.on_theme_change.emit(icon_folder)
 
@@ -1662,7 +1685,7 @@ if __name__ == '__main__':
              # 'primaryTextColor': '#ffffff'
              }
 
-    apply_stylesheet(app, theme='dark_blue.xml', extra=extra)
+    apply_stylesheet(app, theme='dark_blue.xml', extra=extra, invert_secondary=False)
 
     w = MainWindow()
     w.show()
