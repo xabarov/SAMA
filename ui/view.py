@@ -1,6 +1,8 @@
+import os
+
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtGui import QPolygonF, QColor, QPen, QPainter
+from PyQt5.QtGui import QPolygonF, QColor, QPen, QPainter, QPixmap
 from PyQt5.QtWidgets import QAction, QMenu, QGraphicsItem
 from PyQt5.QtWidgets import QApplication
 from shapely import Polygon, Point, unary_union
@@ -12,6 +14,7 @@ from ui.signals_and_slots import PolygonDeleteConnection, ViewMouseCoordsConnect
 from utils import config
 from utils import help_functions as hf
 from utils.ids_worker import IdsSetterWorker
+from utils.settings_handler import AppSettings
 
 
 class GraphicsView(QtWidgets.QGraphicsView):
@@ -94,6 +97,34 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.setRenderHint(QPainter.Antialiasing)
 
         self.last_added = []
+
+        self.settings = AppSettings()
+
+    def start_circle_progress(self):
+        w = self.scene().width()
+        h = self.scene().height()
+        icon_folder = self.settings.get_icon_folder()
+        self.loading_circle_angle = 0
+        pixmap = QPixmap(os.path.join(icon_folder, "loader_ring.png"))
+
+        pixmap = pixmap.scaled(128, 128)
+
+        self.loading_circle = QtWidgets.QGraphicsPixmapItem(pixmap)
+        self.loading_circle.setPos(w / 2 - pixmap.width() / 2, h / 2 - pixmap.height() / 2)
+        self.loading_circle.setTransformOriginPoint(pixmap.width() / 2, pixmap.height() / 2)
+        self.scene().addItem(self.loading_circle)
+
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.spin_circle_progress)
+        self.timer.start(5)
+
+    def spin_circle_progress(self):
+        self.loading_circle_angle += 1
+        self.loading_circle.setRotation(self.loading_circle_angle)
+
+    def stop_circle_progress(self):
+        if self.loading_circle:
+            self.scene().removeItem(self.loading_circle)
 
     def set_brushes(self):
         # Кисти для активного элемента, узла, позитивного и негативного промпта SAM
@@ -278,8 +309,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
                     d = hf.distance_from_point_to_segment(lp, p1, p2)  # hf.distance_from_point_to_line(lp, p1, p2)
                     # print(f"Check near {d} over {self.fat_width/scale}, where fat_width = {self.fat_width}")
-                    if d < self.fat_width/scale:
-
+                    if d < self.fat_width / scale:
                         self.polygon_clicked.id_pressed.emit(self.active_item.id)
                         return True
             except:

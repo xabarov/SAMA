@@ -227,7 +227,7 @@ class Annotator(MainWindow):
     def handle_cuda_models(self):
 
         # Start on Loading Animation
-        self.start_gif(is_prog_load=True)
+        self.view.start_circle_progress()
 
         self.handle_sam_model()
 
@@ -247,7 +247,7 @@ class Annotator(MainWindow):
 
         self.gd_model = self.load_gd_model()
 
-        self.splash.finish(self)
+        self.view.stop_circle_progress()
 
     def on_settings_closed(self):
         super(Annotator, self).on_settings_closed()

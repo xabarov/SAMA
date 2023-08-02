@@ -159,7 +159,7 @@ class DetectorClient(MainWindow):
         self.statusBar().showMessage(
             f"Начинаю поиск объектов на изображении..." if self.settings.read_lang() == 'RU' else f"Start searching object on image...",
             3000)
-        self.start_gif(is_prog_load=True)
+        self.view.start_circle_progress()
 
     def on_cnn_finished(self):
         """
@@ -197,7 +197,7 @@ class DetectorClient(MainWindow):
             f"Найдено {len(self.CNN_worker.mask_results)} объектов" if self.settings.read_lang() == 'RU' else f"{len(self.CNN_worker.mask_results)} objects has been detected",
             3000)
 
-        self.splash.finish(self)
+        self.view.stop_circle_progress()
 
     def toggle_act(self, is_active):
         super(DetectorClient, self).toggle_act(is_active)

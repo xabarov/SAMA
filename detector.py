@@ -104,7 +104,7 @@ class Detector(Annotator):
 
     def on_segment_start(self):
         print('Started')
-        self.start_gif(is_prog_load=True)
+        self.view.start_circle_progress()
 
     def on_segment_finished(self):
         print('Finished')
@@ -124,7 +124,7 @@ class Detector(Annotator):
             cv2.imwrite(segment_name, segment_np)
             self.view.add_segment_pixmap(QtGui.QPixmap(segment_name), opacity=0.5, z_value=100 + cls_num)
 
-        self.splash.finish(self)
+        self.view.stop_circle_progress()
         # for points in points_mass:
         #     cls_num = self.project_data.get_label_num(cls_name)
         #     if cls_num == -1:

@@ -7,6 +7,8 @@ from utils.config import DOMEN_NAME
 
 class AppSettings:
     def __init__(self, app_name=None):
+        if not app_name:
+            app_name = config.QT_SETTINGS_APP
         self.qt_settings = QSettings(config.QT_SETTINGS_COMPANY, app_name)
         self.write_lang(config.LANGUAGE)
 

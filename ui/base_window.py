@@ -44,13 +44,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("AI Annotator")
 
         # Start on Loading Animation
-        self.start_gif(is_prog_load=True)
+        # self.start_gif(is_prog_load=True)
 
         # Rubber band
         self.is_rubber_band_mode = False
         self.rubber_band_change_conn = RubberBandModeConnection()
 
         # GraphicsView
+
         self.view = GraphicsView(on_rubber_band_mode=self.rubber_band_change_conn.on_rubber_mode_change)
         self.setCentralWidget(self.view)
 
@@ -65,8 +66,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.im_panel_count_conn = ImagesPanelCountConnection()
         self.labels_count_conn = LabelsPanelCountConnection()
         self.on_theme_change_connection = ThemeChangeConnection()
-
-        self.resize(1200, 800)
 
         # Settings
         self.settings = AppSettings()
@@ -91,7 +90,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.init_global_values()
 
-        self.splash.finish(self)
+        # self.show()
+
+        # self.splash.finish(self)
         self.statusBar().showMessage(
             "Загрузите проект или набор изображений" if self.settings.read_lang() == 'RU' else "Load dataset or project")
 
@@ -1218,21 +1219,22 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Сохранение проекта
         """
-        self.start_gif(is_prog_load=True)
+
         if self.loaded_proj_name:
+            self.view.start_circle_progress()
 
             self.set_labels_color()  # сохранение информации о цветах масок
             self.write_scene_to_project_data()
 
             self.project_data.save(self.loaded_proj_name, on_save_callback=self.fill_project_labels)
 
+            self.view.stop_circle_progress()
+
             self.statusBar().showMessage(
                 f"Проект успешно сохранен" if self.settings.read_lang() == 'RU' else "Project is saved", 3000)
 
         else:
             self.save_project_as()
-
-        self.splash.finish(self)
 
     def save_project_as(self, proj_name=None, on_save_callback=None):
         """
@@ -1253,9 +1255,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
             if not on_save_callback:
                 on_save_callback = self.on_project_saved
+
+            self.view.start_circle_progress()
             self.project_data.save(proj_name, on_save_callback=on_save_callback)
+            self.view.stop_circle_progress()
 
     def on_project_saved(self):
+
         self.statusBar().showMessage(
             f"Проект успешно сохранен" if self.settings.read_lang() == 'RU' else "Project is saved", 3000)
 
