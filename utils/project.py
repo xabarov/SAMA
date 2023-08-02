@@ -1,13 +1,13 @@
-import utils.config as config
 import datetime
-import utils.help_functions as hf
-import ujson
-import numpy as np
 import os
 
+import numpy as np
+import ujson
 from PIL import Image
-
 from shapely import Polygon
+
+import utils.config as config
+import utils.help_functions as hf
 
 
 class ProjectHandler:

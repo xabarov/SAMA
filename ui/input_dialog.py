@@ -1,8 +1,9 @@
-from PyQt5.QtWidgets import QLabel, QWidget, QVBoxLayout, QPushButton, QLineEdit, QFormLayout, QComboBox, QProgressBar
+from PyQt5.QtWidgets import QLabel, QWidget, QVBoxLayout, QPushButton, QLineEdit, QFormLayout, QProgressBar
 from PyQt5.QtCore import Qt
 from utils import config
 
 import numpy as np
+from ui.combo_box_styled import StyledComboBox
 
 
 class CustomInputDialog(QWidget):
@@ -31,7 +32,8 @@ class CustomInputDialog(QWidget):
 
 
 class CustomComboDialog(QWidget):
-    def __init__(self, parent, title_name, question_name, width=400, height=200, variants=None, editable=False):
+    def __init__(self, parent=None, theme='dark_blue.xml', dark_color=(255, 255, 255), light_color=(0, 0, 0),
+                 title_name="ComboBoxTitle", question_name="Question:", variants=None, editable=False):
         super().__init__(parent)
         self.setWindowTitle(f"{title_name}")
         self.setWindowFlag(Qt.Tool)
@@ -39,7 +41,7 @@ class CustomComboDialog(QWidget):
         layout = QFormLayout()
 
         self.label = QLabel(f"{question_name}")
-        self.combo = QComboBox()
+        self.combo = StyledComboBox(self, theme=theme, dark_color=dark_color, light_color=light_color)
 
         if variants:
             variants = np.array(variants)
@@ -63,14 +65,13 @@ class CustomComboDialog(QWidget):
         self.mainLayout.addLayout(btnLayout)
         self.setLayout(self.mainLayout)
 
-        # self.resize(int(width), int(height))
-
     def getText(self):
         return self.combo.currentText()
 
 
 class PromptInputDialog(QWidget):
-    def __init__(self, parent, class_names=None, on_ok_clicked=None, prompts_variants=None):
+    def __init__(self, parent, class_names=None, on_ok_clicked=None, prompts_variants=None, theme='dark_blue.xml',
+                 dark_color=(255, 255, 255), light_color=(0, 0, 0), ):
         super().__init__(parent)
         self.setWindowTitle("Выделение объектов по ключевым словам" if
                             config.LANGUAGE == 'RU' else "Select objects by text prompt")
@@ -79,7 +80,7 @@ class PromptInputDialog(QWidget):
         prompt_layout = QFormLayout()
 
         self.prompt_label = QLabel("Что будем искать:" if config.LANGUAGE == 'RU' else "Prompt:")
-        self.prompt_combo = QComboBox()
+        self.prompt_combo = StyledComboBox(self, theme=theme, dark_color=dark_color, light_color=light_color)
 
         if prompts_variants:
             prompts_variants = np.array(prompts_variants)
@@ -94,7 +95,7 @@ class PromptInputDialog(QWidget):
         class_layout = QFormLayout()
 
         self.class_label = QLabel("Каким классом разметить" if config.LANGUAGE == 'RU' else "Select label name:")
-        self.cls_combo = QComboBox()
+        self.cls_combo = StyledComboBox(self, theme=theme, dark_color=dark_color, light_color=light_color)
         if not class_names:
             class_names = np.array(['no name'])
         self.cls_combo.addItems(np.array(class_names))
@@ -149,5 +150,3 @@ class PromptInputDialog(QWidget):
             self.progress_bar.setValue(progress_value)
         else:
             self.progress_bar.setVisible(False)
-
-

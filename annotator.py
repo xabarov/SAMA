@@ -1,33 +1,26 @@
+import os
+
+import cv2
+import matplotlib.pyplot as plt
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QAction, QMessageBox, QMenu
 from PyQt5.QtGui import QIcon, QCursor
-
-from ui.base_window import MainWindow
-from utils import config
-
+from PyQt5.QtWidgets import QAction, QMessageBox, QMenu
+from shapely import Polygon
 from ultralytics import YOLO
 
-from ui.input_dialog import PromptInputDialog
-from ui.show_image_widget import ShowImgWindow
-from ui.settings_window import SettingsWindow
-from ui.progress import ProgressWindow
-
-from utils.predictor import SAMImageSetter
-from utils.cnn_worker import CNN_worker
-from utils.sam_predictor import load_model as sam_load_model
-from utils import cls_settings
-from utils.edges_from_mask import yolo8masks2points
-from utils.sam_predictor import mask_to_seg, predict_by_points, predict_by_box
-from gd.gd_worker import GroundingSAMWorker
-
-from gd.gd_sam import load_model as gd_load_model
-from shapely import Polygon
-
-import matplotlib.pyplot as plt
 import utils.help_functions as hf
-import cv2
-
-import os
+from gd.gd_sam import load_model as gd_load_model
+from gd.gd_worker import GroundingSAMWorker
+from ui.base_window import MainWindow
+from ui.input_dialog import PromptInputDialog
+from ui.settings_window import SettingsWindow
+from ui.show_image_widget import ShowImgWindow
+from utils import cls_settings
+from utils import config
+from utils.cnn_worker import CNN_worker
+from utils.predictor import SAMImageSetter
+from utils.sam_predictor import load_model as sam_load_model
+from utils.sam_predictor import mask_to_seg, predict_by_points, predict_by_box
 
 
 class Annotator(MainWindow):
@@ -536,7 +529,9 @@ class Annotator(MainWindow):
 
     def grounding_sam_pressed(self):
 
-        self.prompt_input_dialog = PromptInputDialog(self,
+        theme = self.settings.read_theme()
+
+        self.prompt_input_dialog = PromptInputDialog(self, theme=theme,
                                                      class_names=self.project_data.get_labels(),
                                                      on_ok_clicked=self.start_grounddino, prompts_variants=self.prompts)
         self.prompt_input_dialog.show()

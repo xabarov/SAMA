@@ -1,17 +1,15 @@
-from PyQt5.QtWidgets import QLabel, QWidget, QGroupBox, QFormLayout, QComboBox, QVBoxLayout, \
-    QHBoxLayout, QPushButton, QSlider
-from PyQt5.QtCore import Qt
-
-from utils.settings_handler import AppSettings
-
 import numpy as np
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QLabel, QWidget, QGroupBox, QFormLayout, QVBoxLayout, \
+    QHBoxLayout, QPushButton, QSlider
+
+from ui.combo_box_styled import StyledComboBox
+from utils.settings_handler import AppSettings
 
 
 class SettingsWindowBase(QWidget):
     def __init__(self, parent):
         super().__init__(parent)
-
-        self.combos = []
 
         self.import_settings()
 
@@ -22,7 +20,6 @@ class SettingsWindowBase(QWidget):
 
         self.resize(500, 500)
 
-        self.change_combos_text_color()
 
     def stack_layouts(self):
         self.mainLayout = QVBoxLayout()
@@ -33,25 +30,8 @@ class SettingsWindowBase(QWidget):
         self.mainLayout.addLayout(btnLayout)
         self.setLayout(self.mainLayout)
 
-    def change_combos_text_color(self):
 
-        theme = self.settings.read_theme()
-        combo_box_color = "rgb(255,255,255)" if 'dark' in theme else " rgb(0,0,0)"
 
-        for combo in self.combos:
-            combo.setStyleSheet("QComboBox:items"
-                                "{"
-                                f"color: {combo_box_color};"
-                                "}"
-                                "QComboBox"
-                                "{"
-                                f"color: {combo_box_color};"
-                                "}"
-                                "QListView"
-                                "{"
-                                f"color: {combo_box_color};"
-                                "}"
-                                )
 
     def create_main_group(self):
         # настройки темы
@@ -61,8 +41,9 @@ class SettingsWindowBase(QWidget):
 
         layout_global = QFormLayout()
 
-        self.theme_combo = QComboBox()
-        self.combos.append(self.theme_combo)
+        theme = self.settings.read_theme()
+
+        self.theme_combo = StyledComboBox(self, theme=theme)
 
         self.themes = np.array(['dark_amber.xml',
                                 'dark_blue.xml',

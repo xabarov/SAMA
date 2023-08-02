@@ -7,16 +7,17 @@ import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QMovie, QPainter, QIcon, QColor
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
-from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, QToolButton, QComboBox, QLabel, \
+from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, QToolButton, QLabel, \
     QColorDialog, QListWidget
 from PyQt5.QtWidgets import QApplication
 from qt_material import apply_stylesheet
 
 from ui.ask_del_polygon import AskDelWindow
+from ui.combo_box_styled import StyledComboBox
 from ui.create_project_dialog import CreateProjectDialog
 from ui.edit_with_button import EditWithButton
-from ui.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog
 from ui.export_dialog import ExportDialog
+from ui.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog
 from ui.input_dialog import CustomInputDialog, CustomComboDialog
 from ui.ok_cancel_dialog import OkCancelDialog
 from ui.panels import ImagesPanel, LabelsPanel
@@ -25,9 +26,8 @@ from ui.show_image_widget import ShowImgWindow
 from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection, ThemeChangeConnection, \
     RubberBandModeConnection
 from ui.splash_screen import MovieSplashScreen
-from ui.view import GraphicsView
 from ui.toolbars import ProgressBarToolbar
-
+from ui.view import GraphicsView
 from utils import config
 from utils import help_functions as hf
 from utils.importer import Importer
@@ -329,7 +329,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Left
 
         toolBar = QToolBar("Панель инструментов" if self.settings.read_lang() == 'RU' else "ToolBar", self)
-        toolBar.addAction(self.createNewProjectAct)
+        toolBar.addAction(self.openProjAct)
         toolBar.addSeparator()
         toolBar.addAction(self.zoomInAct)
         toolBar.addAction(self.zoomOutAct)
@@ -393,7 +393,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.labelSettingsToolBar = QToolBar(
             "Настройки разметки" if self.settings.read_lang() == 'RU' else "Current Label Bar",
             self)
-        self.cls_combo = QComboBox()
+        self.cls_combo = StyledComboBox()
 
         label = QLabel("Текущий класс:   " if self.settings.read_lang() == 'RU' else "Current label:   ")
         cls_names = np.array(['no name'])
@@ -434,7 +434,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def change_polygon_cls_num(self, cls_num, cls_id):
         labels = self.project_data.get_labels()
-        self.combo_dialog = CustomComboDialog(self,
+        theme = self.settings.read_theme()
+        self.combo_dialog = CustomComboDialog(self, theme=theme,
                                               title_name="Изменение имени метки" if self.settings.read_lang() == 'RU' else "Label name change",
                                               question_name="Введите имя класса:" if self.settings.read_lang() == 'RU' else "Enter label name:",
                                               variants=[labels[i] for i in range(len(labels)) if i != cls_num])
@@ -1324,24 +1325,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         invert_secondary = False if 'dark' in theme else True
 
-
         apply_stylesheet(app, theme=theme, extra=extra, invert_secondary=invert_secondary)
 
-        combo_box_color = "rgb(255,255,255)" if 'dark' in theme else " rgb(0,0,0)"
-
-        self.cls_combo.setStyleSheet("QComboBox:items"
-                                     "{"
-                                     f"color: {combo_box_color};"
-                                     "}"
-                                     "QComboBox"
-                                     "{"
-                                     f"color: {combo_box_color};"
-                                     "}"
-                                     "QListView"
-                                     "{"
-                                     f"color: {combo_box_color};"
-                                     "}"
-                                     )
+        self.cls_combo.change_theme(theme)
 
         self.on_theme_change_connection.on_theme_change.emit(icon_folder)
 

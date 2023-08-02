@@ -1,9 +1,8 @@
-from PyQt5.QtWidgets import QLabel, QGroupBox, QFormLayout, QComboBox, QVBoxLayout, QDoubleSpinBox, QCheckBox
+from PyQt5.QtWidgets import QLabel, QGroupBox, QFormLayout, QVBoxLayout, QDoubleSpinBox, QCheckBox
 
 from utils import cls_settings
 from ui.settings_window_base import SettingsWindowBase
-from ui.edit_with_button import EditWithButton
-
+from ui.combo_box_styled import StyledComboBox
 import numpy as np
 
 
@@ -24,7 +23,9 @@ class SettingsWindow(SettingsWindowBase):
         self.setLayout(self.mainLayout)
 
     def create_cnn_layout(self):
-        self.where_calc_combo = QComboBox()
+        theme = self.settings.read_theme()
+
+        self.where_calc_combo = StyledComboBox(self, theme=theme)
         self.where_vars = np.array(["cpu", "cuda", 'Auto'])
         self.where_calc_combo.addItems(self.where_vars)
         where_label = QLabel("Платформа для ИИ" if self.lang == 'RU' else 'Platform for AI')
@@ -33,19 +34,16 @@ class SettingsWindow(SettingsWindowBase):
         idx = np.where(self.where_vars == self.settings.read_platform())[0][0]
         self.where_calc_combo.setCurrentIndex(idx)
 
-        self.combos.append(self.where_calc_combo)
-
         # Настройки обнаружения
         self.classifierGroupBox = QGroupBox("Настройки классификации" if self.lang == 'RU' else 'Classifier')
 
         classifier_layout = QFormLayout()
 
-        self.cnn_combo = QComboBox()
+        self.cnn_combo = StyledComboBox(self, theme=theme)
         cnn_list = list(cls_settings.CNN_DICT.keys())
         self.cnns = np.array(cnn_list)
         self.cnn_combo.addItems(self.cnns)
 
-        self.combos.append(self.cnn_combo)
         cnn_label = QLabel("Модель СНС:" if self.lang == 'RU' else "Classifier model")
 
         classifier_layout.addRow(cnn_label, self.cnn_combo)

@@ -1,19 +1,17 @@
+import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QPolygonF, QColor, QPen, QPainter
 from PyQt5.QtWidgets import QAction, QMenu, QGraphicsItem
 from PyQt5.QtWidgets import QApplication
+from shapely import Polygon, Point, unary_union
 
+from ui.grapic_group import GrGroup
+from ui.polygons import GrPolygonLabel, GrEllipsLabel
+from ui.signals_and_slots import PolygonDeleteConnection, ViewMouseCoordsConnection, PolygonPressedConnection, \
+    PolygonEndDrawing, MaskEndDrawing, PolygonChangeClsNumConnection, LoadIdProgress
 from utils import config
 from utils import help_functions as hf
 from utils.ids_worker import IdsSetterWorker
-
-from ui.signals_and_slots import PolygonDeleteConnection, ViewMouseCoordsConnection, PolygonPressedConnection, \
-    PolygonEndDrawing, MaskEndDrawing, PolygonChangeClsNumConnection, LoadIdProgress
-from ui.polygons import GrPolygonLabel, GrEllipsLabel
-from ui.grapic_group import GrGroup
-
-import numpy as np
-from shapely import Polygon, Point, unary_union
 
 
 class GraphicsView(QtWidgets.QGraphicsView):
@@ -232,16 +230,13 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         self.fat_width = fat_scale * scale * 12 + 1
 
-        self.fat_area = config.FAT_AREA_AROUND
         self.line_width = int(self.fat_width / 8) + 1
-        self.min_distance_to_lines = 3
 
         self.active_pen = QPen(QColor(*hf.set_alpha_to_max(self.active_color)), self.line_width, QtCore.Qt.SolidLine)
         self.fat_point_pen = QPen(QColor(*self.fat_point_color), self.line_width, QtCore.Qt.SolidLine)
         self.positive_point_pen = QPen(QColor(*config.POSITIVE_POINT_COLOR), self.line_width, QtCore.Qt.SolidLine)
         self.negative_point_pen = QPen(QColor(*config.NEGATIVE_POINT_COLOR), self.line_width, QtCore.Qt.SolidLine)
 
-        self.min_ellipse_size = self.fat_width
         self._zoom = 0
 
         return self.fat_width
@@ -272,6 +267,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def check_near_by_active_pressed(self, lp):
         if self.active_item:
+            scale = self._zoom / 3.0 + 1
             try:
                 pol = self.active_item.polygon()
 
@@ -281,7 +277,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     p2 = pol[i + 1]
 
                     d = hf.distance_from_point_to_segment(lp, p1, p2)  # hf.distance_from_point_to_line(lp, p1, p2)
-                    if d < self.min_distance_to_lines:
+                    # print(f"Check near {d} over {self.fat_width/scale}, where fat_width = {self.fat_width}")
+                    if d < self.fat_width/scale:
+
                         self.polygon_clicked.id_pressed.emit(self.active_item.id)
                         return True
             except:
