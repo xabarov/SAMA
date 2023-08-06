@@ -143,8 +143,8 @@ class Detector(Annotator):
                 color = self.project_data.get_label_color(cls_name)
 
                 self.view.add_polygon_to_scene(cls_num, points, color, alpha_tek, id=None)
-                self.write_scene_to_project_data()
-                self.fill_labels_on_tek_image_list_widget()
+                self.update_labels()
+
             else:
                 if self.settings.read_lang() == 'RU':
                     self.statusBar().showMessage(

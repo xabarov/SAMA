@@ -380,14 +380,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.addToolBar(QtCore.Qt.RightToolBarArea, self.toolBarRight)
 
+    def update_labels(self):
+        self.write_scene_to_project_data()
+        self.fill_labels_on_tek_image_list_widget()
+        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+
     def clean_all_labels(self):
         self.view.remove_all_polygons()
+
         if self.tek_image_name:
             self.view.end_drawing()
-            self.write_scene_to_project_data()
-            self.fill_labels_on_tek_image_list_widget()
-
-        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+            self.update_labels()
 
     def create_top_toolbar(self):
 
@@ -513,7 +516,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.images_list_widget.setCurrentRow(current_idx)
 
-            self.fill_labels_on_tek_image_list_widget()
+            self.update_labels()
 
     def fill_labels_on_tek_image_list_widget(self):
 
@@ -537,13 +540,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.labels_on_tek_image.addItem(f"{cls_name} id {shape_id}")
 
     def images_list_widget_clicked(self, item):
-        self.write_scene_to_project_data()
 
         self.tek_image_name = item.text()
         self.tek_image_path = os.path.join(self.dataset_dir, self.tek_image_name)
         self.open_image(self.tek_image_path)
         self.load_image_data(self.tek_image_name)
-        self.fill_labels_on_tek_image_list_widget()
+        self.update_labels()
         self.view.setFocus()
 
     def labels_on_tek_image_clicked(self, item):
@@ -723,7 +725,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # Сохраняем проект
 
             self.fill_project_labels()
-            self.write_scene_to_project_data()
+            self.update_labels()
 
             self.open_image(self.tek_image_path)
             self.load_image_data(self.tek_image_name)
@@ -763,46 +765,42 @@ class MainWindow(QtWidgets.QMainWindow):
             self.project_data.set_image_data(image_updated)
 
     def remove_label_with_change(self):
-        # 1. Сохраняем последние изменения на сцене в проект
-        self.write_scene_to_project_data()
 
         new_name = self.ask_del_label.cls_combo.currentText()  # на что меням
         old_name = self.cls_combo.itemText(self.del_index)
 
         self.ask_del_label.close()  # закрываем окно
 
-        # 2. Убираем имя из комбобокса
+        # 1. Убираем имя из комбобокса
         self.del_label_from_combobox(old_name)  # теперь в комбобоксе нет имени
 
-        # 3. Обновляем все полигоны
+        # 2. Обновляем все полигоны
         self.project_data.change_data_class_from_to(old_name, new_name)
 
-        # 4. Обновляем панель справа
-        self.fill_labels_on_tek_image_list_widget()
+        # 3. Обновляем метки
+        self.update_labels()
 
-        # 5. Переоткрываем изображение и рисуем полигоны из проекта
+        # 4. Переоткрываем изображение и рисуем полигоны из проекта
         self.open_image(self.tek_image_path)
         self.load_image_data(self.tek_image_name)
         self.view.setFocus()
 
     def on_ask_del_all(self):
-        # 1. Сохраняем данные сцены в проект
-        self.write_scene_to_project_data()
 
         del_name = self.ask_del_label.cls_name
 
         self.ask_del_label.close()
 
-        # 2. Удаляем данные о цвете из проекта
+        # 1. Удаляем данные о цвете из проекта
         self.project_data.delete_data_by_class_name(del_name)
 
-        # 3. Убираем имя класса из комбобокса
+        # 2. Убираем имя класса из комбобокса
         self.del_label_from_combobox(del_name)
 
-        # 4. Обновляем панель справа
-        self.fill_labels_on_tek_image_list_widget()
+        # 3. Обновляем метки
+        self.update_labels()
 
-        # 5. Переоткрываем изображение и рисуем полигоны из проекта
+        # 4. Переоткрываем изображение и рисуем полигоны из проекта
         self.open_image(self.tek_image_path)
         self.load_image_data(self.tek_image_name)
 
@@ -833,7 +831,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def change_label_color_button_clicked(self):
 
-        self.write_scene_to_project_data()
+        self.update_labels()
 
         color_dialog = QColorDialog()
         cls_txt = self.cls_combo.currentText()
@@ -859,7 +857,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def rename_label_button_clicked(self):
 
-        self.write_scene_to_project_data()
+        self.update_labels()
 
         cls_name = self.cls_combo.currentText()
         self.input_dialog = CustomInputDialog(self,
@@ -892,7 +890,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.cls_combo.addItems(new_cls)
             self.project_data.change_name(cls_name, new_name)
 
-            self.fill_labels_on_tek_image_list_widget()
+            self.update_labels()
 
         self.view.setFocus()
 
@@ -1136,13 +1134,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.load_image_data(self.tek_image_name)
 
-            self.fill_labels_on_tek_image_list_widget()
+            self.update_labels()
             self.fill_images_label(self.dataset_images)
 
             self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
             self.images_list_widget.setCurrentRow(0)
-
-            self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
         self.statusBar().showMessage(
             f"Число загруженных в проект изображений: {len(self.dataset_images)}" if self.settings.read_lang() == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
@@ -1195,8 +1191,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def on_polygon_end_draw(self, is_end_draw):
         if is_end_draw:
-            self.write_scene_to_project_data()
-            self.fill_labels_on_tek_image_list_widget()
+            self.update_labels()
 
     def fill_project_labels(self):
         self.project_data.set_labels([self.cls_combo.itemText(i) for i in range(self.cls_combo.count())])
@@ -1224,7 +1219,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.view.start_circle_progress()
 
             self.set_labels_color()  # сохранение информации о цветах масок
-            self.write_scene_to_project_data()
+            self.update_labels()
 
             self.project_data.save(self.loaded_proj_name, on_save_callback=self.fill_project_labels)
 
@@ -1249,7 +1244,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if proj_name:
             self.loaded_proj_name = proj_name
             self.set_labels_color()  # сохранение информации о цветах масок
-            self.write_scene_to_project_data()
+            self.update_labels()
             self.fill_project_labels()
             self.loaded_proj_name = proj_name
 
@@ -1387,8 +1382,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 break
 
     def on_polygon_delete(self, delete_id):
-        self.write_scene_to_project_data()
-        self.fill_labels_on_tek_image_list_widget()
+        self.update_labels()
 
     def square_pressed(self):
         self.set_labels_color()
@@ -1517,10 +1511,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.ann_type in ["Polygon", "Box", "Ellips"]:
             self.view.end_drawing()  # save it to
 
-            self.write_scene_to_project_data()
-            self.fill_labels_on_tek_image_list_widget()
-
-            self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+            self.update_labels()
 
     def start_drawing(self):
         if not self.image_set:
@@ -1549,10 +1540,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if self.tek_image_name:
             self.view.end_drawing()
-            self.write_scene_to_project_data()
-            self.fill_labels_on_tek_image_list_widget()
-
-        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+            self.update_labels()
 
     def reload_image(self):
         if not self.tek_image_path:
@@ -1560,8 +1548,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.open_image(self.tek_image_path)
         self.load_image_data(self.tek_image_name)
-        self.fill_labels_on_tek_image_list_widget()
-        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+        self.update_labels()
 
     def show_tutorial(self):
         path_to_png = os.path.join(os.getcwd(), 'ui', 'tutorial', 'shortcuts.png')
@@ -1573,8 +1560,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def undo(self):
         # print('Undo')
         self.view.remove_last_changes()
-        self.write_scene_to_project_data()
-        self.fill_labels_on_tek_image_list_widget()
+        self.update_labels()
 
     def keyPressEvent(self, e):
         # e.accept()
@@ -1601,7 +1587,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 return
 
             # <<< Before image
-            self.write_scene_to_project_data()
+            self.update_labels()
 
             current_idx = self.images_list_widget.currentRow()
             next_idx = current_idx - 1 if current_idx > 0 else self.images_list_widget.count() - 1
@@ -1614,7 +1600,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if not self.image_set:
                 return
             # >>> Next image
-            self.write_scene_to_project_data()
+            self.update_labels()
 
             current_idx = self.images_list_widget.currentRow()
             next_idx = current_idx + 1 if current_idx < self.images_list_widget.count() - 1 else 0
@@ -1636,7 +1622,6 @@ class MainWindow(QtWidgets.QMainWindow):
             # Ctrl + C
 
             self.view.copy_active_item_to_buffer()
-            # self.write_scene_to_project_data()
 
         elif (e.key() == 86 or e.key() == 1052) and 'Ctrl' in modifierName:
             # Ctrl + V
@@ -1644,9 +1629,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 return
 
             self.view.paste_buffer()
-            self.write_scene_to_project_data()
-            self.fill_labels_on_tek_image_list_widget()
-            self.view.clear_ai_points()
+            self.update_labels()
+
 
     def on_quit(self):
         self.exit_box.hide()

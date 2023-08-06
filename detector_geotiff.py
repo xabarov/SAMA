@@ -24,9 +24,10 @@ class DetectorGeoTIFF(Detector):
         self.image_types = ['jpg', 'png', 'tiff', 'jpeg', 'tif']
         self.map_geotiff_names = {}
         self.view.mouse_move_conn.on_mouse_move.connect(self.on_view_mouse_move)
+        self.block_geo_coords_message = False
 
     def on_view_mouse_move(self, x, y):
-        if self.image_set:
+        if self.image_set and not self.block_geo_coords_message:
             if self.lrm:
                 geo_x, geo_y = hf.convert_point_coords_to_geo(x, y, self.tek_image_path)
                 self.statusBar().showMessage(

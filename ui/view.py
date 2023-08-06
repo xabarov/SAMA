@@ -497,7 +497,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         alpha - прозрачность в процентах
         """
 
-        if not point_mass:
+        if len(point_mass) < 6:
             return
 
         if id == None:
@@ -630,6 +630,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
             self.scene().addItem(self.buffer)
             self.active_item = self.buffer
+            self.clear_ai_points()
 
     def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
 

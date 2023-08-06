@@ -312,10 +312,7 @@ class Annotator(MainWindow):
 
             self.view.add_polygons_group_to_scene(cls_num, filtered_points_mass, color, alpha_tek)
 
-            self.write_scene_to_project_data()
-            self.fill_labels_on_tek_image_list_widget()
-
-            self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+            self.update_labels()
 
     def ai_mask_end_drawing(self):
 
@@ -519,9 +516,7 @@ class Annotator(MainWindow):
             self.detected_shapes.append(shape)
 
         self.progress_toolbar.hide_progressbar()
-        self.write_scene_to_project_data()
-        self.fill_labels_on_tek_image_list_widget()
-        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+        self.update_labels()
 
         self.statusBar().showMessage(
             f"Найдено {len(self.CNN_worker.mask_results)} объектов" if self.settings.read_lang() == 'RU' else f"{len(self.CNN_worker.mask_results)} objects has been detected",

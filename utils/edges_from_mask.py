@@ -223,13 +223,32 @@ def segmentation_to_polygons(mm_seg_predicitons, cls_num):
 
 def segmentation_to_points(mm_seg_predicitons, cls_num):
     mask = mm_seg_predicitons == cls_num
-    points_xx_yy = np.asarray(np.where(mask==True))
+    points_xx_yy = np.asarray(np.where(mask == True))
     yy = points_xx_yy[0]
     xx = points_xx_yy[1]
     points = []
     for x, y in zip(xx, yy):
         points.append([x, y])
     return points
+
+
+def mask_results_to_yolo_txt(mask_results, image_path, yolo_txt_file_name, with_conf=False):
+    img = Image.open(image_path)
+
+    img_width, img_height = img.size
+
+    with open(yolo_txt_file_name, 'w') as f:
+        for res in mask_results:
+            cls_num = res['cls_num']
+            points = res['points']
+            line = f"{cls_num} "
+            for p in points:
+                x = p[0]
+                y = p[1]
+                line += f"{x/img_width} {y/img_height} "
+            if with_conf:
+                line += res["conf"]
+            f.write(f"{line}\n")
 
 
 def yolo8masks2points(yolo_mask, simplify_factor=3, width=1280, height=1280):

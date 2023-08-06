@@ -1,8 +1,8 @@
-from utils.edges_from_mask import mask2seg
-from PIL import Image
 import os
 
-import numpy as np
+from PIL import Image
+
+from utils.edges_from_mask import mask2seg
 
 
 def convert(train_folder, val_folder, cls_names, verbose=True):
