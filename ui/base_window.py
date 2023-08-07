@@ -554,39 +554,36 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def exportToYOLOBox(self):
         self.save_project()
+        theme = self.settings.read_theme()
         self.export_dialog = ExportDialog(self, on_ok_clicked=self.on_export_dialog_ok,
-                                          label_names=self.project_data.get_labels(), export_format='yolo')
+                                          label_names=self.project_data.get_labels(), export_format='yolo',
+                                          theme=theme)
         self.export_format = 'yolo_box'
         self.export_dialog.show()
 
     def exportToYOLOSeg(self):
         self.save_project()
+        theme = self.settings.read_theme()
         self.export_dialog = ExportDialog(self, on_ok_clicked=self.on_export_dialog_ok,
-                                          label_names=self.project_data.get_labels(), export_format='yolo')
+                                          label_names=self.project_data.get_labels(), export_format='yolo',
+                                          theme=theme)
         self.export_format = 'yolo_seg'
         self.export_dialog.show()
 
     def on_export_dialog_ok(self):
         export_dir = self.export_dialog.get_export_path()
-        checked_names = self.export_dialog.get_checked_names()
+        export_map = self.export_dialog.get_labels_map()
         if export_dir:
-            if self.export_format == 'yolo_seg':
-                self.project_data.exportToYOLOSeg(export_dir, export_label_names=checked_names)
-                self.on_project_export(export_format="YOLO Seg")
-            elif self.export_format == 'yolo_box':
-                self.project_data.exportToYOLOBox(export_dir, export_label_names=checked_names)
-                self.on_project_export(export_format="YOLO Box")
-
-            elif self.export_format == 'coco':
-                self.project_data.exportToCOCO(export_dir, export_label_names=checked_names)
-                self.on_project_export(export_format="COCO")
-
-        self.export_dialog.hide()
+            self.project_data.export_percent_conn.percent.connect(self.export_dialog.set_progress)
+            self.project_data.export_finished.on_finished.connect(self.on_project_export)
+            self.project_data.export(export_dir, export_map=export_map, format=self.export_format)
 
     def exportToCOCO(self):
         self.save_project()
+        theme = self.settings.read_theme()
         self.export_dialog = ExportDialog(self, on_ok_clicked=self.on_export_dialog_ok,
-                                          label_names=self.project_data.get_labels(), export_format='coco')
+                                          label_names=self.project_data.get_labels(), export_format='coco',
+                                          theme=theme)
         self.export_format = 'coco'
 
         self.export_dialog.show()
@@ -670,11 +667,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.project_data.set_label_color(cls_name, alpha=self.settings.read_alpha())
 
-    def on_project_export(self, export_format="YOLO Seg"):
+    def on_project_export(self):
+        self.export_dialog.hide()
         msgbox = QMessageBox()
         msgbox.setIcon(QMessageBox.Information)
         msgbox.setText(
-            f"Экспорт в формат {export_format} завершен успешно" if self.settings.read_lang() == 'RU' else f"Export to {export_format} was successful")
+            f"Экспорт в формат {self.export_format} завершен успешно" if self.settings.read_lang() == 'RU' else f"Export to {export_format} was successful")
         msgbox.setWindowTitle("Экспорт завершен")
         msgbox.exec()
 
@@ -1630,7 +1628,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.view.paste_buffer()
             self.update_labels()
-
 
     def on_quit(self):
         self.exit_box.hide()

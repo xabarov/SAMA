@@ -1,23 +1,31 @@
 import datetime
 import os
 
+import cv2
 import numpy as np
 import ujson
 from PIL import Image
+from PyQt5.QtWidgets import QWidget
 from shapely import Polygon
+from utils.exporter import Exporter
 
 import utils.config as config
 import utils.help_functions as hf
+from ui.signals_and_slots import LoadPercentConnection, InfoConnection, ProjectSaveLoadConn
+from utils.blur_image import blur_image_by_mask, get_mask_from_yolo_txt
 
 
-class ProjectHandler:
+class ProjectHandler(QWidget):
     """
     Класс для работы с данными проекта
     Хранит данные разметки в виде словаря
     """
 
-    def __init__(self):
-        self.init()
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.export_percent_conn = LoadPercentConnection()
+        self.info_conn = InfoConnection()
+        self.export_finished = ProjectSaveLoadConn()
 
     def check_json(self, json_project_data):
         for field in ["path_to_images", "images", "labels", "labels_color"]:
@@ -314,48 +322,53 @@ class ProjectHandler:
         export_cls_num = 0
         for i, name in enumerate(label_names):
             if name in export_label_names:
-                export_map[i] = export_cls_num
+                export_map[name] = export_cls_num
                 export_cls_num += 1
             else:
-                export_map[i] = -1
+                export_map[name] = 'del'
 
         return export_map
 
-    def exportToYOLOSeg(self, export_dir, export_label_names=None):
+    def is_blurred_classes(self, export_map):
+        for label in export_map:
+            if export_map[label] == 'blur':
+                return True
 
-        self.clear_not_existing_images()
-
-        if not export_label_names:
-            export_label_names = self.get_labels()
-        export_map = self.get_export_map(export_label_names)
-
-        if os.path.isdir(export_dir):
-            for image in self.data["images"]:
-                if len(image["shapes"]):  # чтобы не создавать пустых файлов
-                    filename = image["filename"]
-                    fullname = os.path.join(self.data["path_to_images"], filename)
-                    # im = cv2.imread(fullname)  # height, width
-                    txt_yolo_name = hf.convert_image_name_to_txt_name(filename)
-                    # im_shape = im.shape
-                    if not os.path.exists(fullname):
-                        continue
-
-                    width, height = Image.open(fullname).size
-                    im_shape = [height, width]
-
-                    with open(os.path.join(export_dir, txt_yolo_name), 'w') as f:
-                        for shape in image["shapes"]:
-                            cls_num = shape["cls_num"]
-                            export_cls_num = export_map[cls_num]
-                            if export_cls_num != -1:
-                                points = shape["points"]
-                                line = f"{export_cls_num}"
-                                for point in points:
-                                    line += f" {point[0] / im_shape[1]} {point[1] / im_shape[0]}"
-
-                                f.write(f"{line}\n")
-            return True
         return False
+
+    def create_images_labels_subdirs(self, export_dir):
+        images_dir = os.path.join(export_dir, 'images')
+        if not os.path.exists(images_dir):
+            os.makedirs(images_dir)
+
+        labels_dir = os.path.join(export_dir, 'labels')
+        if not os.path.exists(labels_dir):
+            os.makedirs(labels_dir)
+
+        return images_dir, labels_dir
+
+    def export(self, export_dir, export_map=None, format='yolo_seg'):
+
+        self.exporter = Exporter(self.data, export_dir=export_dir, format=format, export_map=export_map)
+
+        self.exporter.export_percent_conn.percent.connect(self.on_exporter_percent_change)
+        self.exporter.info_conn.info_message.connect(self.on_exporter_message)
+        self.exporter.err_conn.error_message.connect(self.on_exporter_message)
+
+        self.exporter.finished.connect(self.on_export_finished)
+
+        if not self.exporter.isRunning():
+            self.exporter.start()
+
+    def on_exporter_percent_change(self, percent):
+        self.export_percent_conn.percent.emit(percent)
+
+    def on_exporter_message(self, message):
+        self.info_conn.info_message.emit(message)
+
+    def on_export_finished(self):
+        print('Finished')
+        self.export_finished.on_finished.emit(True)
 
     def clear_not_existing_images(self):
         images = []
@@ -368,152 +381,6 @@ class ProjectHandler:
 
         self.data['images'] = images
 
-    def exportToCOCO(self, export_сoco_name, export_label_names=None):
-
-        self.clear_not_existing_images()
-
-        if not export_label_names:
-            export_label_names = self.get_labels()
-        export_map = self.get_export_map(export_label_names)
-
-        if os.path.isdir(os.path.dirname(export_сoco_name)):
-            export_json = {}
-            export_json["info"] = {"year": datetime.date.today().year, "version": "1.0",
-                                   "description": "exported to COCO format using AI Annotator", "contributor": "",
-                                   "url": "", "date_created": datetime.date.today().strftime("%c")}
-
-            export_json["images"] = []
-
-            id_tek = 1
-            id_map = {}
-
-            for image in self.data["images"]:
-                filename = image["filename"]
-                id_map[filename] = id_tek
-                im_full_path = os.path.join(self.data["path_to_images"], filename)
-                # im = cv2.imread(im_full_path)
-                # im_shape = im.shape
-
-                if not os.path.exists(im_full_path):
-                    continue
-
-                width, height = Image.open(im_full_path).size
-                im_shape = [height, width]
-
-                width = im_shape[1]
-                height = im_shape[0]
-                im_dict = {"id": id_tek, "width": width, "height": height, "file_name": filename, "license": 0,
-                           "flickr_url": im_full_path, "coco_url": im_full_path, "date_captured": ""}
-                export_json["images"].append(im_dict)
-
-                id_tek += 1
-
-            export_json["annotations"] = []
-
-            seg_id = 1
-            for image in self.data["images"]:
-                filename = image["filename"]
-                for shape in image["shapes"]:
-
-                    cls_num = shape["cls_num"]
-                    export_cls_num = export_map[cls_num]
-
-                    if export_cls_num != -1:
-                        points = shape["points"]
-                        xs = []
-                        ys = []
-                        all_points = [[]]
-                        for point in points:
-                            xs.append(point[0])
-                            ys.append(point[1])
-                            all_points[0].append(int(point[0]))
-                            all_points[0].append(int(point[1]))
-
-                        seg = np.array(all_points[0])
-
-                        poly = np.reshape(seg, (seg.size // 2, 2))
-                        poly = Polygon(poly)
-                        area = poly.area
-
-                        min_x = min(xs)
-                        max_x = max(xs)
-                        min_y = min(ys)
-                        max_y = max(ys)
-                        w = abs(max_x - min_x)
-                        h = abs(max_y - min_y)
-
-                        x_center = min_x + w / 2
-                        y_center = min_y + h / 2
-
-                        bbox = [int(x_center), int(y_center), int(width), int(height)]
-
-                        seg = {"segmentation": all_points, "area": int(area), "bbox": bbox, "iscrowd": 0, "id": seg_id,
-                               "image_id": id_map[filename], "category_id": export_cls_num + 1}
-                        export_json["annotations"].append(seg)
-                        seg_id += 1
-
-            export_json["licenses"] = [{"id": 0, "name": "Unknown License", "url": ""}]
-            export_json["categories"] = []
-
-            for i, label in enumerate(export_label_names):
-                category = {"supercategory": "type", "id": i + 1, "name": label}
-                export_json["categories"].append(category)
-
-            with open(export_сoco_name, 'w') as f:
-                ujson.dump(export_json, f)
-
-            return True
-
-        return False
-
-    def exportToYOLOBox(self, export_dir, export_label_names=None):
-
-        self.clear_not_existing_images()
-
-        if not export_label_names:
-            export_label_names = self.get_labels()
-        export_map = self.get_export_map(export_label_names)
-
-        if os.path.isdir(export_dir):
-            for image in self.data["images"]:
-                if len(image["shapes"]):  # чтобы не создавать пустых файлов
-                    filename = image["filename"]
-                    fullname = os.path.join(self.data["path_to_images"], filename)
-                    # im = cv2.imread(fullname)  # height, width
-                    txt_yolo_name = hf.convert_image_name_to_txt_name(filename)
-                    # im_shape = im.shape
-
-                    width, height = Image.open(fullname).size
-                    im_shape = [height, width]
-
-                    with open(os.path.join(export_dir, txt_yolo_name), 'w') as f:
-                        for shape in image["shapes"]:
-                            cls_num = shape["cls_num"]
-
-                            export_cls_num = export_map[cls_num]
-                            if export_cls_num != -1:
-
-                                points = shape["points"]
-                                xs = []
-                                ys = []
-                                for point in points:
-                                    xs.append(point[0])
-                                    ys.append(point[1])
-                                min_x = min(xs)
-                                max_x = max(xs)
-                                min_y = min(ys)
-                                max_y = max(ys)
-                                w = abs(max_x - min_x)
-                                h = abs(max_y - min_y)
-
-                                x_center = min_x + w / 2
-                                y_center = min_y + h / 2
-
-                                f.write(
-                                    f"{export_cls_num} {x_center / im_shape[1]} {y_center / im_shape[0]} {w / im_shape[1]} {h / im_shape[0]}\n")
-
-            return True
-        return False
 
 
 if __name__ == '__main__':
@@ -522,4 +389,3 @@ if __name__ == '__main__':
     proj = ProjectHandler()
     proj.load(proj_path)
     # print(proj.exportToYOLOBox("D:\python\\ai_annotator\labels"))
-    print(proj.exportToCOCO("D:\python\\ai_annotator\labels\\coco.json"))
