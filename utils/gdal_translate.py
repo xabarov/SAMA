@@ -7,19 +7,19 @@ from shapely import Point
 import rasterio
 
 
-def get_extent(img_filename):
+def get_extent(img_filename, from_crs='epsg:3395', to_crs='epsg:4326'):
     dataset = rasterio.open(img_filename)
     bounds = dataset.bounds
     points = [Point(bounds.left, bounds.top), Point(bounds.right, bounds.bottom)]
-    gdf = gpd.GeoDataFrame(geometry=points, crs={'init': 'epsg:3395'})
-    gdf = gdf.to_crs({'init': 'epsg:4326'})
+    gdf = gpd.GeoDataFrame(geometry=points, crs={'init': from_crs})
+    gdf = gdf.to_crs({'init': to_crs})
 
     points = [(point.x, point.y) for point in gdf['geometry']]
 
     return points
 
 
-def get_data(geotiff_path, print_info=True):
+def get_data(geotiff_path, print_info=True, from_crs='epsg:3395', to_crs='epsg:4326'):
     gdalData = gdal.Open(geotiff_path)
     if gdalData:
         if print_info:
@@ -30,7 +30,7 @@ def get_data(geotiff_path, print_info=True):
             print(f"Projection {gdalData.GetProjection()}")
             geo_transform = gdalData.GetGeoTransform()
             print(f"Geo transform {geo_transform}")
-            print(f"Extent {get_extent(geotiff_path)}")
+            print(f"Extent {get_extent(geotiff_path, from_crs=from_crs, to_crs=to_crs)}")
 
     return gdalData
 
@@ -38,6 +38,8 @@ def get_data(geotiff_path, print_info=True):
 def get_band(gdalData, band=1):
     gdalBand = gdalData.GetRasterBand(band)
     return gdalBand.ReadAsArray()
+
+
 
 
 def convert_geotiff(geotiff_path, save_path=None, bands=None):
@@ -89,13 +91,15 @@ def convert_geotiff(geotiff_path, save_path=None, bands=None):
 
 
 if __name__ == '__main__':
-    geotiff_path = 'F:\python\\ai_annotator\projects\geotiff\kewaune.tif'
-    save_path = 'F:\python\\ai_annotator\\assets\\emsland.jpg'
+    geotiff_path = 'F:\python\datasets\канопус\KV4_29208_28116_02_KANOPUS_20230509_082940_083045.SCN15.PMS.L2.tif'
+    save_path = 'F:\python\datasets\канопус\\bands_3.jpg'
 
     # im = convert_geotiff(geotiff_path, save_path)
+    # convert_geotiff(geotiff_path, save_path, bands=[1, 2, 3])
+    save_bands_from_geotiff_as_jpg(geotiff_path)
     # # print(im)
 
     # data = get_data(geotiff_path, print_info=True)
-    get_extent(geotiff_path)
+    # get_extent(geotiff_path)
     # band_1 = get_band(data, 3)
     # cv2.imwrite('band1.jpg', band_1)

@@ -27,16 +27,17 @@ def load_coords(file_name):
             return coords_net
 
 
-def get_geo_extent(image_filename):
+def get_geo_extent(image_filename, from_crs='epsg:3395', to_crs='epsg:4326'):
     coords_file = find_coords_file(image_filename)
     if coords_file:
         coords_net = load_coords(coords_file)
         if coords_net:
             return get_lat_lon_min_max_coords(coords_net)
+    ext = get_ext(image_filename)
 
-    if get_ext(image_filename) == 'tif':
+    if ext == 'tif' or ext == 'tiff':
 
-        extent = get_extent(image_filename)  # [(left_poit lat, lon), (right_point]
+        extent = get_extent(image_filename, from_crs=from_crs, to_crs=to_crs)  # [(left_poit lat, lon), (right_point]
         coords_net = []
         coords_net.append(Coords(float(extent[0][1]), float(extent[0][0])))
         coords_net.append(Coords(float(extent[1][1]), float(extent[1][0])))
@@ -44,8 +45,8 @@ def get_geo_extent(image_filename):
         return get_lat_lon_min_max_coords(coords_net)
 
 
-def lrm_from_gdal_data(image_name, gdal_data):
-    extent = get_extent(image_name) # [left top, bottom right]
+def lrm_from_gdal_data(image_name, gdal_data, from_crs='epsg:3395', to_crs='epsg:4326'):
+    extent = get_extent(image_name, from_crs=from_crs, to_crs=to_crs) # [left top, bottom right]
     max_y = extent[0][1]
     min_y = extent[1][1]
     delta_lat = abs(max_y - min_y)  # в градусах

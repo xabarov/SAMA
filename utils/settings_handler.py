@@ -52,7 +52,10 @@ class AppSettings:
     def get_icon_folder(self):
         theme_str = self.read_theme()
         theme_type = theme_str.split('.')[0]
-        return os.path.join("ui/icons/", theme_type)
+        icon_folder = os.path.join("ui/icons/", theme_type)
+        if not os.path.exists(icon_folder):
+            return os.path.join("icons/", theme_type)
+        return icon_folder
 
     def write_platform(self, platform):
         self.qt_settings.setValue("main/platform", platform)

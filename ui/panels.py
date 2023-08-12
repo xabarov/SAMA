@@ -4,6 +4,7 @@ from PyQt5.QtGui import QIcon
 from utils import config
 
 
+
 class ImagesPanel(QWidget):
     def __init__(self, parent, add_image_to_projectAct, del_image_from_projectAct, icon_folder, button_size=30,
                  on_color_change_signal=None, on_images_list_change=None):

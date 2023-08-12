@@ -18,7 +18,7 @@ import datetime
 import os
 
 
-def try_read_lrm(image_name):
+def try_read_lrm(image_name, from_crs='epsg:3395', to_crs='epsg:4326'):
     ext = coords_calc.get_ext(image_name)
     name_without_ext = image_name[:-len(ext)]
     for map_ext in ['dat', 'map']:
@@ -32,9 +32,9 @@ def try_read_lrm(image_name):
 
             return coords_calc.get_lrm(coords_net, img_height)
 
-    if ext == 'tif':
+    if ext == 'tif' or ext == 'tiff':
         gdal_data = get_data(image_name, print_info=False)
-        return coords_calc.lrm_from_gdal_data(image_name, gdal_data)
+        return coords_calc.lrm_from_gdal_data(image_name, gdal_data, from_crs=from_crs, to_crs=to_crs)
 
 
 def read_min_max_stat(path_to_doverit):
@@ -78,12 +78,12 @@ def get_extension(filename):
     return coords_calc.get_ext(filename)
 
 
-def convert_point_coords_to_geo(point_x, point_y, image_name):
+def convert_point_coords_to_geo(point_x, point_y, image_name, from_crs='epsg:3395', to_crs='epsg:4326'):
     img = Image.open(image_name)
 
     img_width, img_height = img.size
 
-    geo_extent = coords_calc.get_geo_extent(image_name)
+    geo_extent = coords_calc.get_geo_extent(image_name, from_crs=from_crs, to_crs=to_crs)
 
     lat_min, lat_max, lon_min, lon_max = geo_extent
     x = lon_min + (float(point_x) / img_width) * abs(lon_max - lon_min)
