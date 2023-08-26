@@ -579,10 +579,14 @@ class Annotator(MainWindow):
     def on_dataset_balance_clicked(self):
         balance_data = self.project_data.calc_dataset_balance()
 
-        label_names = self.project_data.get_data()['labels']
         labels = list(balance_data.keys())
-        labels = [label_names[int(i)] for i in labels]
         values = list(balance_data.values())
+
+        dataset_dir = self.project_data.get_image_path()
+        balance_txt_name = os.path.join(os.path.dirname(dataset_dir), 'label_balance.txt')
+        with open(balance_txt_name, 'w') as f:
+            for label, size in balance_data.items():
+                f.write(f"{label}: {size}\n")
 
         fig, ax = plt.subplots(figsize=(10, 8))
 

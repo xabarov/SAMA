@@ -541,11 +541,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def images_list_widget_clicked(self, item):
 
+        self.write_scene_to_project_data()
+
         self.tek_image_name = item.text()
         self.tek_image_path = os.path.join(self.dataset_dir, self.tek_image_name)
         self.open_image(self.tek_image_path)
         self.load_image_data(self.tek_image_name)
-        self.update_labels()
+
+        self.fill_labels_on_tek_image_list_widget()
+        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+
         self.view.setFocus()
 
     def labels_on_tek_image_clicked(self, item):
@@ -1475,11 +1480,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def end_drawing(self):
 
-        if not self.image_set:
-            return
-
         if self.is_rubber_band_mode:
             # Режим селекции области на изображении
+
+            if not self.image_set:
+                return
 
             # Получаем полигон селекта
             pol = self.view.get_rubber_band_polygon()
@@ -1509,7 +1514,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.ann_type in ["Polygon", "Box", "Ellips"]:
             self.view.end_drawing()  # save it to
 
-            self.update_labels()
+        self.update_labels()
 
     def start_drawing(self):
         if not self.image_set:
@@ -1541,6 +1546,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.update_labels()
 
     def reload_image(self):
+
         if not self.tek_image_path:
             return
 

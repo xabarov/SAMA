@@ -1,7 +1,6 @@
 from PySide2 import QtCore
+
 from utils.sam_predictor import predictor_set_image
-import requests
-import json
 
 
 class SAMImageSetter(QtCore.QThread):

@@ -497,7 +497,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         alpha - прозрачность в процентах
         """
 
-        if len(point_mass) < 6:
+        if len(point_mass) < 3:
             return
 
         if id == None:
@@ -1272,14 +1272,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
         # self.setMouseTracking(True)
         self.remove_fat_point_from_scene()
 
-        if self.drawing_type in ["Polygon", "Ellips", "Box"]:
-
-            if self.active_item:
-                self.toggle(self.active_item)
-                self.active_item = None
-        else:
-            if self.drawing_type == "AiPoints":
-                self.clear_ai_points()
+        if self.drawing_type == "AiPoints":
+            self.clear_ai_points()
 
     def is_all_actives_same_class(self):
         if len(self.active_group) == 0:

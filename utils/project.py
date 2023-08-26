@@ -45,15 +45,17 @@ class ProjectHandler(QWidget):
         self.is_loaded = False
 
     def calc_dataset_balance(self):
-        cls_nums = {}
+        labels = self.get_labels()
+        labels_nums = {}
         for im in self.data['images']:
             for shape in im['shapes']:
                 cls_num = shape['cls_num']
-                if cls_num not in cls_nums:
-                    cls_nums[cls_num] = 1
+                label_name = labels[cls_num]
+                if label_name not in labels_nums:
+                    labels_nums[label_name] = 1
                 else:
-                    cls_nums[cls_num] += 1
-        return cls_nums
+                    labels_nums[label_name] += 1
+        return labels_nums
 
     def load(self, json_path, on_load_callback=None):
         with open(json_path, 'r', encoding='utf8') as f:
