@@ -1,9 +1,11 @@
-from PyQt5.QtWidgets import QLabel, QWidget, QVBoxLayout, QPushButton, QLineEdit, QFormLayout, QProgressBar
+from PyQt5.QtWidgets import QLabel, QWidget, QVBoxLayout, QPushButton, QLineEdit, QFormLayout, QDoubleSpinBox, \
+    QProgressBar
 from PyQt5.QtCore import Qt
 from utils import config
 
 import numpy as np
-from ui.combo_box_styled import StyledComboBox
+from ui.combo_box_styled import StyledComboBox, StyledDoubleSpinBox
+from utils.settings_handler import AppSettings
 
 
 class CustomInputDialog(QWidget):
@@ -11,6 +13,9 @@ class CustomInputDialog(QWidget):
         super().__init__(parent)
         self.setWindowTitle(f"{title_name}")
         self.setWindowFlag(Qt.Tool)
+
+        self.settings = AppSettings()
+        self.lang = self.settings.read_lang()
 
         self.label = QLabel(f"{question_name}")
         self.edit = QLineEdit()
@@ -37,6 +42,9 @@ class CustomComboDialog(QWidget):
         super().__init__(parent)
         self.setWindowTitle(f"{title_name}")
         self.setWindowFlag(Qt.Tool)
+
+        self.settings = AppSettings()
+        self.lang = self.settings.read_lang()
 
         layout = QFormLayout()
 
@@ -71,11 +79,14 @@ class CustomComboDialog(QWidget):
 
 class PromptInputDialog(QWidget):
     def __init__(self, parent, class_names=None, on_ok_clicked=None, prompts_variants=None, theme='dark_blue.xml',
-                 dark_color=(255, 255, 255), light_color=(0, 0, 0), ):
+                 dark_color=(255, 255, 255), light_color=(0, 0, 0), box_threshold=0.4, text_threshold=0.55):
         super().__init__(parent)
         self.setWindowTitle("Выделение объектов по ключевым словам" if
                             config.LANGUAGE == 'RU' else "Select objects by text prompt")
         self.setWindowFlag(Qt.Tool)
+
+        self.settings = AppSettings()
+        self.lang = self.settings.read_lang()
 
         prompt_layout = QFormLayout()
 
@@ -103,6 +114,30 @@ class PromptInputDialog(QWidget):
 
         class_layout.addRow(self.class_label, self.cls_combo)
 
+        classifier_layout = QFormLayout()
+
+        self.box_threshold_spinbox = StyledDoubleSpinBox(self, theme=theme, dark_color=dark_color,
+                                                         light_color=light_color)
+        self.box_threshold_spinbox.setDecimals(3)
+        self.box_threshold_spinbox.setValue(float(box_threshold))
+
+        self.box_threshold_spinbox.setMinimum(0.01)
+        self.box_threshold_spinbox.setMaximum(1.00)
+        self.box_threshold_spinbox.setSingleStep(0.01)
+        classifier_layout.addRow(QLabel("IoU порог:" if self.lang == 'RU' else "IoU threshold"),
+                                 self.box_threshold_spinbox)
+
+        self.text_threshold_spinbox = StyledDoubleSpinBox(self, theme=theme, dark_color=dark_color,
+                                                          light_color=light_color)
+        self.text_threshold_spinbox.setDecimals(3)
+        self.text_threshold_spinbox.setValue(float(text_threshold))
+
+        self.text_threshold_spinbox.setMinimum(0.01)
+        self.text_threshold_spinbox.setMaximum(1.00)
+        self.text_threshold_spinbox.setSingleStep(0.01)
+        classifier_layout.addRow(QLabel("Текстовый порог:" if self.lang == 'RU' else "Text threshold"),
+                                 self.text_threshold_spinbox)
+
         self.progress_bar = QProgressBar()
         self.progress_bar.setMinimum(0)
         self.progress_bar.setMaximum(100)
@@ -120,6 +155,7 @@ class PromptInputDialog(QWidget):
         self.mainLayout = QVBoxLayout()
         self.mainLayout.addLayout(prompt_layout)
         self.mainLayout.addLayout(class_layout)
+        self.mainLayout.addLayout(classifier_layout)
         self.mainLayout.addLayout(btnLayout)
         self.mainLayout.addWidget(self.progress_bar)
 
@@ -137,6 +173,12 @@ class PromptInputDialog(QWidget):
 
     def getPrompt(self):
         return self.prompt_combo.currentText()
+
+    def get_text_threshold(self):
+        return self.text_threshold_spinbox.value()
+
+    def get_box_threshold(self):
+        return self.box_threshold_spinbox.value()
 
     def getClsName(self):
         return self.cls_combo.currentText()

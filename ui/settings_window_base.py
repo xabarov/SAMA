@@ -20,7 +20,6 @@ class SettingsWindowBase(QWidget):
 
         self.resize(500, 500)
 
-
     def stack_layouts(self):
         self.mainLayout = QVBoxLayout()
         self.mainLayout.addWidget(self.main_group)
@@ -29,9 +28,6 @@ class SettingsWindowBase(QWidget):
         btnLayout = self.create_buttons()
         self.mainLayout.addLayout(btnLayout)
         self.setLayout(self.mainLayout)
-
-
-
 
     def create_main_group(self):
         # настройки темы

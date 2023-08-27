@@ -283,7 +283,7 @@ class Annotator(MainWindow):
         alpha_tek = self.settings.read_alpha()
         self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
 
-    def add_sam_polygon_to_scene(self, sam_mask):
+    def add_sam_polygon_to_scene(self, sam_mask, cls_num=None):
         points_mass = mask_to_seg(sam_mask)
 
         if len(points_mass) > 0:
@@ -305,7 +305,8 @@ class Annotator(MainWindow):
                         self.statusBar().showMessage(
                             f"Can't create label. Area of label is too small {area:0.3f}. Try again", 3000)
 
-            cls_num = self.cls_combo.currentIndex()
+            if not cls_num:
+                cls_num = self.cls_combo.currentIndex()
             cls_name = self.cls_combo.itemText(cls_num)
             alpha_tek = self.settings.read_alpha()
             color = self.project_data.get_label_color(cls_name)
@@ -553,6 +554,8 @@ class Annotator(MainWindow):
             self.gd_worker = GroundingSAMWorker(config_file=config_file, grounded_checkpoint=grounded_checkpoint,
                                                 sam_predictor=self.sam, tek_image_path=self.tek_image_path,
                                                 grounding_dino_model=self.gd_model,
+                                                box_threshold=self.prompt_input_dialog.get_box_threshold(),
+                                                text_threshold=self.prompt_input_dialog.get_text_threshold(),
                                                 prompt=prompt)
 
             self.progress_toolbar.set_percent(10)
@@ -570,7 +573,7 @@ class Annotator(MainWindow):
         self.progress_toolbar.set_percent(50)
 
         for i, mask in enumerate(masks):
-            self.add_sam_polygon_to_scene(mask)
+            self.add_sam_polygon_to_scene(mask, cls_num=self.prompt_cls_num)
             self.progress_toolbar.set_percent(50 + int(i + 1) * 100.0 / len(masks))
 
         self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
