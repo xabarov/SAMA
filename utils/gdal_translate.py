@@ -40,8 +40,6 @@ def get_band(gdalData, band=1):
     return gdalBand.ReadAsArray()
 
 
-
-
 def convert_geotiff(geotiff_path, save_path=None, bands=None):
     options_list = [
         '-ot Byte',
@@ -96,7 +94,6 @@ if __name__ == '__main__':
 
     # im = convert_geotiff(geotiff_path, save_path)
     # convert_geotiff(geotiff_path, save_path, bands=[1, 2, 3])
-    save_bands_from_geotiff_as_jpg(geotiff_path)
     # # print(im)
 
     # data = get_data(geotiff_path, print_info=True)

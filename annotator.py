@@ -175,18 +175,21 @@ class Annotator(MainWindow):
         super(Annotator, self).reload_image()
         self.view.clear_ai_points()
 
+    def set_image(self, image_name):
+        self.cv2_image = cv2.imread(image_name)
+        self.image_set = False
+        self.image_setter.set_image(self.cv2_image)
+        self.queue_to_image_setter = []
+        self.statusBar().showMessage(
+            "Нейросеть SAM еще не готова. Подождите секунду..." if self.settings.read_lang() == 'RU' else "SAM is loading. Please wait...",
+            3000)
+        self.image_setter.start()
+
     def on_image_set(self):
 
         if len(self.queue_to_image_setter) != 0:
             image_name = self.queue_to_image_setter[-1]
-            self.cv2_image = cv2.imread(image_name)
-            self.image_set = False
-            self.image_setter.set_image(self.cv2_image)
-            self.queue_to_image_setter = []
-            self.statusBar().showMessage(
-                "Нейросеть SAM еще не готова. Подождите секунду..." if self.settings.read_lang() == 'RU' else "SAM is loading. Please wait...",
-                3000)
-            self.image_setter.start()
+            self.set_image(image_name)
 
         else:
             self.statusBar().showMessage(
@@ -532,41 +535,44 @@ class Annotator(MainWindow):
                                                      on_ok_clicked=self.start_grounddino, prompts_variants=self.prompts)
         self.prompt_input_dialog.show()
 
+    def run_gd(self, image_name, prompt):
+        self.progress_toolbar.show_progressbar()
+
+        self.prompt_cls_name = self.prompt_input_dialog.getClsName()
+        self.prompt_cls_num = self.prompt_input_dialog.getClsNumber()
+
+        if prompt not in self.prompts:
+            self.prompts.append(prompt)
+
+        config_file = os.path.join(os.getcwd(),
+                                   config.PATH_TO_GROUNDING_DINO_CONFIG)
+        grounded_checkpoint = os.path.join(os.getcwd(),
+                                           config.PATH_TO_GROUNDING_DINO_CHECKPOINT)
+
+        self.gd_worker = GroundingSAMWorker(config_file=config_file, grounded_checkpoint=grounded_checkpoint,
+                                            sam_predictor=self.sam, tek_image_path=image_name,
+                                            grounding_dino_model=self.gd_model,
+                                            box_threshold=self.prompt_input_dialog.get_box_threshold(),
+                                            text_threshold=self.prompt_input_dialog.get_text_threshold(),
+                                            prompt=prompt)
+
+        self.progress_toolbar.set_percent(10)
+
+        self.gd_worker.finished.connect(self.on_gd_worker_finished)
+
+        if not self.gd_worker.isRunning():
+            self.statusBar().showMessage(
+                f"Начинаю поиск {self.prompt_cls_name} на изображении..." if self.settings.read_lang() == 'RU' else f"Start searching {self.prompt_cls_name} on image...",
+                3000)
+            self.gd_worker.start()
+
     def start_grounddino(self):
         prompt = self.prompt_input_dialog.getPrompt()
         self.prompt_input_dialog.close()
 
         if prompt:
+            self.run_gd(self.tek_image_name, prompt)
 
-            self.progress_toolbar.show_progressbar()
-
-            self.prompt_cls_name = self.prompt_input_dialog.getClsName()
-            self.prompt_cls_num = self.prompt_input_dialog.getClsNumber()
-
-            if prompt not in self.prompts:
-                self.prompts.append(prompt)
-
-            config_file = os.path.join(os.getcwd(),
-                                       config.PATH_TO_GROUNDING_DINO_CONFIG)
-            grounded_checkpoint = os.path.join(os.getcwd(),
-                                               config.PATH_TO_GROUNDING_DINO_CHECKPOINT)
-
-            self.gd_worker = GroundingSAMWorker(config_file=config_file, grounded_checkpoint=grounded_checkpoint,
-                                                sam_predictor=self.sam, tek_image_path=self.tek_image_path,
-                                                grounding_dino_model=self.gd_model,
-                                                box_threshold=self.prompt_input_dialog.get_box_threshold(),
-                                                text_threshold=self.prompt_input_dialog.get_text_threshold(),
-                                                prompt=prompt)
-
-            self.progress_toolbar.set_percent(10)
-
-            self.gd_worker.finished.connect(self.on_gd_worker_finished)
-
-            if not self.gd_worker.isRunning():
-                self.statusBar().showMessage(
-                    f"Начинаю поиск {self.prompt_cls_name} на изображении..." if self.settings.read_lang() == 'RU' else f"Start searching {self.prompt_cls_name} on image...",
-                    3000)
-                self.gd_worker.start()
 
     def on_gd_worker_finished(self):
         masks = self.gd_worker.getMasks()

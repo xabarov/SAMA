@@ -1,17 +1,14 @@
-from PyQt5 import QtCore, QtWidgets, QtGui
-from detector import Detector
+import os
+import sys
+
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtGui import QCursor
-
-from utils import config
-from utils.gdal_translate import convert_geotiff
-from gd.gd_worker import GroundingSAMWorker
-
 from qt_material import apply_stylesheet
 
 import utils.help_functions as hf
-import sys
-import os
-import cv2
+from detector import Detector
+from utils import config
+from utils.gdal_translate import convert_geotiff
 
 
 class DetectorGeoTIFF(Detector):
@@ -36,82 +33,28 @@ class DetectorGeoTIFF(Detector):
     def detect(self):
         # на вход воркера - исходное изображение
 
-        if self.tek_image_name.split('.')[-1] == 'tif':
-            img_name = os.path.basename(self.map_geotiff_names[self.tek_image_path])
-            img_path = self.handle_temp_folder()
-        else:
-            img_name = os.path.basename(self.tek_image_path)
-            img_path = self.dataset_dir
+        jpg_path = self.get_jpg_name(self.tek_image_path)
+
+        img_name = os.path.basename(jpg_path)
+        img_path = os.path.dirname(jpg_path)
 
         self.run_detection(img_name=img_name, img_path=img_path)
 
     def start_grounddino(self):
         prompt = self.prompt_input_dialog.getPrompt()
+        self.prompt_input_dialog.close()
 
-        if self.tek_image_name.split('.')[-1] == 'tif':
-            img_name = os.path.basename(self.map_geotiff_names[self.tek_image_path])
-            full_img_path = os.path.join(self.handle_temp_folder(), img_name)
-        else:
-            img_name = os.path.basename(self.tek_image_path)
-            full_img_path = os.path.join(self.dataset_dir, img_name)
+        jpg_path = self.get_jpg_name(self.tek_image_path)
 
         if prompt:
-
-            self.prompt_cls_name = self.prompt_input_dialog.getClsName()
-            self.prompt_cls_num = self.prompt_input_dialog.getClsNumber()
-
-            if prompt not in self.prompts:
-                self.prompts.append(prompt)
-
-            config_file = os.path.join(os.getcwd(),
-                                       config.PATH_TO_GROUNDING_DINO_CONFIG)
-            grounded_checkpoint = os.path.join(os.getcwd(),
-                                               config.PATH_TO_GROUNDING_DINO_CHECKPOINT)
-
-            self.gd_worker = GroundingSAMWorker(config_file=config_file, grounded_checkpoint=grounded_checkpoint,
-                                                sam_predictor=self.sam, tek_image_path=full_img_path,
-                                                grounding_dino_model=self.gd_model,
-                                                prompt=prompt)
-
-            self.prompt_input_dialog.set_progress(10)
-
-            self.gd_worker.finished.connect(self.on_gd_worker_finished)
-
-            if not self.gd_worker.isRunning():
-                self.statusBar().showMessage(
-                    f"Начинаю поиск {self.prompt_cls_name} на изображении..." if self.settings.read_lang() == 'RU' else f"Start searching {self.prompt_cls_name} on image...",
-                    3000)
-                self.gd_worker.start()
+            self.run_gd(jpg_path, prompt)
 
     def on_image_set(self):
 
         if len(self.queue_to_image_setter) != 0:
             image_name = self.queue_to_image_setter[-1]  # geo_tif_names
-
-            if image_name.split('.')[-1] == 'tif':
-                if image_name in self.map_geotiff_names:
-                    jpg_path = self.map_geotiff_names[image_name]
-                    image = cv2.imread(jpg_path)
-                else:
-
-                    temp_folder = self.handle_temp_folder()  # if not exist
-                    jpg_path = os.path.join(temp_folder,
-                                            os.path.basename(image_name).split('.')[0] + '.jpg')
-
-                    image = convert_geotiff(image_name, jpg_path)
-
-                    self.map_geotiff_names[image_name] = jpg_path
-            else:
-                image = cv2.imread(image_name)
-
-            self.cv2_image = image
-            self.image_set = False
-            self.image_setter.set_image(self.cv2_image)
-            self.queue_to_image_setter = []
-            self.statusBar().showMessage(
-                "Нейросеть SAM еще не готова. Подождите секунду..." if self.settings.read_lang() == 'RU' else "SAM is loading. Please wait...",
-                3000)
-            self.image_setter.start()
+            jpg_name = self.get_jpg_name(image_name)
+            self.set_image(jpg_name)
 
         else:
             self.statusBar().showMessage(
@@ -119,48 +62,37 @@ class DetectorGeoTIFF(Detector):
                 3000)
             self.image_set = True
 
-    def open_image(self, image_name):
+    def get_jpg_name(self, image_name):
 
-        if image_name.split('.')[-1] == 'tif':
-            # GeoTIFF
-            message = f"Загружаю {os.path.basename(image_name)}..." if self.settings.read_lang() == 'RU' else f"Loading {os.path.basename(image_name)}..."
-            self.statusBar().showMessage(
-                message,
-                3000)
-
-            self.view.setCursor(QCursor(QtCore.Qt.BusyCursor))
-
+        suffix = image_name.split('.')[-1]
+        if suffix in ['tif', 'tiff']:
             if image_name in self.map_geotiff_names:
                 jpg_path = self.map_geotiff_names[image_name]
-                image = cv2.imread(jpg_path)
             else:
-
                 temp_folder = self.handle_temp_folder()  # if not exist
                 jpg_path = os.path.join(temp_folder,
                                         os.path.basename(image_name).split('.')[0] + '.jpg')
 
-                image = convert_geotiff(image_name, jpg_path)
+                convert_geotiff(image_name, save_path=jpg_path)
 
                 self.map_geotiff_names[image_name] = jpg_path
-
-            self.view.setPixmap(QtGui.QPixmap(jpg_path))
-            self.view.fitInView(self.view.pixmap_item, QtCore.Qt.KeepAspectRatio)
-
-            self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
-
-            self.cv2_image = image
-
-
-            self.toggle_act(True)
-
-            self.image_set = False
-            self.queue_image_to_sam(image_name)
-            lrm = hf.try_read_lrm(image_name)
-            if lrm:
-                self.lrm = lrm
-
         else:
-            super(DetectorGeoTIFF, self).open_image(image_name)
+            jpg_path = image_name
+
+        return jpg_path
+
+    def open_image(self, image_name):
+        message = f"Загружаю {os.path.basename(image_name)}..." if self.settings.read_lang() == 'RU' else f"Loading {os.path.basename(image_name)}..."
+        self.statusBar().showMessage(
+            message,
+            3000)
+
+        self.view.setCursor(QCursor(QtCore.Qt.BusyCursor))
+
+        jpg_path = self.get_jpg_name(image_name)
+        super(DetectorGeoTIFF, self).open_image(jpg_path)
+
+        self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
 
 
 if __name__ == '__main__':

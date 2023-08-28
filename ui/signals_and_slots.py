@@ -60,3 +60,4 @@ class ViewMouseCoordsConnection(Ps2Core.QObject):
 
 class ProjectSaveLoadConn(Ps2Core.QObject):
     on_finished = Signal(bool)
+
