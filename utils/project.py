@@ -26,6 +26,7 @@ class ProjectHandler(QWidget):
         self.export_percent_conn = LoadPercentConnection()
         self.info_conn = InfoConnection()
         self.export_finished = ProjectSaveLoadConn()
+        self.init()
 
     def check_json(self, json_project_data):
         for field in ["path_to_images", "images", "labels", "labels_color"]:
@@ -57,21 +58,15 @@ class ProjectHandler(QWidget):
                     labels_nums[label_name] += 1
         return labels_nums
 
-    def load(self, json_path, on_load_callback=None):
+    def load(self, json_path):
         with open(json_path, 'r', encoding='utf8') as f:
             self.data = ujson.load(f)
             self.update_ids()
             self.is_loaded = True
 
-            if on_load_callback:
-                on_load_callback()
-
-    def save(self, json_path, on_save_callback=None):
+    def save(self, json_path):
         with open(json_path, 'w', encoding='utf8') as f:
             ujson.dump(self.data, f)
-
-            if on_save_callback:
-                on_save_callback()
 
     def update_ids(self):
         id_num = 0
@@ -382,7 +377,6 @@ class ProjectHandler(QWidget):
                 print(f"Checking files: image {im['filename']} doesn't exist")
 
         self.data['images'] = images
-
 
 
 if __name__ == '__main__':

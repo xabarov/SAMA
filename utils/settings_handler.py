@@ -1,6 +1,6 @@
 from utils import config
 from PyQt5.QtCore import QSettings, QPoint, QSize
-
+import screeninfo
 import os
 from utils.config import DOMEN_NAME
 
@@ -16,7 +16,7 @@ class AppSettings:
         self.qt_settings.setValue("cnn/sam_hq", use_hq)
 
     def read_sam_hq(self):
-        return self.qt_settings.value("cnn/sam_hq", 1)
+        return self.qt_settings.value("cnn/sam_hq", True)
 
     def write_size_pos_settings(self, size, pos):
         self.qt_settings.beginGroup("main_window")
@@ -25,10 +25,23 @@ class AppSettings:
         self.qt_settings.endGroup()
 
     def read_size_pos_settings(self):
+
         self.qt_settings.beginGroup("main_window")
         size = self.qt_settings.value("size", QSize(1200, 800))
         pos = self.qt_settings.value("pos", QPoint(50, 50))
         self.qt_settings.endGroup()
+
+        monitors = screeninfo.get_monitors()
+
+        if len(monitors) == 1:
+            m = monitors[0]
+            width = m.width
+            height = m.height
+            if pos.x() > width * 0.7:
+                pos.setX(0)
+            if pos.y() > height * 0.7:
+                pos.setY(0)
+
         return size, pos
 
     def write_lang(self, lang):
@@ -61,7 +74,7 @@ class AppSettings:
         self.qt_settings.setValue("main/platform", platform)
 
     def read_platform(self):
-        platform = self.qt_settings.value("main/platform")
+        platform = self.qt_settings.value("main/platform", 'cuda')
         return platform
 
     def write_alpha(self, alpha):

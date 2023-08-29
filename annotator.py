@@ -2,6 +2,7 @@ import os
 
 import cv2
 import matplotlib.pyplot as plt
+import torch
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtGui import QIcon, QCursor
 from PyQt5.QtWidgets import QAction, QMessageBox, QMenu
@@ -30,9 +31,8 @@ class Annotator(MainWindow):
         self.setWindowTitle("AI Annotator")
 
         # Current CUDA model
-        self.last_platform = self.settings.read_platform()
+        self.try_to_set_platform('cuda')
         self.last_sam_use_hq = self.settings.read_sam_hq()
-        self.message_cuda_available()
 
         # Detector
         self.started_cnn = None
@@ -54,6 +54,27 @@ class Annotator(MainWindow):
         self.lrm = None
 
         self.detected_shapes = []
+
+    def try_to_set_platform(self, platform):
+        lang = self.settings.read_lang()
+
+        if platform in ['cuda', 'Auto'] and torch.cuda.is_available():
+            self.last_platform = 'cuda'
+            print("CUDA is available")
+            if lang == 'RU':
+                self.statusBar().showMessage(
+                    "Найдено устройство NVIDIA CUDA. Нейросеть будет использовать ее для ускорения", 3000)
+            else:
+                self.statusBar().showMessage(
+                    "NVIDIA CUDA is found. Neural networks will use it for acceleration", 3000)
+        else:
+            self.last_platform = 'cpu'
+            if lang == 'RU':
+                self.statusBar().showMessage(
+                    "Нейросеть будет использовать ресурсы процессора", 3000)
+            else:
+                self.statusBar().showMessage(
+                    "Neural networks will use CPU", 3000)
 
     def createActions(self):
         super(Annotator, self).createActions()
@@ -254,12 +275,15 @@ class Annotator(MainWindow):
 
     def on_settings_closed(self):
         super(Annotator, self).on_settings_closed()
-        platform = self.settings.read_platform()
-        sam_hq = self.settings.read_sam_hq()
 
-        if platform != self.last_platform or sam_hq != self.last_sam_use_hq:
+        sam_hq = self.settings.read_sam_hq()
+        if sam_hq != self.last_sam_use_hq:
             self.handle_sam_model()
-            self.last_platform = platform
+
+        platform = self.settings.read_platform()
+
+        if platform != self.last_platform:
+            self.try_to_set_platform(platform)
 
     def ai_points_pressed(self):
 
@@ -384,30 +408,6 @@ class Annotator(MainWindow):
 
         self.is_asked_before_close = True
         self.close()
-
-    def message_cuda_available(self):
-        """
-        Инициализация настроек приложения
-        """
-        lang = self.settings.read_lang()
-        platform = self.settings.read_platform()
-
-        if platform == 'cuda':
-            print("CUDA is available")
-            if lang == 'RU':
-                self.statusBar().showMessage(
-                    "Найдено устройство NVIDIA CUDA. Нейросеть будет использовать ее для ускорения", 3000)
-            else:
-                self.statusBar().showMessage(
-                    "NVIDIA CUDA is found. SAM will use it for acceleration", 3000)
-
-        else:
-            if lang == 'RU':
-                self.statusBar().showMessage(
-                    "Не найдено устройство NVIDIA CUDA. Нейросеть будет использовать ресурсы процессора", 3000)
-            else:
-                self.statusBar().showMessage(
-                    "Cant't find NVIDIA CUDA. SAM will use CPU", 3000)
 
     def load_gd_model(self):
         config_file = os.path.join(os.getcwd(),
@@ -572,7 +572,6 @@ class Annotator(MainWindow):
 
         if prompt:
             self.run_gd(self.tek_image_name, prompt)
-
 
     def on_gd_worker_finished(self):
         masks = self.gd_worker.getMasks()

@@ -659,13 +659,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.project_data.set_data(self.importer.get_project())
 
         if self.loaded_proj_name:
-            self.project_data.save(self.loaded_proj_name, on_save_callback=self.reload_project)
+            self.project_data.save(self.loaded_proj_name)
 
         else:
             self.fill_labels_combo_from_project()
-            self.save_project_as(on_save_callback=self.reload_project)
-            # self.on_checking_project_success(self.project_data.get_image_path())
+            self.save_project_as()
 
+        self.reload_project()
         self.import_dialog.hide()
 
     def set_color_to_cls(self, cls_name):
@@ -1067,7 +1067,8 @@ class MainWindow(QtWidgets.QMainWindow):
             3000)
         self.loaded_proj_name = self.create_new_proj_dialog.get_project_name()
         self.create_new_proj_dialog.hide()
-        self.save_project_as(proj_name=self.loaded_proj_name, on_save_callback=self.reload_project)
+        self.save_project_as(proj_name=self.loaded_proj_name)
+        self.reload_project()
 
     def fill_images_label(self, image_names):
 
@@ -1159,7 +1160,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.close_project()
 
         self.loaded_proj_name = project_name
-        self.project_data.load(project_name, on_load_callback=self.on_load_project)
+        self.project_data.load(project_name)
+        self.on_load_project()
 
     def on_load_project(self):
 
@@ -1224,7 +1226,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.set_labels_color()  # сохранение информации о цветах масок
             self.update_labels()
 
-            self.project_data.save(self.loaded_proj_name, on_save_callback=self.fill_project_labels)
+            self.project_data.save(self.loaded_proj_name)
+
+            self.fill_project_labels()
 
             self.view.stop_circle_progress()
 
@@ -1234,7 +1238,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.save_project_as()
 
-    def save_project_as(self, proj_name=None, on_save_callback=None):
+    def save_project_as(self, proj_name=None):
         """
         Сохранение проекта как...
         """
@@ -1251,11 +1255,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.fill_project_labels()
             self.loaded_proj_name = proj_name
 
-            if not on_save_callback:
-                on_save_callback = self.on_project_saved
-
             self.view.start_circle_progress()
-            self.project_data.save(proj_name, on_save_callback=on_save_callback)
+            self.project_data.save(proj_name)
             self.view.stop_circle_progress()
 
     def on_project_saved(self):
