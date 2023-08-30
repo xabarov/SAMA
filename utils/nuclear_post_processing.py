@@ -33,6 +33,11 @@ class PostProcessingWorker(QtCore.QThread):
         self.sam_path = sam_path
         self.settings = AppSettings()
 
+        if 'sam_hq' in sam_path:
+            self.use_hq = True
+        else:
+            self.use_hq = False
+
         self.polygons = []
 
         self.psnt_connection = LoadPercentConnection()
@@ -95,7 +100,7 @@ class PostProcessingWorker(QtCore.QThread):
             create_sam_pkl(crop_name, checkpoint=self.sam_path,
                            device=self.settings.read_platform(), output_path=None,
                            one_image_name=os.path.join(self.save_folder, f'crop{i}_sam.jpg'),
-                           pickle_name=pkl_name, use_sam_hq=False, points_per_side=points_per_side)
+                           pickle_name=pkl_name, use_sam_hq=self.use_hq, points_per_side=points_per_side)
 
             step += 1
             self.psnt_connection.percent.emit(40 + 60 * float(step) / steps)

@@ -445,7 +445,7 @@ class Annotator(MainWindow):
         # на вход воркера - исходное изображение
 
         img_path = self.dataset_dir
-        img_name = os.path.basename(self.tek_image_name)
+        img_name = os.path.basename(self.tek_image_path)
 
         self.run_detection(img_name=img_name, img_path=img_path)
 
@@ -571,7 +571,7 @@ class Annotator(MainWindow):
         self.prompt_input_dialog.close()
 
         if prompt:
-            self.run_gd(self.tek_image_name, prompt)
+            self.run_gd(self.tek_image_path, prompt)
 
     def on_gd_worker_finished(self):
         masks = self.gd_worker.getMasks()

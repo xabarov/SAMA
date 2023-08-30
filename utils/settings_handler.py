@@ -1,7 +1,9 @@
-from utils import config
-from PyQt5.QtCore import QSettings, QPoint, QSize
-import screeninfo
 import os
+
+import screeninfo
+from PyQt5.QtCore import QSettings, QPoint, QSize
+
+from utils import config
 from utils.config import DOMEN_NAME
 
 

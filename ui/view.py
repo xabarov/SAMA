@@ -1275,6 +1275,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if self.drawing_type == "AiPoints":
             self.clear_ai_points()
 
+        if self.active_item:
+            self.toggle(self.active_item)
+
     def is_all_actives_same_class(self):
         if len(self.active_group) == 0:
             return
