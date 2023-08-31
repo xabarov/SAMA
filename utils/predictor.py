@@ -11,6 +11,9 @@ class SAMImageSetter(QtCore.QThread):
     def set_image(self, image):
         self.image = image
 
+    def get_image(self):
+        return self.image
+
     def set_predictor(self, predictor):
         self.predictor = predictor
 

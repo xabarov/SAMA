@@ -1,29 +1,19 @@
-import argparse
-import os
-import copy
-
-import numpy as np
+import gc
 import json
-import torch
-from PIL import Image, ImageDraw, ImageFont
+import os
 
+# segment anything
+import cv2
 # Grounding DINO
 import groundingdino.datasets.transforms as T
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+from PIL import Image
 from groundingdino.models import build_model
-from groundingdino.util import box_ops
 from groundingdino.util.slconfig import SLConfig
 from groundingdino.util.utils import clean_state_dict, get_phrases_from_posmap
 
-# segment anything
-from segment_anything import (
-    build_sam,
-    build_sam_hq,
-    SamPredictor
-)
-import cv2
-import numpy as np
-import matplotlib.pyplot as plt
-from utils.settings_handler import AppSettings
 
 def load_image(image_path):
     # load image
@@ -134,9 +124,9 @@ def save_mask_data(output_dir, mask_list, box_list, label_list):
 
 
 def predict(predictor, image_path, text_prompt, output_dir=None, grounded_checkpoint='groundingdino_swinb_cogcoor.pth',
-         box_threshold=0.4, text_threshold=0.55, device='cuda',
-         config_file='GroundingDINO/groundingdino/config/GroundingDINO_SwinB.py'
-         ):
+            box_threshold=0.4, text_threshold=0.55, device='cuda',
+            config_file='GroundingDINO/groundingdino/config/GroundingDINO_SwinB.py'
+            ):
     # make dir
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
@@ -154,21 +144,26 @@ def predict(predictor, image_path, text_prompt, output_dir=None, grounded_checkp
         model, image, text_prompt, box_threshold, text_threshold, device=device
     )
 
+    # Free GroundingDINO model memory
+    model.cpu()
+    del model, grounded_checkpoint
+    gc.collect()
+    torch.cuda.empty_cache()
     # initialize SAM
-
-    image = cv2.imread(image_path)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    predictor.set_image(image)
 
     size = image_pil.size
     H, W = size[1], size[0]
+
     for i in range(boxes_filt.size(0)):
         boxes_filt[i] = boxes_filt[i] * torch.Tensor([W, H, W, H])
         boxes_filt[i][:2] -= boxes_filt[i][2:] / 2
         boxes_filt[i][2:] += boxes_filt[i][:2]
 
     boxes_filt = boxes_filt.cpu()
-    transformed_boxes = predictor.transform.apply_boxes_torch(boxes_filt, image.shape[:2]).to(device)
+    transformed_boxes = predictor.transform.apply_boxes_torch(boxes_filt, (H, W)).to(device)
+
+    if len(transformed_boxes.size()) == 0:
+        return []
 
     masks, _, _ = predictor.predict_torch(
         point_coords=None,
@@ -177,23 +172,22 @@ def predict(predictor, image_path, text_prompt, output_dir=None, grounded_checkp
         multimask_output=False,
     )
 
-    # draw output image
-    plt.figure(figsize=(10, 10))
-    plt.imshow(image)
-    for mask in masks:
-        show_mask(mask.cpu().numpy(), plt.gca(), random_color=True)
-    for box, label in zip(boxes_filt, pred_phrases):
-        show_box(box.numpy(), plt.gca(), label)
+    if output_dir:  # draw output image
+        image = cv2.imread(image_path)
+        
+        plt.figure(figsize=(10, 10))
+        plt.imshow(image)
+        for mask in masks:
+            show_mask(mask.cpu().numpy(), plt.gca(), random_color=True)
+        for box, label in zip(boxes_filt, pred_phrases):
+            show_box(box.numpy(), plt.gca(), label)
 
-    if output_dir:
         plt.axis('off')
         plt.savefig(
             os.path.join(output_dir, "grounded_sam_output.jpg"),
             bbox_inches="tight", dpi=300, pad_inches=0.0
         )
 
-    if output_dir:
         save_mask_data(output_dir, masks, boxes_filt, pred_phrases)
 
     return [mask.cpu().numpy() for mask in masks]
-
