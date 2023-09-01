@@ -113,7 +113,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.last_alpha = None
         self.last_fat_width = None
 
-        self.image_types = ['jpg', 'png', 'tiff', 'jpeg']
+        self.image_types = ['jpg', 'png', 'tiff', 'jpeg', 'tif']
 
         self.dataset_images = []
 

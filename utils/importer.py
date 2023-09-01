@@ -1,16 +1,21 @@
-from PySide2 import QtCore
-from ui.signals_and_slots import LoadPercentConnection, ErrorConnection, InfoConnection
-from utils import help_functions as hf
-
 import os
 import shutil
+
+import cv2
+import numpy as np
 from PIL import Image
+from PySide2 import QtCore
+
+from ui.signals_and_slots import LoadPercentConnection, ErrorConnection, InfoConnection
+from utils import help_functions as hf
+from utils.sam_predictor import mask_to_seg, predict_by_box
 
 
 class Importer(QtCore.QThread):
 
     def __init__(self, coco_data=None, alpha=120, yaml_data=None, is_seg=False, copy_images_path=None, label_names=None,
-                 is_coco=True, dataset="train", coco_name=None):
+                 is_coco=True, dataset="train", coco_name=None, convert_to_masks=False,
+                 sam_predictor=None):
         super(Importer, self).__init__()
 
         # SIGNALS
@@ -28,6 +33,8 @@ class Importer(QtCore.QThread):
         self.is_seg = is_seg
         self.copy_images_path = copy_images_path
         self.coco_name = coco_name
+        self.convert_to_masks = convert_to_masks
+        self.sam_predictor = sam_predictor
 
     def get_project(self):
         return self.project
@@ -180,14 +187,19 @@ class Importer(QtCore.QThread):
         if is_seg:
             self.import_from_yolo_seg(path_to_labels, path_to_images, labels_names, label_colors)
         else:
-            self.import_from_yolo_box(path_to_labels, path_to_images, labels_names, label_colors)
+            self.import_from_yolo_box(path_to_labels, path_to_images, labels_names, label_colors,
+                                      convert_to_masks=self.convert_to_masks, sam_predictor=self.sam_predictor)
 
-    def import_from_yolo_box(self, path_to_labels, path_to_images, labels_names, labels_color):
+    def import_from_yolo_box(self, path_to_labels, path_to_images, labels_names, labels_color, convert_to_masks=False,
+                             sam_predictor=None):
         project = {'path_to_images': path_to_images, 'images': [], "labels": labels_names, "labels_color": labels_color}
         images = [im for im in os.listdir(path_to_images) if hf.is_im_path(im)]
         id_num = 0
         for i, im in enumerate(images):
-            # im_shape = cv2.imread(os.path.join(path_to_images, im)).shape
+
+            if convert_to_masks and sam_predictor:
+                sam_predictor.set_image(cv2.imread(os.path.join(path_to_images, im)))
+
             width, height = Image.open(os.path.join(path_to_images, im)).size
             im_shape = [height, width]
 
@@ -214,6 +226,13 @@ class Importer(QtCore.QThread):
 
                     shape["points"] = [[x - w / 2, y - h / 2], [x + w / 2, y - h / 2], [x + w / 2, y + h / 2],
                                        [x - w / 2, y + h / 2]]
+
+                    if convert_to_masks and sam_predictor:
+                        input_box = np.array([shape["points"][0][0], shape["points"][0][1], shape["points"][2][0],
+                                              shape["points"][2][1]])
+                        masks = predict_by_box(sam_predictor, input_box)
+                        shape["points"] = mask_to_seg(masks)[0]
+
                     image_data["shapes"].append(shape)
 
             project['images'].append(image_data)

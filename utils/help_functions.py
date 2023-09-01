@@ -339,7 +339,7 @@ def create_unique_image_name(image_name):
     return f'{new_name} {datetime.datetime.now().microsecond}.{splitted_name[-1]}'
 
 
-def is_im_path(im_path, suffixes=['jpg', 'tiff', 'png', 'jpeg']):
+def is_im_path(im_path, suffixes=['jpg', 'tiff', 'png', 'jpeg', 'tif']):
     for s in suffixes:
         if im_path.endswith(s):
             return True

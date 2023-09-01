@@ -22,6 +22,8 @@ from utils.cnn_worker import CNN_worker
 from utils.predictor import SAMImageSetter
 from utils.sam_predictor import load_model as sam_load_model
 from utils.sam_predictor import mask_to_seg, predict_by_points, predict_by_box
+from utils.importer import Importer
+from ui.import_dialogs import ImportFromYOLODialog
 
 
 class Annotator(MainWindow):
@@ -657,6 +659,39 @@ class Annotator(MainWindow):
         self.load_image_data(self.tek_image_name)
         self.fill_labels_on_tek_image_list_widget()
         self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+
+    def importFromYOLOBox(self):
+
+        self.close_project()
+
+        self.import_dialog = ImportFromYOLODialog(self, on_ok_clicked=self.on_import_yolo_clicked, convert_to_mask=True)
+        self.is_seg_import = False
+        self.import_dialog.show()
+
+    def on_import_yolo_clicked(self):
+        yaml_data = self.import_dialog.getData()
+
+        if self.sam:
+            convert_to_masks = self.import_dialog.convert_to_mask_checkbox.isChecked()
+        else:
+            convert_to_masks = False
+
+        copy_images_path = None
+        if yaml_data['is_copy_images']:
+            copy_images_path = yaml_data['save_images_dir']
+
+        self.importer = Importer(yaml_data=yaml_data, alpha=self.settings.read_alpha(), is_seg=self.is_seg_import,
+                                 copy_images_path=copy_images_path, dataset=yaml_data["selected_dataset"],
+                                 is_coco=False, convert_to_masks=convert_to_masks, sam_predictor=self.sam)
+
+        self.importer.load_percent_conn.percent.connect(self.on_import_percent_change)
+        self.importer.info_conn.info_message.connect(self.on_importer_message)
+        self.importer.err_conn.error_message.connect(self.on_importer_message)
+
+        self.importer.finished.connect(self.on_import_finished)
+
+        if not self.importer.isRunning():
+            self.importer.start()
 
 
 if __name__ == '__main__':

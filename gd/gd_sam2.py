@@ -174,7 +174,7 @@ def predict(predictor, image_path, text_prompt, output_dir=None, grounded_checkp
 
     if output_dir:  # draw output image
         image = cv2.imread(image_path)
-        
+
         plt.figure(figsize=(10, 10))
         plt.imshow(image)
         for mask in masks:

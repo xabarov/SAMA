@@ -14,7 +14,7 @@ import os
 
 class ImportFromYOLODialog(QWidget):
     def __init__(self, parent, width=480, height=200, on_ok_clicked=None,
-                 theme='dark_blue.xml'):
+                 theme='dark_blue.xml', convert_to_mask=False):
         """
         Импорт разметки из YOLO
         """
@@ -71,6 +71,13 @@ class ImportFromYOLODialog(QWidget):
 
         self.save_images_edit_with_button.setVisible(False)
 
+        if convert_to_mask:
+            self.convert_to_mask_checkbox = QCheckBox()
+            self.convert_to_mask_checkbox.setChecked(False)
+            convert_to_mask_layout = QHBoxLayout()
+            convert_to_mask_layout.addWidget(QLabel('Использовать SAM для конвертации боксов в сегменты'))
+            convert_to_mask_layout.addWidget(self.convert_to_mask_checkbox)
+
         # Buttons layout:
         btnLayout = QHBoxLayout()
 
@@ -92,7 +99,11 @@ class ImportFromYOLODialog(QWidget):
         self.mainLayout.addWidget(self.yaml_edit_with_button)
         self.mainLayout.addLayout(self.dataset_layout)
         self.mainLayout.addLayout(save_images_layout)
+
         self.mainLayout.addWidget(self.save_images_edit_with_button)
+
+        if convert_to_mask:
+            self.mainLayout.addLayout(convert_to_mask_layout)
 
         self.mainLayout.addLayout(btnLayout)
 
@@ -333,5 +344,3 @@ class ImportFromCOCODialog(QWidget):
             self.progress_bar.setValue(progress_value)
         else:
             self.progress_bar.setVisible(False)
-
-
