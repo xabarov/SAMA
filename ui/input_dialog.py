@@ -22,7 +22,7 @@ class CustomInputDialog(QWidget):
 
         btnLayout = QVBoxLayout()
 
-        self.okBtn = QPushButton('Ввести' if config.LANGUAGE == 'RU' else "OK", self)
+        self.okBtn = QPushButton('Ввести' if self.lang == 'RU' else "OK", self)
 
         btnLayout.addWidget(self.okBtn)
 
@@ -64,7 +64,7 @@ class CustomComboDialog(QWidget):
 
         btnLayout = QVBoxLayout()
 
-        self.okBtn = QPushButton('Ввести' if config.LANGUAGE == 'RU' else "OK", self)
+        self.okBtn = QPushButton('Ввести' if self.lang == 'RU' else "OK", self)
 
         btnLayout.addWidget(self.okBtn)
 
@@ -82,7 +82,7 @@ class PromptInputDialog(QWidget):
                  dark_color=(255, 255, 255), light_color=(0, 0, 0), box_threshold=0.4, text_threshold=0.55):
         super().__init__(parent)
         self.setWindowTitle("Выделение объектов по ключевым словам" if
-                            config.LANGUAGE == 'RU' else "Select objects by text prompt")
+                            self.lang == 'RU' else "Select objects by text prompt")
         self.setWindowFlag(Qt.Tool)
 
         self.settings = AppSettings()
@@ -90,7 +90,7 @@ class PromptInputDialog(QWidget):
 
         prompt_layout = QFormLayout()
 
-        self.prompt_label = QLabel("Что будем искать:" if config.LANGUAGE == 'RU' else "Prompt:")
+        self.prompt_label = QLabel("Что будем искать:" if self.lang == 'RU' else "Prompt:")
         self.prompt_combo = StyledComboBox(self, theme=theme, dark_color=dark_color, light_color=light_color)
 
         if prompts_variants:
@@ -105,7 +105,7 @@ class PromptInputDialog(QWidget):
 
         class_layout = QFormLayout()
 
-        self.class_label = QLabel("Каким классом разметить" if config.LANGUAGE == 'RU' else "Select label name:")
+        self.class_label = QLabel("Каким классом разметить" if self.lang == 'RU' else "Select label name:")
         self.cls_combo = StyledComboBox(self, theme=theme, dark_color=dark_color, light_color=light_color)
         if not class_names:
             class_names = np.array(['no name'])
@@ -145,7 +145,7 @@ class PromptInputDialog(QWidget):
 
         btnLayout = QVBoxLayout()
 
-        self.okBtn = QPushButton('Начать поиск' if config.LANGUAGE == 'RU' else "Run", self)
+        self.okBtn = QPushButton('Начать поиск' if self.lang == 'RU' else "Run", self)
 
         btnLayout.addWidget(self.okBtn)
         self.on_ok_clicked = on_ok_clicked

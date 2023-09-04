@@ -13,17 +13,17 @@ import utils.help_functions as hf
 from gd.gd_sam import load_model as gd_load_model
 from gd.gd_worker import GroundingSAMWorker
 from ui.base_window import MainWindow
+from ui.import_dialogs import ImportFromYOLODialog
 from ui.input_dialog import PromptInputDialog
 from ui.settings_window import SettingsWindow
 from ui.show_image_widget import ShowImgWindow
 from utils import cls_settings
 from utils import config
 from utils.cnn_worker import CNN_worker
+from utils.importer import Importer
 from utils.predictor import SAMImageSetter
 from utils.sam_predictor import load_model as sam_load_model
 from utils.sam_predictor import mask_to_seg, predict_by_points, predict_by_box
-from utils.importer import Importer
-from ui.import_dialogs import ImportFromYOLODialog
 
 
 class Annotator(MainWindow):
@@ -208,11 +208,16 @@ class Annotator(MainWindow):
             3000)
         self.image_setter.start()
 
+    def get_jpg_path(self, image_name):
+        # для поддержки с детектором. У него данный метод переписан и поддерживает конвертацию в tif
+        return image_name
+
     def on_image_set(self):
 
         if len(self.queue_to_image_setter) != 0:
-            image_name = self.queue_to_image_setter[-1]
-            self.set_image(image_name)
+            image_name = self.queue_to_image_setter[-1]  # geo_tif_names
+            jpg_path = self.get_jpg_path(image_name)
+            self.set_image(jpg_path)
 
         else:
             self.statusBar().showMessage(
@@ -446,8 +451,10 @@ class Annotator(MainWindow):
     def detect(self):
         # на вход воркера - исходное изображение
 
-        img_path = self.dataset_dir
-        img_name = os.path.basename(self.tek_image_path)
+        jpg_path = self.get_jpg_path(self.tek_image_path)
+
+        img_name = os.path.basename(jpg_path)
+        img_path = os.path.dirname(jpg_path)
 
         self.run_detection(img_name=img_name, img_path=img_path)
 
@@ -572,8 +579,10 @@ class Annotator(MainWindow):
         prompt = self.prompt_input_dialog.getPrompt()
         self.prompt_input_dialog.close()
 
+        jpg_path = self.get_jpg_path(self.tek_image_path)
+
         if prompt:
-            self.run_gd(self.tek_image_path, prompt)
+            self.run_gd(jpg_path, prompt)
 
     def on_gd_worker_finished(self):
         masks = self.gd_worker.getMasks()

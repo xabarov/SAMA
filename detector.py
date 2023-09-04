@@ -1,6 +1,6 @@
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtWidgets import QAction, QMessageBox, QToolBar, QToolButton
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QCursor
 
 from annotator import Annotator
 from utils import config
@@ -17,6 +17,7 @@ import cv2
 import os
 
 import numpy as np
+from utils.gdal_translate import convert_geotiff
 
 
 class Detector(Annotator):
@@ -25,7 +26,17 @@ class Detector(Annotator):
 
         self.setWindowTitle("AI Detector")
 
-        self.lrm = None  # name of file with geo coords
+        # For GeoTIFF support
+        self.map_geotiff_names = {}
+        self.view.mouse_move_conn.on_mouse_move.connect(self.on_view_mouse_move)
+        self.block_geo_coords_message = False
+
+    def on_view_mouse_move(self, x, y):
+        if self.image_set and not self.block_geo_coords_message:
+            if self.lrm:
+                geo_x, geo_y = hf.convert_point_coords_to_geo(x, y, self.tek_image_path)
+                self.statusBar().showMessage(
+                    f"{geo_x:.6f}, {geo_y:.6f}")
 
     def createActions(self):
         super(Detector, self).createActions()
@@ -94,13 +105,38 @@ class Detector(Annotator):
         self.segmentImage.setIcon(QIcon(self.icon_folder + "/seg.png"))
         self.exportToESRIAct.setIcon(QIcon(self.icon_folder + "/esri_shp.png"))
 
+    def get_jpg_path(self, image_name):
+
+        suffix = image_name.split('.')[-1]
+        if suffix in ['tif', 'tiff']:
+            if image_name in self.map_geotiff_names:
+                jpg_path = self.map_geotiff_names[image_name]
+            else:
+                temp_folder = self.handle_temp_folder()  # if not exist
+                jpg_path = os.path.join(temp_folder,
+                                        os.path.basename(image_name).split('.')[0] + '.jpg')
+
+                convert_geotiff(image_name, save_path=jpg_path)
+
+                self.map_geotiff_names[image_name] = jpg_path
+        else:
+            jpg_path = image_name
+
+        return jpg_path
+
     def open_image(self, image_name):
 
-        super(Detector, self).open_image(image_name)
+        message = f"Загружаю {os.path.basename(image_name)}..." if self.settings.read_lang() == 'RU' else f"Loading {os.path.basename(image_name)}..."
+        self.statusBar().showMessage(
+            message,
+            3000)
 
-        lrm = hf.try_read_lrm(image_name)
-        if lrm:
-            self.lrm = lrm
+        self.view.setCursor(QCursor(QtCore.Qt.BusyCursor))
+
+        jpg_path = self.get_jpg_path(image_name)
+        super(Detector, self).open_image(jpg_path)
+
+        self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
 
     def on_segment_start(self):
         print('Started')

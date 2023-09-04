@@ -2,8 +2,8 @@ import os
 
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtGui import QPolygonF, QColor, QPen, QPainter, QPixmap
-from PyQt5.QtWidgets import QAction, QMenu, QGraphicsItem
+from PyQt5.QtGui import QPolygonF, QColor, QPen, QPainter, QPixmap, QFont
+from PyQt5.QtWidgets import QAction, QMenu, QGraphicsItem, QGraphicsLineItem, QGraphicsSimpleTextItem
 from PyQt5.QtWidgets import QApplication
 from shapely import Polygon, Point, unary_union
 
@@ -22,7 +22,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
     Сцена для отображения текущей картинки и полигонов
     """
 
-    def __init__(self, parent=None, active_color=None, fat_point_color=None, on_rubber_band_mode=None):
+    def __init__(self, parent=None, active_color=None, fat_point_color=None, on_rubber_band_mode=None,
+                 ruler_color=None, ruler_text_color=None):
         """
         active_color - цвет активного полигона, по умолчанию config.ACTIVE_COLOR
         fat_point_color - цвет узлов активного полигона, по умолчанию config.FAT_POINT_COLOR
@@ -51,12 +52,20 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         self.is_rubber_mode = False
         self.is_drawing = False
+        self.is_ruler_mode = False
 
         self.drawing_type = "Polygon"
         self.active_item = None
         self.active_group = []
         self.labels_ids = []
         self.last_label_id = -1
+
+        # Ruler Items:
+        self.ruler_points = []
+        self.ruler_draw_points = []
+        self.ruler_line = None
+        self.ruler_lrm = None
+        self.ruler_text = None
 
         if not active_color:
             self.active_color = config.ACTIVE_COLOR
@@ -67,6 +76,16 @@ class GraphicsView(QtWidgets.QGraphicsView):
             self.fat_point_color = config.FAT_POINT_COLOR
         else:
             self.fat_point_color = fat_point_color
+
+        if not ruler_color:
+            self.ruler_color = config.RULER_COLOR
+        else:
+            self.ruler_color = ruler_color
+
+        if not ruler_text_color:
+            self.ruler_text_color = config.RULER_TEXT_COLOR
+        else:
+            self.ruler_text_color = ruler_text_color
 
         # Кисти
         self.set_brushes()
@@ -130,6 +149,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
         # Кисти для активного элемента, узла, позитивного и негативного промпта SAM
         self.active_brush = QtGui.QBrush(QColor(*self.active_color), QtCore.Qt.SolidPattern)
         self.fat_point_brush = QtGui.QBrush(QColor(*self.fat_point_color), QtCore.Qt.SolidPattern)
+        self.ruler_brush = QtGui.QBrush(QColor(*self.ruler_color), QtCore.Qt.SolidPattern)
+        self.ruler_text_brush = QtGui.QBrush(QColor(*self.ruler_text_color), QtCore.Qt.SolidPattern)
         self.positive_point_brush = QtGui.QBrush(QColor(*config.POSITIVE_POINT_COLOR), QtCore.Qt.SolidPattern)
         self.negative_point_brush = QtGui.QBrush(QColor(*config.NEGATIVE_POINT_COLOR), QtCore.Qt.SolidPattern)
 
@@ -198,8 +219,12 @@ class GraphicsView(QtWidgets.QGraphicsView):
         scene.addItem(self._pixmap_item)
         self.pixmap_item.setPixmap(pixmap)
         self.set_fat_width()
+        self.set_pens()
         self.active_item = None
         self.active_group = []
+
+        # Ruler items clear:
+        self.on_ruler_mode_off()
 
         if self.is_rubber_mode:
             self.on_rb_mode_change(False)
@@ -260,17 +285,18 @@ class GraphicsView(QtWidgets.QGraphicsView):
             fat_scale = 0.3 + self.fat_width_default_percent / 50.0
 
         self.fat_width = fat_scale * scale * 12 + 1
-
         self.line_width = int(self.fat_width / 8) + 1
-
-        self.active_pen = QPen(QColor(*hf.set_alpha_to_max(self.active_color)), self.line_width, QtCore.Qt.SolidLine)
-        self.fat_point_pen = QPen(QColor(*self.fat_point_color), self.line_width, QtCore.Qt.SolidLine)
-        self.positive_point_pen = QPen(QColor(*config.POSITIVE_POINT_COLOR), self.line_width, QtCore.Qt.SolidLine)
-        self.negative_point_pen = QPen(QColor(*config.NEGATIVE_POINT_COLOR), self.line_width, QtCore.Qt.SolidLine)
 
         self._zoom = 0
 
         return self.fat_width
+
+    def set_pens(self):
+        self.active_pen = QPen(QColor(*hf.set_alpha_to_max(self.active_color)), self.line_width, QtCore.Qt.SolidLine)
+        self.fat_point_pen = QPen(QColor(*self.fat_point_color), self.line_width, QtCore.Qt.SolidLine)
+        self.ruler_pen = QPen(QColor(*self.ruler_color), self.line_width, QtCore.Qt.SolidLine)
+        self.positive_point_pen = QPen(QColor(*config.POSITIVE_POINT_COLOR), self.line_width, QtCore.Qt.SolidLine)
+        self.negative_point_pen = QPen(QColor(*config.NEGATIVE_POINT_COLOR), self.line_width, QtCore.Qt.SolidLine)
 
     def toggle(self, item):
         if item.brush().color().getRgb() == self.active_brush.color().getRgb():
@@ -662,7 +688,38 @@ class GraphicsView(QtWidgets.QGraphicsView):
             if not self.box_start_point:
                 self.drag_mode = "RubberBandStartDrawMode"
                 self.box_start_point = lp
-                # self.setMouseTracking(True)
+
+            return
+
+        if self.is_ruler_mode:
+
+            if len(self.ruler_points) == 1:
+                # уже есть первая точка
+                distance = hf.distance(self.ruler_points[0], lp)
+
+                self.ruler_points.append(lp)
+                self.draw_ruler_point(lp)
+                self.draw_ruler_line()
+
+                lang = self.settings.read_lang()
+                if not self.ruler_lrm:
+                    text = f"Расстояние {distance:0.1f} px" if lang == 'RU' else f"Distance {distance:0.1f} px"
+                else:
+                    distance *= self.ruler_lrm
+                    text = f"Расстояние {distance:0.1f} м" if lang == 'RU' else f"Distance {distance:0.1f} m"
+
+                self.draw_ruler_text(text, lp)
+
+            elif len(self.ruler_points) == 2:
+                self.ruler_points.clear()
+                for p in self.ruler_draw_points:
+                    self.remove_item(p)
+                self.delete_ruler_line()
+                self.delete_ruler_text()
+
+            else:
+                self.ruler_points.append(lp)
+                self.draw_ruler_point(lp)
 
             return
 
@@ -1327,3 +1384,67 @@ class GraphicsView(QtWidgets.QGraphicsView):
         group.setFlag(QGraphicsItem.ItemIsMovable)
         self.groups.append(group)
         self.scene().addItem(group)
+
+    def on_ruler_mode_on(self, ruler_lrm=None):
+        self.is_ruler_mode = True
+        self.ruler_lrm = ruler_lrm
+
+    def on_ruler_mode_off(self):
+        self.is_ruler_mode = False
+        self.ruler_points.clear()
+        for p in self.ruler_draw_points:
+            self.remove_item(p)
+
+        if self.ruler_line:
+            self.delete_ruler_line()
+
+        if self.ruler_text:
+            self.delete_ruler_text()
+
+    def draw_ruler_point(self, pressed_point):
+        scale = self._zoom / 5.0 + 1
+
+        ruler_point_width = self.fat_width / 2.0
+
+        ruler_draw_point = QtWidgets.QGraphicsEllipseItem(pressed_point.x() - ruler_point_width / (2 * scale),
+                                                          pressed_point.y() - ruler_point_width / (2 * scale),
+                                                          ruler_point_width / scale, ruler_point_width / scale)
+        ruler_draw_point.setPen(self.ruler_pen)
+        ruler_draw_point.setBrush(self.ruler_brush)
+
+        self.scene().addItem(ruler_draw_point)
+        self.ruler_draw_points.append(ruler_draw_point)
+
+    def draw_ruler_line(self):
+        if len(self.ruler_points) != 2:
+            return
+        p1 = self.ruler_points[0]
+        p2 = self.ruler_points[1]
+        self.ruler_line = QGraphicsLineItem()
+        self.ruler_line.setLine(p1.x(), p1.y(), p2.x(), p2.y())
+        self.ruler_line.setPen(self.ruler_pen)
+        self.scene().addItem(self.ruler_line)
+
+    def delete_ruler_line(self):
+        if self.ruler_line:
+            self.remove_item(self.ruler_line)
+
+    def draw_ruler_text(self, text, pos, pixel_size=None):
+
+        if not pixel_size:
+            # Размер шрифта в пикселях. Нужно вычислить от размера снимка
+            # для 1280 pixel_size = 10 норм
+            im_height = self.scene().height()
+            pixel_size = max(10, int(im_height / 128.0))
+
+        self.ruler_text = QGraphicsSimpleTextItem()
+        self.ruler_text.setText(text)
+        self.ruler_text.setBrush(self.ruler_text_brush)
+        self.ruler_text.setPos(pos)
+        font = QFont("Arial", pixel_size, QFont.Normal)
+        self.ruler_text.setFont(font)
+        self.scene().addItem(self.ruler_text)
+
+    def delete_ruler_text(self):
+        if self.ruler_text:
+            self.remove_item(self.ruler_text)

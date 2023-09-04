@@ -88,7 +88,7 @@ def get_ext(file_name):
 
 
 def load_coords_map(file_name):
-    with open(file_name, 'r', encoding='UTF-8') as file:
+    with open(file_name, 'r', encoding="utf-8") as file:
         coords_net = []
         for i, line in enumerate(file):
             if 'MMPLL' in line:

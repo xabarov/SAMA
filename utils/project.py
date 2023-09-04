@@ -79,80 +79,48 @@ class ProjectHandler(QWidget):
         self.data = data
         self.is_loaded = True
 
-    def get_data(self):
-        return self.data
+    def set_image_lrm(self, image_name, lrm):
+        im = self.get_image_data(image_name)
+        if im:
+            im["lrm"] = round(lrm, 6)
+        else:
+            im_names_in_folder = os.listdir(self.get_image_path())
+            if image_name in im_names_in_folder:
+                self.data["images"].append({"filename": image_name, "shapes": [], "lrm": round(lrm, 6)})
 
-    def get_label_color(self, cls_name):
-        if cls_name in self.data["labels_color"]:
-            return self.data["labels_color"][cls_name]
-
-        return None
-
-    def get_label_num(self, label_name):
-        for i, label in enumerate(self.data["labels"]):
-            if label == label_name:
-                return i
-        return -1
-
-    def get_colors(self):
-        return [tuple(self.data["labels_color"][key]) for key in
-                self.data["labels_color"]]
-
-    def get_image_data(self, image_name):
-        for im in self.data["images"]:
-            if image_name == im["filename"]:
-                return im
-        return None
-
-    def get_labels(self):
-        return self.data["labels"]
-
-    def get_label_name(self, cls_num):
-        if cls_num < len(self.data["labels"]):
-            return self.data["labels"][cls_num]
-
-    def change_cls_num_by_id(self, lbl_id, new_cls_num):
-        new_images = []
-        for im in self.data['images']:
-            new_im = im
-            new_shapes = []
-            for shape in im['shapes']:
-                if lbl_id == shape['id']:
-                    new_shape = shape
-                    new_shape["cls_num"] = new_cls_num
-                    new_im['shapes']
-                    new_shapes.append(new_shape)
-                else:
-                    new_shapes.append(shape)
-            new_im['shapes'] = new_shapes
-            new_images.append(new_im)
-
-        self.data['images'] = new_images
-
-    def get_image_path(self):
-        return self.data["path_to_images"]
-
-    def rename_color(self, old_name, new_name):
-        if old_name in self.data["labels_color"]:
-            color = self.data["labels_color"][old_name]
-            self.data["labels_color"][new_name] = color
-            del self.data["labels_color"][old_name]
-
-    def change_name(self, old_name, new_name):
-        self.rename_color(old_name, new_name)
-        labels = []
-        for i, label in enumerate(self.data["labels"]):
-            if label == old_name:
-                labels.append(new_name)
+    def set_lrm_for_all_images(self, lrms_data):
+        set_names = []
+        unset_names = []
+        im_names_in_folder = os.listdir(self.get_image_path())
+        for image_name in lrms_data:
+            if image_name not in im_names_in_folder:
+                unset_names.append(image_name)
             else:
-                labels.append(label)
-        self.data["labels"] = labels
+
+                lrm = lrms_data[image_name]
+                im = self.get_image_data(image_name)
+                if im:
+                    im["lrm"] = round(lrm, 6)
+                else:
+                    self.set_image_data({"filename": image_name, "shapes": [], "lrm": round(lrm, 6)})
+
+                set_names.append(image_name)
+
+        return set_names, unset_names
 
     def set_labels(self, labels):
         self.data["labels"] = labels
 
     def set_path_to_images(self, path):
         self.data["path_to_images"] = path
+
+    def set_blank_data_for_images_names(self, images_names):
+        im_names_in_folder = os.listdir(self.get_image_path())
+        for im_name in images_names:
+            if im_name in im_names_in_folder:
+                im = self.get_image_data(im_name)
+                if not im:
+                    self.set_image_data({"filename": im_name, "shapes": [], "lrm": None})
 
     def set_label_color(self, cls_name, color=None, alpha=None):
 
@@ -199,7 +167,12 @@ class ProjectHandler(QWidget):
         self.data["images"] = images_new
 
     def set_image_data(self, image_data):
+        im_names_in_folder = os.listdir(self.get_image_path())
         image_name = image_data["filename"]
+
+        if image_name not in im_names_in_folder:
+            return
+
         is_found = False
         images_new = []
         for im in self.data["images"]:
@@ -214,6 +187,100 @@ class ProjectHandler(QWidget):
 
         self.data["images"] = images_new
 
+    def get_data(self):
+        return self.data
+
+    def get_label_color(self, cls_name):
+        if cls_name in self.data["labels_color"]:
+            return self.data["labels_color"][cls_name]
+
+        return None
+
+    def get_label_num(self, label_name):
+        for i, label in enumerate(self.data["labels"]):
+            if label == label_name:
+                return i
+        return -1
+
+    def get_images_num(self):
+        return len(self.data["images"])
+
+    def get_colors(self):
+        return [tuple(self.data["labels_color"][key]) for key in
+                self.data["labels_color"]]
+
+    def get_image_data(self, image_name):
+        for im in self.data["images"]:
+            if image_name == im["filename"]:
+                return im
+        return None
+
+    def get_labels(self):
+        return self.data["labels"]
+
+    def get_label_name(self, cls_num):
+        if cls_num < len(self.data["labels"]):
+            return self.data["labels"][cls_num]
+
+    def get_image_lrm(self, image_name):
+        for im in self.data["images"]:
+            if image_name == im["filename"]:
+                if "lrm" in im:
+                    return im["lrm"]
+                else:
+                    return None
+        return None
+
+    def get_image_path(self):
+        return self.data["path_to_images"]
+
+    def get_export_map(self, export_label_names):
+        label_names = self.get_labels()
+        export_map = {}
+        export_cls_num = 0
+        for i, name in enumerate(label_names):
+            if name in export_label_names:
+                export_map[name] = export_cls_num
+                export_cls_num += 1
+            else:
+                export_map[name] = 'del'
+
+        return export_map
+
+    def change_cls_num_by_id(self, lbl_id, new_cls_num):
+        new_images = []
+        for im in self.data['images']:
+            new_im = im
+            new_shapes = []
+            for shape in im['shapes']:
+                if lbl_id == shape['id']:
+                    new_shape = shape
+                    new_shape["cls_num"] = new_cls_num
+                    new_im['shapes']
+                    new_shapes.append(new_shape)
+                else:
+                    new_shapes.append(shape)
+            new_im['shapes'] = new_shapes
+            new_images.append(new_im)
+
+        self.data['images'] = new_images
+
+    def rename_color(self, old_name, new_name):
+        if old_name in self.data["labels_color"]:
+            color = self.data["labels_color"][old_name]
+            self.data["labels_color"][new_name] = color
+            del self.data["labels_color"][old_name]
+
+    def change_name(self, old_name, new_name):
+        self.rename_color(old_name, new_name)
+        labels = []
+        for i, label in enumerate(self.data["labels"]):
+            if label == old_name:
+                labels.append(new_name)
+            else:
+                labels.append(label)
+        self.data["labels"] = labels
+
     def delete_label_color(self, label_name):
         if label_name in self.data["labels_color"]:
             del self.data["labels_color"][label_name]
@@ -225,7 +292,7 @@ class ProjectHandler(QWidget):
                 labels.append(label)
         self.set_labels(labels)
 
-    def del_image(self, image_name):
+    def delete_image(self, image_name):
 
         images = []
         for image in self.data["images"]:
@@ -258,8 +325,7 @@ class ProjectHandler(QWidget):
                     shape_new["id"] = shape["id"]
                     new_shapes.append(shape_new)
 
-            new_image = {}
-            new_image["filename"] = image["filename"]
+            new_image = image
             new_image["shapes"] = new_shapes
 
             images.append(new_image)
@@ -295,8 +361,7 @@ class ProjectHandler(QWidget):
                     shape_new["id"] = shape["id"]
                     new_shapes.append(shape_new)
 
-            new_image = {}
-            new_image["filename"] = image["filename"]
+            new_image = image
             new_image["shapes"] = new_shapes
 
             images.append(new_image)
@@ -312,19 +377,6 @@ class ProjectHandler(QWidget):
         self.set_labels(labels)
 
         self.delete_label_color(from_cls_name)
-
-    def get_export_map(self, export_label_names):
-        label_names = self.get_labels()
-        export_map = {}
-        export_cls_num = 0
-        for i, name in enumerate(label_names):
-            if name in export_label_names:
-                export_map[name] = export_cls_num
-                export_cls_num += 1
-            else:
-                export_map[name] = 'del'
-
-        return export_map
 
     def is_blurred_classes(self, export_map):
         for label in export_map:

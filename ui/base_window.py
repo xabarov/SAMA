@@ -18,6 +18,7 @@ from ui.create_project_dialog import CreateProjectDialog
 from ui.edit_with_button import EditWithButton
 from ui.export_dialog import ExportDialog
 from ui.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog
+from ui.import_dialogs import ImportLRMSDialog
 from ui.input_dialog import CustomInputDialog, CustomComboDialog
 from ui.ok_cancel_dialog import OkCancelDialog
 from ui.panels import ImagesPanel, LabelsPanel
@@ -90,8 +91,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.init_global_values()
 
-        # self.show()
-
         # self.splash.finish(self)
         self.statusBar().showMessage(
             "Загрузите проект или набор изображений" if self.settings.read_lang() == 'RU' else "Load dataset or project")
@@ -112,6 +111,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.last_alpha = None
         self.last_fat_width = None
+        self.lrm = None  # ЛРМ снимка
 
         self.image_types = ['jpg', 'png', 'tiff', 'jpeg', 'tif']
 
@@ -266,6 +266,14 @@ class MainWindow(QtWidgets.QMainWindow):
                                      self,
                                      shortcut="Ctrl+I", enabled=False, triggered=self.getArea)
 
+        self.load_lrm_data_act = QAction(
+            "Загрузить данные о ЛРМ" if self.settings.read_lang() == 'RU' else "Load linear ground res. data", self,
+            enabled=False, triggered=self.load_lrm_data_pressed)
+
+        self.ruler_act = QAction(
+            "Линейка" if self.settings.read_lang() == 'RU' else "Ruler", self,
+            enabled=False, triggered=self.ruler_pressed, checkable=True)
+
     def createMenus(self):
 
         self.fileMenu = QMenu("&Файл" if self.settings.read_lang() == 'RU' else "&File", self)
@@ -310,6 +318,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.annotatorImportMenu.addAction(self.importAnnFromCOCOAct)
 
         self.annotatorMenu.addMenu(self.annotatorImportMenu)
+
+        self.annotatorMenu.addAction(self.load_lrm_data_act)
 
         #
         self.settingsMenu = QMenu("Настройки" if self.settings.read_lang() == 'RU' else "Settings", self)
@@ -416,8 +426,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.labelSettingsToolBar.addAction(self.add_label)
         self.labelSettingsToolBar.addSeparator()
 
+        self.labelSettingsToolBar.addAction(self.ruler_act)
+
+        self.labelSettingsToolBar.addSeparator()
+
         self.progress_toolbar = ProgressBarToolbar(self,
                                                    right_padding=self.toolBarRight.width())
+
         self.labelSettingsToolBar.addWidget(self.progress_toolbar)
 
         self.addToolBar(QtCore.Qt.TopToolBarArea, self.labelSettingsToolBar)
@@ -545,7 +560,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.tek_image_name = item.text()
         self.tek_image_path = os.path.join(self.dataset_dir, self.tek_image_name)
+
         self.open_image(self.tek_image_path)
+
         self.load_image_data(self.tek_image_name)
 
         self.fill_labels_on_tek_image_list_widget()
@@ -764,7 +781,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if self.tek_image_name:
             shapes = self.view.get_all_shapes()
-            image_updated = {"filename": self.tek_image_name, "shapes": shapes}
+            image_updated = {"filename": self.tek_image_name, "shapes": shapes, "lrm": self.lrm}
             self.project_data.set_image_data(image_updated)
 
     def remove_label_with_change(self):
@@ -830,7 +847,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def del_image_labels_from_project(self, image_name):
 
-        self.project_data.del_image(image_name)
+        self.project_data.delete_image(image_name)
 
     def change_label_color_button_clicked(self):
 
@@ -951,6 +968,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.annotatorExportMenu.setIcon(QIcon(self.icon_folder + "/export.png"))
         self.annotatorImportMenu.setIcon(QIcon(self.icon_folder + "/import.png"))
 
+        self.load_lrm_data_act.setIcon(QIcon(self.icon_folder + "/json.png"))
+        self.ruler_act.setIcon(QIcon(self.icon_folder + "/ruler3.png"))
+
     def toggle_act(self, is_active):
 
         self.fitToWindowAct.setEnabled(is_active)
@@ -972,6 +992,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.exportAnnToYoloSegAct.setEnabled(is_active)
         self.exportAnnToCOCOAct.setEnabled(is_active)
         self.cls_combo.setEnabled(is_active)
+        self.load_lrm_data_act.setEnabled(is_active)
 
     def open_image(self, image_name):
 
@@ -983,6 +1004,38 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.image_set = True
         self.toggle_act(self.image_set)
+
+        lrm = self.read_tek_image_lrm()
+
+        if lrm:
+            self.project_data.set_image_lrm(self.tek_image_name, lrm)
+            if self.settings.read_lang() == 'RU':
+                self.statusBar().showMessage(
+                    f"Установлено ЛРМ для снимка {lrm:0.3f} м",
+                    3000)
+            else:
+                self.statusBar().showMessage(
+                    f"Linear ground resoxlutions is set to {lrm:0.3f} m",
+                    3000)
+            self.ruler_act.setEnabled(True)
+
+        else:
+            self.ruler_act.setEnabled(False)
+
+        self.lrm = lrm  # присвоить в любом случае, даже None. Иначе может использоваться lrm от предыдущего снимка
+
+        self.ruler_act.setChecked(False)  # Выключить рулетку. Могла остаться включенной
+
+    def read_tek_image_lrm(self):
+
+        lrm = self.project_data.get_image_lrm(self.tek_image_name)
+
+        if not lrm:
+            # if not presented in project_data. Can be load from project by base_window
+            # Try read if .tif or find geo file in the same dir.
+            lrm = hf.try_read_lrm(self.tek_image_path)
+
+        return lrm
 
     def handle_temp_folder(self):
         temp_folder = os.path.join(os.getcwd(), 'temp')
@@ -1423,6 +1476,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         im = self.project_data.get_image_data(image_name)
         if im:
+
             for shape in im["shapes"]:
                 cls_num = shape["cls_num"]
                 cls_name = self.cls_combo.itemText(cls_num)
@@ -1656,6 +1710,41 @@ class MainWindow(QtWidgets.QMainWindow):
             text = 'Вы точно хотите выйти?' if self.settings.read_lang() == 'RU' else 'Are you really want to quit?'
             self.exit_box = OkCancelDialog(self, title=title, text=text, on_ok=self.on_quit)
             self.exit_box.setMinimumWidth(300)
+
+    def load_lrm_data_pressed(self):
+        theme = self.settings.read_theme()
+        self.import_lrms_dialog = ImportLRMSDialog(self, theme=theme, on_ok_clicked=self.on_load_lrm_ok)
+        self.import_lrms_dialog.show()
+
+    def on_load_lrm_ok(self):
+        self.import_lrms_dialog.hide()
+        lrms_data = self.import_lrms_dialog.lrms_data
+
+        set_images_names, unset_images_names = self.project_data.set_lrm_for_all_images(lrms_data)
+
+        set_num = len(set_images_names)
+        img_num = self.project_data.get_images_num()
+
+        # set lrm from tek_image
+
+        if self.tek_image_name in lrms_data:
+            self.lrm = lrms_data[self.tek_image_name]
+            self.ruler_act.setEnabled(True)
+        else:
+            self.ruler_act.setEnabled(False)
+
+        if self.settings.read_lang() == 'RU':
+            message = f"Задан ЛРМ для {set_num} изображений из {img_num}"
+        else:
+            message = f"Linear ground resolution is set for {set_num} images from {img_num}"
+
+        self.statusBar().showMessage(message, 3000)
+
+    def ruler_pressed(self):
+        if self.ruler_act.isChecked():
+            self.view.on_ruler_mode_on(self.lrm)
+        else:
+            self.view.on_ruler_mode_off()
 
 
 if __name__ == '__main__':
