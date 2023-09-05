@@ -15,12 +15,13 @@ class CNN_worker(QtCore.QThread):
 
     def __init__(self, model, conf_thres=0.7, iou_thres=0.5,
                  img_name="selected_area.png", img_path=None,
-                 scanning=False, linear_dim=0.0923, images_list=None):
+                 scanning=False, linear_dim=0.0923, images_list=None, simplify_factor=1.0):
 
         super(CNN_worker, self).__init__()
 
         self.conf_thres = float(conf_thres)
         self.iou_thres = float(iou_thres)
+        self.simplify_factor = float(simplify_factor)
         self.model = model
 
         self.img_name = img_name
@@ -68,7 +69,7 @@ class CNN_worker(QtCore.QThread):
             shapes = []
             for res in results:
                 for i, mask in enumerate(res['masks']):
-                    points = yolo8masks2points(mask, simplify_factor=3, width=image_width, height=image_height)
+                    points = yolo8masks2points(mask, simplify_factor=self.simplify_factor, width=image_width, height=image_height)
                     if not points:
                         continue
                     cls_num = res['classes'][i]
@@ -123,7 +124,7 @@ class CNN_worker(QtCore.QThread):
 
                 for res in part_mask_results:
                     for i, mask in enumerate(res['masks']):
-                        points = yolo8masks2points(mask, simplify_factor=3, width=x_max - x_min, height=y_max - y_min)
+                        points = yolo8masks2points(mask, simplify_factor=self.simplify_factor, width=x_max - x_min, height=y_max - y_min)
                         if not points:
                             continue
                         points_shifted = []
@@ -155,7 +156,7 @@ class CNN_worker(QtCore.QThread):
             mask_results = []
             for res in results:
                 for i, mask in enumerate(res['masks']):
-                    points = yolo8masks2points(mask, simplify_factor=3, width=shape[1], height=shape[0])
+                    points = yolo8masks2points(mask, simplify_factor=self.simplify_factor, width=shape[1], height=shape[0])
                     if not points:
                         continue
                     cls_num = res['classes'][i]

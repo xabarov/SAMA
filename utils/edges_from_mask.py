@@ -251,7 +251,7 @@ def mask_results_to_yolo_txt(mask_results, image_path, yolo_txt_file_name, with_
             f.write(f"{line}\n")
 
 
-def yolo8masks2points(yolo_mask, simplify_factor=3, width=1280, height=1280):
+def yolo8masks2points(yolo_mask, simplify_factor=0.4, width=1280, height=1280):
     points = []
     img_data = yolo_mask[0] > 128
     shape = img_data.shape

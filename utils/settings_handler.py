@@ -109,6 +109,12 @@ class AppSettings:
     def read_conf_thres(self):
         return self.qt_settings.value("cnn/conf_thres", 0.5)
 
+    def write_simplify_factor(self, simplify_factor):
+        self.qt_settings.setValue("cnn/simplify_factor", simplify_factor)
+
+    def read_simplify_factor(self):
+        return self.qt_settings.value("cnn/simplify_factor", 1.0)
+
     def write_iou_thres(self, iou_thres):
         self.qt_settings.setValue("cnn/iou_thres", iou_thres)
 

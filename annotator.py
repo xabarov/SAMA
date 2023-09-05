@@ -318,7 +318,8 @@ class Annotator(MainWindow):
         self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
 
     def add_sam_polygon_to_scene(self, sam_mask, cls_num=None):
-        points_mass = mask_to_seg(sam_mask)
+        simplify_factor = float(self.settings.read_simplify_factor())
+        points_mass = mask_to_seg(sam_mask, simplify_factor=simplify_factor)
 
         if len(points_mass) > 0:
             filtered_points_mass = []
@@ -469,6 +470,7 @@ class Annotator(MainWindow):
 
         conf_thres_set = self.settings.read_conf_thres()
         iou_thres_set = self.settings.read_iou_thres()
+        simplify_factor = self.settings.read_simplify_factor()
 
         if self.scanning_mode:
             str_text = "Начинаю классифкацию СНС {0:s} сканирующим окном".format(self.started_cnn)
@@ -480,7 +482,7 @@ class Annotator(MainWindow):
         self.CNN_worker = CNN_worker(model=self.yolo, conf_thres=conf_thres_set, iou_thres=iou_thres_set,
                                      img_name=img_name, img_path=img_path,
                                      scanning=self.scanning_mode,
-                                     linear_dim=self.lrm)
+                                     linear_dim=self.lrm, simplify_factor=simplify_factor)
 
         self.CNN_worker.started.connect(self.on_cnn_started)
 

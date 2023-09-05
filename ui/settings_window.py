@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QLabel, QGroupBox, QFormLayout, QVBoxLayout, QDouble
 
 from utils import cls_settings
 from ui.settings_window_base import SettingsWindowBase
-from ui.combo_box_styled import StyledComboBox
+from ui.combo_box_styled import StyledComboBox, StyledDoubleSpinBox
 import numpy as np
 
 
@@ -53,7 +53,7 @@ class SettingsWindow(SettingsWindowBase):
         idx = np.where(self.cnns == self.settings.read_cnn_model())[0][0]
         self.cnn_combo.setCurrentIndex(idx)
 
-        self.conf_thres_spin = QDoubleSpinBox()
+        self.conf_thres_spin = StyledDoubleSpinBox(self, theme=theme)
         self.conf_thres_spin.setDecimals(3)
         conf_thres = self.settings.read_conf_thres()
         self.conf_thres_spin.setValue(float(conf_thres))
@@ -64,7 +64,7 @@ class SettingsWindow(SettingsWindowBase):
         classifier_layout.addRow(QLabel("Доверительный порог:" if self.lang == 'RU' else "Conf threshold"),
                                  self.conf_thres_spin)
 
-        self.IOU_spin = QDoubleSpinBox()
+        self.IOU_spin = StyledDoubleSpinBox(self, theme=theme)
         self.IOU_spin.setDecimals(3)
         iou_thres = self.settings.read_iou_thres()
         self.IOU_spin.setValue(float(iou_thres))
@@ -73,6 +73,17 @@ class SettingsWindow(SettingsWindowBase):
         self.IOU_spin.setMaximum(1.00)
         self.IOU_spin.setSingleStep(0.01)
         classifier_layout.addRow(QLabel("IOU порог:" if self.lang == 'RU' else "IoU threshold"), self.IOU_spin)
+
+        self.simplify_spin = StyledDoubleSpinBox(self, theme=theme)
+        self.simplify_spin.setDecimals(3)
+        simplify_factor = self.settings.read_simplify_factor()
+        self.simplify_spin.setValue(float(simplify_factor))
+
+        self.simplify_spin.setMinimum(0.01)
+        self.simplify_spin.setMaximum(10.00)
+        self.simplify_spin.setSingleStep(0.01)
+        classifier_layout.addRow(QLabel("Коэффициент упрощения полигонов:" if self.lang == 'RU' else "Simplify factor"),
+                                 self.simplify_spin)
 
         self.SAM_HQ_checkbox = QCheckBox()
         self.SAM_HQ_checkbox.setChecked(bool(self.settings.read_sam_hq()))
@@ -89,5 +100,6 @@ class SettingsWindow(SettingsWindowBase):
         self.settings.write_cnn_model(self.cnns[self.cnn_combo.currentIndex()])
         self.settings.write_iou_thres(self.IOU_spin.value())
         self.settings.write_conf_thres(self.conf_thres_spin.value())
+        self.settings.write_simplify_factor(self.simplify_spin.value())
 
         self.settings.write_sam_hq(int(self.SAM_HQ_checkbox.isChecked()))

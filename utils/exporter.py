@@ -145,6 +145,10 @@ class Exporter(QtCore.QThread):
             with open(os.path.join(labels_dir, txt_yolo_name), 'w') as f:
                 for shape in image["shapes"]:
                     cls_num = shape["cls_num"]
+
+                    if cls_num == -1:
+                        continue
+
                     label_name = labels_names[cls_num]
                     export_cls_num = export_map[label_name]
 
@@ -198,6 +202,10 @@ class Exporter(QtCore.QThread):
                 with open(os.path.join(labels_dir, txt_yolo_name), 'w') as f:
                     for shape in image["shapes"]:
                         cls_num = shape["cls_num"]
+
+                        if cls_num == -1:
+                            continue
+
                         label_name = labels_names[cls_num]
 
                         export_cls_num = export_map[label_name]
@@ -285,6 +293,10 @@ class Exporter(QtCore.QThread):
             for shape in image["shapes"]:
 
                 cls_num = shape["cls_num"]
+
+                if cls_num == -1:
+                    continue
+
                 label_name = labels_names[cls_num]
                 export_cls_num = export_map[label_name]
 
@@ -349,7 +361,6 @@ class Exporter(QtCore.QThread):
 
     def get_image_path(self):
         return self.data["path_to_images"]
-
 
     def clear_not_existing_images(self):
         images = []

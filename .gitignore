@@ -157,6 +157,7 @@ cython_debug/
 .gitignore
 projects/*
 export/*
+utils/runs/*
 *.pdf
 *.docx
 gd/GroundingDINO/models--bert-base-uncased/*
