@@ -6,6 +6,18 @@ import numpy as np
 # from plots import Annotator, Colors
 import os
 
+from typing import Tuple, Dict
+import cv2
+import numpy as np
+from PIL import Image
+from ultralytics.yolo.utils.plotting import colors
+from bs4 import BeautifulSoup
+import torch
+
+from openvino.runtime import Core, Model
+from yolov8.inference_openvino import detect
+from ultralytics.yolo.utils import ops
+
 names = ["ro_pf", "ro_sf", "mz_v", "mz_ot", "ru_ot", "bns_ot", "gr_b", "gr_vent_kr", "gr_vent_pr", "gr_b_act",
          "discharge", "diesel"]
 
@@ -91,7 +103,6 @@ def create_image_yolo(res, save_path=None, save_name=None, box_thickness=2, pall
 
 def predict(source, model_path, save_folder, save_name=None, box_thickness=2, pallete=None, txt_color=None, names=None,
             is_seg=True, mask_path=None, conf=0.25, iou=0.7, device=None, save_txt=False):
-
     model = YOLO(model_path)
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
@@ -100,6 +111,7 @@ def predict(source, model_path, save_folder, save_name=None, box_thickness=2, pa
     for res in results:
         create_image_yolo(res, save_folder, save_name=save_name, box_thickness=box_thickness, pallete=pallete,
                           txt_color=txt_color, names=names, is_seg=is_seg, mask_path=mask_path)
+
 
 def predict_and_return_masks(model, source, conf=0.25, iou=0.7, save_txt=False):
     # Test for multiple images:
@@ -132,14 +144,58 @@ def predict_and_return_masks(model, source, conf=0.25, iou=0.7, save_txt=False):
     return mask_results
 
 
-if __name__ == '__main__':
+def predict_and_return_mask_openvino(model, source, conf=0.25, iou=0.7, save_txt=False, nc=12):
+    detections = detect(source, model, nms_iou_threshold=iou, min_conf_threshold=conf, nc=nc)[0]
+
+    return detections
+
+
+def test_yolo():
     import os
 
-    model_path = "F:\python\drones_yolo\\runs\segment\\train2\weights\\best.pt"
+    model_path = "D:\python\\aia_git\\ai_annotator\yolov8\weights\\best.pt"
 
-    dir_name = 'C:\\Users\\roman\AppData\Roaming\QGIS\QGIS3\profiles\\default\\python\\plugins\\OD plugin\\detected\\temp'
+    IMAGE_PATH = "D:\python\datasets\\aes_big\\almaraz_spain_google.jpg"
     # folders = os.listdir(dir_name)
     # for folder in folders:
     #     folder_path = os.path.join(dir_name, folder)
     save_folder = os.path.join(os.getcwd(), "segment_results")
-    predict(dir_name, model_path, save_folder, names=names, is_seg=True)
+    # predict(IMAGE_PATH, model_path, save_folder, names=names, is_seg=True)
+
+    yolo = YOLO(model_path)
+    yolo.to('cuda')
+    masks = predict_and_return_masks(yolo, IMAGE_PATH)
+    print(masks)
+
+
+def read_openvino_names(config):
+    with open(config, 'r') as f:
+        data = f.read()
+
+        Bs_data = BeautifulSoup(data, "xml")
+        names = Bs_data.find('names')  # .find('names')
+        return names.get('value')
+
+
+def test_openvino():
+    core = Core()
+    seg_ov_model = core.read_model("D:\python\\aia_git\\ai_annotator\yolov8\weights\\best_openvino_model\\best.xml")
+    device = "GPU"  # "GPU"
+    if device != "CPU":
+        seg_ov_model.reshape({0: [1, 3, 1280, 1280]})
+
+    seg_compiled_model = core.compile_model(seg_ov_model, device)
+
+    IMAGE_PATH = "D:\python\datasets\\aes_big\\almaraz_spain_google.jpg"
+
+    input_image = np.array(Image.open(IMAGE_PATH))
+
+    detections = predict_and_return_mask_openvino(seg_compiled_model, input_image)
+
+    print(detections)
+
+
+if __name__ == '__main__':
+    # test_yolo()
+    test_openvino()
+    # read_openvino_names("D:\python\\aia_git\\ai_annotator\yolov8\weights\\best_openvino_model\\best.xml")

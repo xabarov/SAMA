@@ -19,7 +19,7 @@ def write_lrms_to_json(dataset_folder, json_name, normalize_size=1280, img_ext='
 
             img = Image.open(im_full_path)
             img_width, img_height = img.size
-            lrm *= min(img_width, img_height) / 1280.0
+            lrm *= min(img_width, img_height) / float(normalize_size)
             last_lrm = lrm
             lrms_info[im] = lrm
 

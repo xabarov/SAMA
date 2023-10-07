@@ -20,6 +20,12 @@ class AppSettings:
     def read_sam_hq(self):
         return self.qt_settings.value("cnn/sam_hq", True)
 
+    def write_is_openvino(self, is_openvino):
+        self.qt_settings.setValue("cnn/is_openvino", is_openvino)
+
+    def read_is_openvino(self):
+        return self.qt_settings.value("cnn/is_openvino", False)
+
     def write_size_pos_settings(self, size, pos):
         self.qt_settings.beginGroup("main_window")
         self.qt_settings.setValue("size", size)

@@ -82,7 +82,7 @@ CNN_LIST = [
 
 CNN_DEFAULT = 'YOLOv8'
 
-CNN_TYPES = ["YOLO8", "YOLO5", "YOLOR", "MM_OD", "MM_MASK", "D2_OD", "D2_MASK", "D2_RETINA"]
+CNN_TYPES = ["YOLO8", "YOLO8_openvino", "YOLO5", "YOLOR", "MM_OD", "MM_MASK", "D2_OD", "D2_MASK", "D2_RETINA"]
 
 CNN_DICT = {
     # 'YOLOv3': {'weights': 'mm_detector/checkpoints/yolov3_d53_mstrain-608_273e/epoch_270.pth',
@@ -93,6 +93,11 @@ CNN_DICT = {
     #              "type": "YOLO5"},
     'YOLOv8': {'weights': 'yolov8//weights//best.pt', 'config': "yolov8//aes_yolo_seg.yaml",
                "type": "YOLO8"},
+    'YOLOv8_openvino': {'weights': 'yolov8//weights//best_openvino_model//best.bin',
+                        'config': "yolov8//weights//best_openvino_model//best.xml",
+                        "type": "YOLO8_openvino"
+
+                        }
     # 'YOLOR': {'weights': 'yolor//weights//best.pt', 'config': "yolor//cfg//yolor_p6.cfg", "type": "YOLOR"},
     # Detectron2 models:
     # 'Mask-R-CNN-R50': {'weights': "mask_r_cnn/run_train/model_final.pth",

@@ -81,12 +81,13 @@ class PromptInputDialog(QWidget):
     def __init__(self, parent, class_names=None, on_ok_clicked=None, prompts_variants=None, theme='dark_blue.xml',
                  dark_color=(255, 255, 255), light_color=(0, 0, 0), box_threshold=0.4, text_threshold=0.55):
         super().__init__(parent)
-        self.setWindowTitle("Выделение объектов по ключевым словам" if
-                            self.lang == 'RU' else "Select objects by text prompt")
-        self.setWindowFlag(Qt.Tool)
 
         self.settings = AppSettings()
         self.lang = self.settings.read_lang()
+
+        self.setWindowTitle("Выделение объектов по ключевым словам" if
+                            self.lang == 'RU' else "Select objects by text prompt")
+        self.setWindowFlag(Qt.Tool)
 
         prompt_layout = QFormLayout()
 

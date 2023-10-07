@@ -24,6 +24,9 @@ from utils.importer import Importer
 from utils.predictor import SAMImageSetter
 from utils.sam_predictor import load_model as sam_load_model
 from utils.sam_predictor import mask_to_seg, predict_by_points, predict_by_box
+from utils.detect_yolo8 import read_openvino_names
+
+from openvino.runtime import Core
 
 
 class Annotator(MainWindow):
@@ -121,7 +124,12 @@ class Annotator(MainWindow):
 
     def sync_labels(self):
         if self.yolo:
-            names = self.yolo.names  # dict like {0:name1, 1:name2...}
+
+            is_openvino = self.settings.read_is_openvino()
+            if is_openvino:
+                names = read_openvino_names(cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8_openvino'))
+            else:
+                names = self.yolo.names  # dict like {0:name1, 1:name2...}
             self.cls_combo.clear()
             labels = []
             for key in names:
@@ -255,6 +263,35 @@ class Annotator(MainWindow):
         if self.tek_image_path:
             self.queue_image_to_sam(self.tek_image_path)
 
+    def handle_yolo(self, is_openvino=False):
+        if is_openvino:
+            core = Core()
+
+            cfg_path, weights_path = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8_openvino')
+            seg_ov_model = core.read_model(cfg_path)
+
+            if self.settings.read_platform() == "cuda":
+                device = "GPU"
+                seg_ov_model.reshape({0: [1, 3, 1280, 1280]})
+            else:
+                device = 'CPU'
+
+            self.yolo = core.compile_model(seg_ov_model, device)
+        else:
+            cfg_path, weights_path = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8')
+            config_path = os.path.join(os.getcwd(), cfg_path)
+            model_path = os.path.join(os.getcwd(), weights_path)
+
+            self.yolo = YOLO(model_path)
+            self.yolo.data = config_path
+
+            dev_set = 'cpu'
+            # if self.settings.read_platform() == "cuda":
+            #     dev_set = 0
+
+            self.yolo.to(dev_set)
+            self.yolo.overrides['data'] = config_path
+
     def handle_cuda_models(self):
 
         # Start on Loading Animation
@@ -262,19 +299,9 @@ class Annotator(MainWindow):
 
         self.handle_sam_model()
 
-        cfg_path, weights_path = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8')
-        config_path = os.path.join(os.getcwd(), cfg_path)
-        model_path = os.path.join(os.getcwd(), weights_path)
+        is_openvino = self.settings.read_is_openvino()
 
-        self.yolo = YOLO(model_path)
-        self.yolo.data = config_path
-
-        dev_set = 'cpu'
-        # if self.settings.read_platform() == "cuda":
-        #     dev_set = 0
-
-        self.yolo.to(dev_set)
-        self.yolo.overrides['data'] = config_path
+        self.handle_yolo(is_openvino)
 
         self.gd_model = self.load_gd_model()
 
@@ -481,7 +508,7 @@ class Annotator(MainWindow):
 
         self.CNN_worker = CNN_worker(model=self.yolo, conf_thres=conf_thres_set, iou_thres=iou_thres_set,
                                      img_name=img_name, img_path=img_path,
-                                     scanning=self.scanning_mode,
+                                     scanning=self.scanning_mode, is_openvino=self.settings.read_is_openvino(),
                                      linear_dim=self.lrm, simplify_factor=simplify_factor)
 
         self.CNN_worker.started.connect(self.on_cnn_started)
@@ -645,7 +672,7 @@ class Annotator(MainWindow):
         images_list = [os.path.join(self.dataset_dir, im_name) for im_name in self.dataset_images]
 
         self.CNN_worker = CNN_worker(model=self.yolo, conf_thres=conf_thres_set, iou_thres=iou_thres_set,
-                                     img_name=None, img_path=None,
+                                     img_name=None, img_path=None, is_openvino=self.settings.read_is_openvino(),
                                      images_list=images_list,
                                      scanning=None)
 

@@ -1,5 +1,5 @@
 from PySide2 import QtCore
-from .detect_yolo8 import predict_and_return_masks
+from .detect_yolo8 import predict_and_return_masks, predict_and_return_mask_openvino
 from utils.edges_from_mask import yolo8masks2points
 from ui.signals_and_slots import LoadPercentConnection
 
@@ -15,7 +15,7 @@ class CNN_worker(QtCore.QThread):
 
     def __init__(self, model, conf_thres=0.7, iou_thres=0.5,
                  img_name="selected_area.png", img_path=None,
-                 scanning=False, linear_dim=0.0923, images_list=None, simplify_factor=1.0):
+                 scanning=False, linear_dim=0.0923, images_list=None, simplify_factor=1.0, is_openvino=False):
 
         super(CNN_worker, self).__init__()
 
@@ -37,6 +37,8 @@ class CNN_worker(QtCore.QThread):
         self.train_img_px = 8000  # в реальности - 1280, но это ужатые 8000 с ld = 0.0923
 
         self.psnt_connection = LoadPercentConnection()
+
+        self.is_openvino = is_openvino
 
     def run(self):
 
@@ -69,7 +71,8 @@ class CNN_worker(QtCore.QThread):
             shapes = []
             for res in results:
                 for i, mask in enumerate(res['masks']):
-                    points = yolo8masks2points(mask, simplify_factor=self.simplify_factor, width=image_width, height=image_height)
+                    points = yolo8masks2points(mask, simplify_factor=self.simplify_factor, width=image_width,
+                                               height=image_height)
                     if not points:
                         continue
                     cls_num = res['classes'][i]
@@ -81,7 +84,7 @@ class CNN_worker(QtCore.QThread):
             image_data['shapes'] = shapes
             self.image_list_results.append(image_data)
 
-            self.psnt_connection.percent.emit(int(im_num*100.0/len(image_list)))
+            self.psnt_connection.percent.emit(int(im_num * 100.0 / len(image_list)))
 
         self.psnt_connection.percent.emit(100)
 
@@ -124,7 +127,8 @@ class CNN_worker(QtCore.QThread):
 
                 for res in part_mask_results:
                     for i, mask in enumerate(res['masks']):
-                        points = yolo8masks2points(mask, simplify_factor=self.simplify_factor, width=x_max - x_min, height=y_max - y_min)
+                        points = yolo8masks2points(mask, simplify_factor=self.simplify_factor, width=x_max - x_min,
+                                                   height=y_max - y_min)
                         if not points:
                             continue
                         points_shifted = []
@@ -147,22 +151,40 @@ class CNN_worker(QtCore.QThread):
             if is_progress_show:
                 self.psnt_connection.percent.emit(0)
 
-            results = predict_and_return_masks(self.model, img, conf=self.conf_thres,
-                                               iou=self.iou_thres, save_txt=False)
+            if self.is_openvino:
+                results = predict_and_return_mask_openvino(self.model, img, conf=self.conf_thres,
+                                                           iou=self.iou_thres, save_txt=False, nc=12)
 
-            if is_progress_show:
-                self.psnt_connection.percent.emit(50)
+                boxes = results["det"]
+                masks = results.get("segment")
 
-            mask_results = []
-            for res in results:
-                for i, mask in enumerate(res['masks']):
-                    points = yolo8masks2points(mask, simplify_factor=self.simplify_factor, width=shape[1], height=shape[0])
-                    if not points:
-                        continue
-                    cls_num = res['classes'][i]
-                    conf = res['confs'][i]
-                    mask_results.append({'cls_num': cls_num, 'points': points, 'conf': conf})
+                mask_results = []
 
-            self.mask_results = mask_results
+                for idx, (*xyxy, conf, lbl) in enumerate(boxes):
+                    mask_results.append({'cls_num': int(lbl), 'points': masks[idx].astype(int), 'conf': conf})
+
+                self.mask_results = mask_results
+
+            else:
+
+                results = predict_and_return_masks(self.model, img, conf=self.conf_thres,
+                                                   iou=self.iou_thres, save_txt=False)
+
+                if is_progress_show:
+                    self.psnt_connection.percent.emit(50)
+
+                mask_results = []
+                for res in results:
+                    for i, mask in enumerate(res['masks']):
+                        points = yolo8masks2points(mask, simplify_factor=self.simplify_factor, width=shape[1],
+                                                   height=shape[0])
+                        if not points:
+                            continue
+                        cls_num = res['classes'][i]
+                        conf = res['confs'][i]
+                        mask_results.append({'cls_num': cls_num, 'points': points, 'conf': conf})
+
+                self.mask_results = mask_results
+
             if is_progress_show:
                 self.psnt_connection.percent.emit(100)
