@@ -509,7 +509,7 @@ class Annotator(MainWindow):
         self.CNN_worker = CNN_worker(model=self.yolo, conf_thres=conf_thres_set, iou_thres=iou_thres_set,
                                      img_name=img_name, img_path=img_path,
                                      scanning=self.scanning_mode, is_openvino=self.settings.read_is_openvino(),
-                                     linear_dim=self.lrm, simplify_factor=simplify_factor)
+                                     linear_dim=self.lrm, simplify_factor=simplify_factor, nc=12)
 
         self.CNN_worker.started.connect(self.on_cnn_started)
 
@@ -674,7 +674,7 @@ class Annotator(MainWindow):
         self.CNN_worker = CNN_worker(model=self.yolo, conf_thres=conf_thres_set, iou_thres=iou_thres_set,
                                      img_name=None, img_path=None, is_openvino=self.settings.read_is_openvino(),
                                      images_list=images_list,
-                                     scanning=None)
+                                     scanning=None, nc=12)
 
         self.CNN_worker.started.connect(self.on_cnn_started)
 
