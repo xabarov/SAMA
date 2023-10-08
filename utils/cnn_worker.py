@@ -14,8 +14,8 @@ from copy import deepcopy
 class CNN_worker(QtCore.QThread):
 
     def __init__(self, model, conf_thres=0.7, iou_thres=0.5,
-                 img_name="selected_area.png", img_path=None,
-                 scanning=False, linear_dim=0.0923, images_list=None, simplify_factor=1.0, is_openvino=False, nc=12):
+                 img_name="selected_area.png", img_path=None, model_name="YOLOv8",
+                 scanning=False, linear_dim=0.0923, images_list=None, simplify_factor=1.0, nc=12):
 
         super(CNN_worker, self).__init__()
 
@@ -37,8 +37,8 @@ class CNN_worker(QtCore.QThread):
         self.train_img_px = 8000  # в реальности - 1280, но это ужатые 8000 с ld = 0.0923
 
         self.psnt_connection = LoadPercentConnection()
+        self.model_name = model_name
 
-        self.is_openvino = is_openvino
         self.nc = nc
 
     def run(self):
@@ -66,7 +66,9 @@ class CNN_worker(QtCore.QThread):
             img = cv2.imread(img_path_full)
             image_height, image_width = img.shape[1], img.shape[0]
             image_data = {'filename': os.path.basename(img_path_full), 'shapes': []}
-            if self.is_openvino:
+
+            if self.model_name == 'YOLOv8_openvino':
+
                 results = predict_and_return_mask_openvino(self.model, img, conf=self.conf_thres,
                                                            iou=self.iou_thres, save_txt=False, nc=self.nc)
 
@@ -80,7 +82,8 @@ class CNN_worker(QtCore.QThread):
 
                 image_data['shapes'] = shapes
                 self.image_list_results.append(image_data)
-            else:
+
+            elif self.model_name == 'YOLOv8':
 
                 results = predict_and_return_masks(self.model, img, conf=self.conf_thres,
                                                    iou=self.iou_thres, save_txt=False)
@@ -137,7 +140,7 @@ class CNN_worker(QtCore.QThread):
             part_tek = 0
             for part, part_size in zip(parts, crop_x_y_sizes):
 
-                if self.is_openvino:
+                if self.model_name == 'YOLOv8_openvino':
                     part_mask_results = predict_and_return_mask_openvino(self.model, part, conf=self.conf_thres,
                                                                          iou=self.iou_thres, save_txt=False, nc=self.nc)
 
@@ -155,7 +158,7 @@ class CNN_worker(QtCore.QThread):
                         scanning_results.append({'cls_num': int(lbl), 'points': points_shifted, 'conf': conf})
 
 
-                else:
+                elif self.model_name == 'YOLOv8':
 
                     part_mask_results = predict_and_return_masks(self.model, part, conf=self.conf_thres,
                                                                  iou=self.iou_thres, save_txt=False)
@@ -188,7 +191,7 @@ class CNN_worker(QtCore.QThread):
             if is_progress_show:
                 self.psnt_connection.percent.emit(0)
 
-            if self.is_openvino:
+            if self.model_name == 'YOLOv8_openvino':
                 results = predict_and_return_mask_openvino(self.model, img, conf=self.conf_thres,
                                                            iou=self.iou_thres, save_txt=False, nc=self.nc)
 
@@ -202,7 +205,7 @@ class CNN_worker(QtCore.QThread):
 
                 self.mask_results = mask_results
 
-            else:
+            elif self.model_name == 'YOLOv8':
 
                 results = predict_and_return_masks(self.model, img, conf=self.conf_thres,
                                                    iou=self.iou_thres, save_txt=False)

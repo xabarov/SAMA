@@ -1,3 +1,4 @@
+import ast
 import os
 
 import cv2
@@ -6,6 +7,8 @@ import torch
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtGui import QIcon, QCursor
 from PyQt5.QtWidgets import QAction, QMessageBox, QMenu
+from bs4 import BeautifulSoup
+from openvino.runtime import Core
 from shapely import Polygon
 from ultralytics import YOLO
 
@@ -24,9 +27,6 @@ from utils.importer import Importer
 from utils.predictor import SAMImageSetter
 from utils.sam_predictor import load_model as sam_load_model
 from utils.sam_predictor import mask_to_seg, predict_by_points, predict_by_box
-from utils.detect_yolo8 import read_openvino_names
-
-from openvino.runtime import Core
 
 
 class Annotator(MainWindow):
@@ -38,6 +38,7 @@ class Annotator(MainWindow):
         # Current CUDA model
         self.try_to_set_platform('cuda')
         self.last_sam_use_hq = self.settings.read_sam_hq()
+        self.last_cnn = self.settings.read_cnn_model()
 
         # Detector
         self.started_cnn = None
@@ -122,14 +123,32 @@ class Annotator(MainWindow):
             triggered=self.grounding_sam_pressed,
             checkable=True)
 
+    def read_detection_model_names(self):
+        detection_model = self.settings.read_cnn_model()
+
+        if detection_model == 'YOLOv8_openvino':
+            config, weights = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8_openvino')
+            with open(config, 'r') as f:
+                data = f.read()
+                Bs_data = BeautifulSoup(data, "xml")
+                names = Bs_data.find('names')  # .find('names')
+                return ast.literal_eval(names.get('value'))
+        elif detection_model == 'YOLOv8':
+            return self.yolo.names  # dict like {0:name1, 1:name2...}
+
     def sync_labels(self):
         if self.yolo:
+            names = self.read_detection_model_names()
+            if not names:
+                if self.settings.read_lang() == 'RU':
+                    self.statusBar().showMessage(
+                        f"Неизвестное имя модели {self.settings.read_cnn_model()}",
+                        3000)
+                else:
+                    self.statusBar().showMessage(
+                        f"Unknown detection model {self.settings.read_cnn_model()}", 3000)
+                return
 
-            is_openvino = self.settings.read_is_openvino()
-            if is_openvino:
-                names = read_openvino_names(cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8_openvino'))
-            else:
-                names = self.yolo.names  # dict like {0:name1, 1:name2...}
             self.cls_combo.clear()
             labels = []
             for key in names:
@@ -263,8 +282,11 @@ class Annotator(MainWindow):
         if self.tek_image_path:
             self.queue_image_to_sam(self.tek_image_path)
 
-    def handle_yolo(self, is_openvino=False):
-        if is_openvino:
+    def handle_detection_model(self):
+
+        cnn_model = self.settings.read_cnn_model()
+
+        if cnn_model == "YOLOv8_openvino":
             core = Core()
 
             cfg_path, weights_path = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8_openvino')
@@ -277,7 +299,8 @@ class Annotator(MainWindow):
                 device = 'CPU'
 
             self.yolo = core.compile_model(seg_ov_model, device)
-        else:
+
+        elif cnn_model == "YOLOv8":
             cfg_path, weights_path = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8')
             config_path = os.path.join(os.getcwd(), cfg_path)
             model_path = os.path.join(os.getcwd(), weights_path)
@@ -292,6 +315,16 @@ class Annotator(MainWindow):
             self.yolo.to(dev_set)
             self.yolo.overrides['data'] = config_path
 
+        else:
+            print("Unknown detection model")
+            if self.settings.read_lang() == 'RU':
+                self.statusBar().showMessage(
+                    f"Неизвестное имя модели {cnn_model}",
+                    3000)
+            else:
+                self.statusBar().showMessage(
+                    f"Unknown detection model {cnn_model}", 3000)
+
     def handle_cuda_models(self):
 
         # Start on Loading Animation
@@ -299,9 +332,7 @@ class Annotator(MainWindow):
 
         self.handle_sam_model()
 
-        is_openvino = self.settings.read_is_openvino()
-
-        self.handle_yolo(is_openvino)
+        self.handle_detection_model()
 
         self.gd_model = self.load_gd_model()
 
@@ -318,6 +349,12 @@ class Annotator(MainWindow):
 
         if platform != self.last_platform:
             self.try_to_set_platform(platform)
+
+        cnn_model = self.settings.read_cnn_model()
+
+        if cnn_model != self.last_cnn:
+            self.last_cnn = cnn_model
+            self.handle_detection_model()
 
     def ai_points_pressed(self):
 
@@ -506,10 +543,12 @@ class Annotator(MainWindow):
 
         self.statusBar().showMessage(str_text, 3000)
 
+        names = self.read_detection_model_names()
+
         self.CNN_worker = CNN_worker(model=self.yolo, conf_thres=conf_thres_set, iou_thres=iou_thres_set,
                                      img_name=img_name, img_path=img_path,
-                                     scanning=self.scanning_mode, is_openvino=self.settings.read_is_openvino(),
-                                     linear_dim=self.lrm, simplify_factor=simplify_factor, nc=12)
+                                     scanning=self.scanning_mode, model_name=self.settings.read_cnn_model(),
+                                     linear_dim=self.lrm, simplify_factor=simplify_factor, nc=len(names.keys()))
 
         self.CNN_worker.started.connect(self.on_cnn_started)
 
@@ -671,10 +710,12 @@ class Annotator(MainWindow):
 
         images_list = [os.path.join(self.dataset_dir, im_name) for im_name in self.dataset_images]
 
+        names = self.read_detection_model_names()
+
         self.CNN_worker = CNN_worker(model=self.yolo, conf_thres=conf_thres_set, iou_thres=iou_thres_set,
-                                     img_name=None, img_path=None, is_openvino=self.settings.read_is_openvino(),
-                                     images_list=images_list,
-                                     scanning=None, nc=12)
+                                     img_name=None, img_path=None,
+                                     images_list=images_list, model_name=self.settings.read_cnn_model(),
+                                     scanning=None, nc=len(names.keys()))
 
         self.CNN_worker.started.connect(self.on_cnn_started)
 

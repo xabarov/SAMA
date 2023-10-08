@@ -1,22 +1,16 @@
-from ultralytics import YOLO
-from ultralytics.yolo.utils.plotting import Annotator, Colors
-import cv2
-from PIL import Image
-import numpy as np
+import ast
 # from plots import Annotator, Colors
 import os
 
-from typing import Tuple, Dict
 import cv2
 import numpy as np
 from PIL import Image
-from ultralytics.yolo.utils.plotting import colors
 from bs4 import BeautifulSoup
-import torch
+from openvino.runtime import Core
+from ultralytics import YOLO
+from ultralytics.yolo.utils.plotting import Annotator, Colors
 
-from openvino.runtime import Core, Model
 from yolov8.inference_openvino import detect
-from ultralytics.yolo.utils import ops
 
 names = ["ro_pf", "ro_sf", "mz_v", "mz_ot", "ru_ot", "bns_ot", "gr_b", "gr_vent_kr", "gr_vent_pr", "gr_b_act",
          "discharge", "diesel"]
@@ -168,13 +162,12 @@ def test_yolo():
     print(masks)
 
 
-def read_openvino_names(config):
+def read_detection_model_names(config):
     with open(config, 'r') as f:
         data = f.read()
-
         Bs_data = BeautifulSoup(data, "xml")
         names = Bs_data.find('names')  # .find('names')
-        return names.get('value')
+        return ast.literal_eval(names.get('value'))
 
 
 def test_openvino():
@@ -197,5 +190,7 @@ def test_openvino():
 
 if __name__ == '__main__':
     # test_yolo()
-    test_openvino()
-    # read_openvino_names("D:\python\\aia_git\\ai_annotator\yolov8\weights\\best_openvino_model\\best.xml")
+    # test_openvino()
+    names = read_detection_model_names("D:\python\\aia_git\\ai_annotator\yolov8\weights\\best_openvino_model\\best.xml")
+    for k in names:
+        print(names[k])
