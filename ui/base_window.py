@@ -39,6 +39,9 @@ basedir = os.path.dirname(__file__)
 
 
 class MainWindow(QtWidgets.QMainWindow):
+    """
+    Базовое окно для работы с разметкой без поддержки моделей ИИ
+    """
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -1572,6 +1575,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.update_labels()
 
     def start_drawing(self):
+        """
+        Старт рисования метки
+        """
         if not self.image_set:
             return
 
@@ -1601,7 +1607,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.update_labels()
 
     def reload_image(self):
-
+        """
+        Заново загружает текущее изображение с разметкой
+        """
         if not self.tek_image_path:
             return
 
@@ -1695,6 +1703,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.hide()  # Скрываем окно
 
         self.write_size_pos()
+        self.close_project()
         self.is_asked_before_close = True
 
         self.close()

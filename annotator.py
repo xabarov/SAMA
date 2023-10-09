@@ -30,6 +30,10 @@ from utils.sam_predictor import mask_to_seg, predict_by_points, predict_by_box
 
 
 class Annotator(MainWindow):
+    """
+    Класс для создания разметки с поддержкой ИИ (модели SAM, GroundingDINO, YOLOv8 и т.д.)
+    """
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -62,6 +66,9 @@ class Annotator(MainWindow):
         self.detected_shapes = []
 
     def try_to_set_platform(self, platform):
+        """
+        Ищет CUDA устройство. Если не находит - используем CPU
+        """
         lang = self.settings.read_lang()
 
         if platform in ['cuda', 'Auto'] and torch.cuda.is_available():
@@ -83,6 +90,9 @@ class Annotator(MainWindow):
                     "Neural networks will use CPU", 3000)
 
     def createActions(self):
+        """
+        Добавляем новые действия к базовой модели
+        """
         super(Annotator, self).createActions()
 
         self.balanceAct = QAction("Информация о датасете" if self.settings.read_lang() == 'RU' else "Dataset info",
@@ -124,6 +134,12 @@ class Annotator(MainWindow):
             checkable=True)
 
     def read_detection_model_names(self):
+        """
+        Чтение имен классов, записанных в модели нейросети для обнаружения
+        Поддерживаются:
+            - YOLOv8 pt
+            - YOLOv8 OpenVino
+        """
         detection_model = self.settings.read_cnn_model()
 
         if detection_model == 'YOLOv8_openvino':
@@ -137,6 +153,12 @@ class Annotator(MainWindow):
             return self.yolo.names  # dict like {0:name1, 1:name2...}
 
     def sync_labels(self):
+        """
+        Записать имена модели для обнаружения в чекбокс
+        Поддерживаются:
+            - YOLOv8 pt
+            - YOLOv8 OpenVino
+        """
         if self.yolo:
             names = self.read_detection_model_names()
             if not names:
@@ -160,6 +182,9 @@ class Annotator(MainWindow):
             self.project_data.set_labels_colors(labels, rewrite=True)
 
     def toggle_act(self, is_active):
+        """
+        Переключение действий, завясящих от состояния is_active
+        """
         super(Annotator, self).toggle_act(is_active)
         self.aiAnnotatorMethodMenu.setEnabled(is_active)
         self.aiAnnotatorPointsAct.setEnabled(is_active)
@@ -216,16 +241,25 @@ class Annotator(MainWindow):
         self.detectAct.setIcon(QIcon(self.icon_folder + "/detect.png"))
 
     def open_image(self, image_name):
+        """
+        К базовой модели добавляется SAM. Поскольку ему нужен прогрев, создаем очередь загружаемых изображений
+        """
         super(Annotator, self).open_image(image_name)
 
         self.image_set = False
-        self.queue_image_to_sam(image_name)
+        self.queue_image_to_sam(image_name)  # создаем очередь загружаемых изображений
 
     def reload_image(self):
+        """
+        Заново загружает текущее изображение с разметкой
+        """
         super(Annotator, self).reload_image()
-        self.view.clear_ai_points()
+        self.view.clear_ai_points()  # очищаем точки-prompts SAM
 
     def set_image(self, image_name):
+        """
+        Старт загрузки изображения в модель SAM
+        """
         self.cv2_image = cv2.imread(image_name)
         self.image_set = False
         self.image_setter.set_image(self.cv2_image)
@@ -236,10 +270,15 @@ class Annotator(MainWindow):
         self.image_setter.start()
 
     def get_jpg_path(self, image_name):
-        # для поддержки с детектором. У него данный метод переписан и поддерживает конвертацию в tif
+        """
+        Для поддержки детектора. У него данный метод переписан и поддерживает конвертацию в tif
+        """
         return image_name
 
     def on_image_set(self):
+        """
+        Завершение прогрева модели SAM. Если остались изображения в очереди - берем последнее, а очередь очищаем
+        """
 
         if len(self.queue_to_image_setter) != 0:
             image_name = self.queue_to_image_setter[-1]  # geo_tif_names
@@ -275,6 +314,9 @@ class Annotator(MainWindow):
                                                                  "with Segment Anything Model (SAM) and GroundingDINO.</p>")
 
     def handle_sam_model(self):
+        """
+        Загрузка модели SAM
+        """
         self.sam = self.load_sam()
         self.image_setter = SAMImageSetter()
         self.image_setter.set_predictor(self.sam)
@@ -283,7 +325,9 @@ class Annotator(MainWindow):
             self.queue_image_to_sam(self.tek_image_path)
 
     def handle_detection_model(self):
-
+        """
+        Загрузка модели для обнаружения объектов
+        """
         cnn_model = self.settings.read_cnn_model()
 
         if cnn_model == "YOLOv8_openvino":
@@ -326,7 +370,9 @@ class Annotator(MainWindow):
                     f"Unknown detection model {cnn_model}", 3000)
 
     def handle_cuda_models(self):
-
+        """
+        Загрузка всех моделей нейросетей
+        """
         # Start on Loading Animation
         self.view.start_circle_progress()
 
@@ -339,6 +385,9 @@ class Annotator(MainWindow):
         self.view.stop_circle_progress()
 
     def on_settings_closed(self):
+        """
+        После закрытия окна настроек проверяем не изменились ли модели нейросетей и платформа вычислений
+        """
         super(Annotator, self).on_settings_closed()
 
         sam_hq = self.settings.read_sam_hq()
@@ -357,6 +406,9 @@ class Annotator(MainWindow):
             self.handle_detection_model()
 
     def ai_points_pressed(self):
+        """
+        Нажатие левой или правой кнопки мыши в режиме точек-prompts SAM
+        """
 
         self.ann_type = "AiPoints"
         self.set_labels_color()
@@ -370,6 +422,9 @@ class Annotator(MainWindow):
         self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
 
     def ai_mask_pressed(self):
+        """
+        Старт рисования прямоугольной области в режиме SAM
+        """
 
         self.ann_type = "AiMask"
         self.set_labels_color()
@@ -382,6 +437,9 @@ class Annotator(MainWindow):
         self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
 
     def add_sam_polygon_to_scene(self, sam_mask, cls_num=None):
+        """
+        Добавление полигонов SAM на сцену
+        """
         simplify_factor = float(self.settings.read_simplify_factor())
         points_mass = mask_to_seg(sam_mask, simplify_factor=simplify_factor)
 
@@ -415,7 +473,9 @@ class Annotator(MainWindow):
             self.update_labels()
 
     def ai_mask_end_drawing(self):
-
+        """
+        Завершение рисования прямоугольной области SAM
+        """
         self.view.setCursor(QCursor(QtCore.Qt.BusyCursor))
         input_box = self.view.get_sam_mask_input()
 
@@ -430,16 +490,25 @@ class Annotator(MainWindow):
         self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
 
     def start_drawing(self):
+        """
+        Старт рисования метки
+        """
         super(Annotator, self).start_drawing()
-        self.view.clear_ai_points()
+        self.view.clear_ai_points()  # очищение точек SAM
 
     def break_drawing(self):
+        """
+        Прерывание рисования метки
+        """
         super(Annotator, self).break_drawing()
         if self.ann_type == "AiPoints":
             self.view.clear_ai_points()
             self.view.remove_active()
 
     def end_drawing(self):
+        """
+        Завершение рисования метки
+        """
         super(Annotator, self).end_drawing()
 
         if self.ann_type == "AiPoints":
@@ -465,6 +534,9 @@ class Annotator(MainWindow):
             self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
     def on_quit(self):
+        """
+        Выход из приложения
+        """
         self.exit_box.hide()
 
         self.write_size_pos()
@@ -482,6 +554,9 @@ class Annotator(MainWindow):
         self.close()
 
     def load_gd_model(self):
+        """
+        Загрузка модели groundingDINO
+        """
         config_file = os.path.join(os.getcwd(),
                                    config.PATH_TO_GROUNDING_DINO_CONFIG)
         grounded_checkpoint = os.path.join(os.getcwd(),
@@ -490,6 +565,9 @@ class Annotator(MainWindow):
         return gd_load_model(config_file, grounded_checkpoint, device=self.settings.read_platform())
 
     def load_sam(self):
+        """
+        Загрузка модели SAM
+        """
         use_hq = self.settings.read_sam_hq()
         if use_hq:
             sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_HQ_CHECKPOINT)
@@ -499,7 +577,9 @@ class Annotator(MainWindow):
         return sam_load_model(sam_model_path, device=self.settings.read_platform(), use_sam_hq=use_hq)
 
     def queue_image_to_sam(self, image_name):
-
+        """
+        Постановка в очередь изображения для загрузки в модель SAM
+        """
         if not self.image_setter.isRunning():
             self.image_setter.set_image(self.cv2_image)
             self.statusBar().showMessage(
@@ -514,6 +594,9 @@ class Annotator(MainWindow):
                 3000)
 
     def detect(self):
+        """
+        Старт обнаружения объектов на текущем изображении
+        """
         # на вход воркера - исходное изображение
 
         jpg_path = self.get_jpg_path(self.tek_image_path)
@@ -604,6 +687,9 @@ class Annotator(MainWindow):
             3000)
 
     def grounding_sam_pressed(self):
+        """
+        Открытие диалогового окна GroundingDINO
+        """
 
         theme = self.settings.read_theme()
 
@@ -613,6 +699,9 @@ class Annotator(MainWindow):
         self.prompt_input_dialog.show()
 
     def run_gd(self, image_name, prompt):
+        """
+        Нажатие кнопки ОК в диалоговом окне GroundingDINO
+        """
         self.progress_toolbar.show_progressbar()
 
         self.prompt_cls_name = self.prompt_input_dialog.getClsName()
@@ -644,6 +733,9 @@ class Annotator(MainWindow):
             self.gd_worker.start()
 
     def start_grounddino(self):
+        """
+        Запуск обнаружения объектов по текстовому prompt GroundingDINO
+        """
         prompt = self.prompt_input_dialog.getPrompt()
         self.prompt_input_dialog.close()
 
@@ -653,6 +745,9 @@ class Annotator(MainWindow):
             self.run_gd(jpg_path, prompt)
 
     def on_gd_worker_finished(self):
+        """
+        Завершение обнаружения объектов по текстовому prompt GroundingDINO
+        """
         masks = self.gd_worker.getMasks()
         self.progress_toolbar.set_percent(50)
 
@@ -664,6 +759,9 @@ class Annotator(MainWindow):
         self.progress_toolbar.hide_progressbar()
 
     def on_dataset_balance_clicked(self):
+        """
+        Вывод инфо о балансе датасета
+        """
         balance_data = self.project_data.calc_dataset_balance()
 
         labels = list(balance_data.keys())
@@ -694,9 +792,7 @@ class Annotator(MainWindow):
 
     def detect_all_images(self):
         """
-        Запуск классификации
-        img_name - имя изображения
-        img_path - путь к изображению
+        Запуск классификации на всех изображениях датасета
         """
 
         self.started_cnn = self.settings.read_cnn_model()
@@ -740,6 +836,9 @@ class Annotator(MainWindow):
         self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
     def importFromYOLOBox(self):
+        """
+        По нажатии иконки Импорт модели из YOLO Box - открытие диалогового окна и закрытие проекта
+        """
 
         self.close_project()
 
@@ -748,6 +847,9 @@ class Annotator(MainWindow):
         self.import_dialog.show()
 
     def on_import_yolo_clicked(self):
+        """
+        При нажатии импорта из проекта YOLO
+        """
         yaml_data = self.import_dialog.getData()
 
         if self.sam:
