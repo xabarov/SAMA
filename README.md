@@ -7,7 +7,7 @@ The project also contains an object detector, a segmenter with SAM, YOLO and Gro
 
 ### SAM model
 
-1. Download  `ViT-H` SAM model from `https://github.com/facebookresearch/segment-anything#model-checkpoints`
+1. Download SAM models from `https://github.com/facebookresearch/segment-anything#model-checkpoints`
 2. Place model to the `/sam_models`
 
 ### GroundingDINO model

@@ -76,6 +76,20 @@ class CustomComboDialog(QWidget):
     def getText(self):
         return self.combo.currentText()
 
+    def hasText(self, text):
+        for i in range(self.combo.count()):
+            if self.combo.itemText(i) == text:
+                return True
+
+        return False
+
+    def getPos(self, text):
+        for i in range(self.combo.count()):
+            if self.combo.itemText(i) == text:
+                return i
+
+        return None
+
 
 class PromptInputDialog(QWidget):
     def __init__(self, parent, class_names=None, on_ok_clicked=None, prompts_variants=None, theme='dark_blue.xml',

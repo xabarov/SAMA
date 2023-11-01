@@ -10,6 +10,25 @@ class StyledComboBox(QComboBox):
 
         self.change_theme(theme)
 
+    def hasText(self, text):
+        for i in range(self.count()):
+            if self.itemText(i) == text:
+                return True
+
+        return False
+
+    def getPos(self, text):
+        for i in range(self.count()):
+            if self.itemText(i) == text:
+                return i
+        return None
+
+    def getAll(self):
+        res = []
+        for i in range(self.count()):
+            res.append(self.itemText(i))
+        return res
+
     def change_theme(self, theme):
         self.theme = theme
         combo_box_color = f"rgb{self.dark_color}" if 'dark' in theme else f"rgb{self.light_color}"

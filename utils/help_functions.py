@@ -16,6 +16,7 @@ import yaml
 import geopandas as gpd
 import datetime
 import os
+import screeninfo
 
 
 def try_read_lrm(image_name, from_crs='epsg:3395', to_crs='epsg:4326'):
@@ -76,6 +77,17 @@ def calc_areas(seg_results, lrm, verbose=False, cls_names=None, scale=1):
 
 def get_extension(filename):
     return coords_calc.get_ext(filename)
+
+
+def calc_width_proportions(percent):
+    psnt_float = percent / 100.0
+
+    monitors = screeninfo.get_monitors()
+    min_width = 1e12
+    for m in monitors:
+        if m.width < min_width:
+            min_width = m.width
+    return int(min_width * psnt_float), int(min_width * (1.0 - psnt_float))
 
 
 def convert_point_coords_to_geo(point_x, point_y, image_name, from_crs='epsg:3395', to_crs='epsg:4326'):

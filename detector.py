@@ -35,6 +35,8 @@ class Detector(Annotator):
         if self.image_set and not self.block_geo_coords_message:
             if self.lrm:
                 geo_x, geo_y = hf.convert_point_coords_to_geo(x, y, self.tek_image_path)
+                if geo_x == 0 and geo_y == 0:
+                    return
                 self.statusBar().showMessage(
                     f"{geo_x:.6f}, {geo_y:.6f}")
 

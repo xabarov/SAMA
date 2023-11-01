@@ -120,7 +120,6 @@ celerybeat.pid
 env/
 venv/
 ENV/
-export/
 env.bak/
 venv.bak/
 
@@ -156,14 +155,11 @@ cython_debug/
 .idea/
 .gitignore
 projects/*
-export/*
+nuclear_power/*
 utils/runs/*
 *.pdf
 *.docx
 gd/GroundingDINO/models--bert-base-uncased/*
 
-nuclear_power/*
-detector_nuclear.py
-yolov8/weights/*
-*.whl
-*.psd
+# some project folders
+export/

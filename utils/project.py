@@ -88,6 +88,28 @@ class ProjectHandler(QWidget):
             if image_name in im_names_in_folder:
                 self.data["images"].append({"filename": image_name, "shapes": [], "lrm": round(lrm, 6)})
 
+    def get_image_status(self, image_name):
+        im = self.get_image_data(image_name)
+        if im and 'status' in im:
+            return im["status"]
+
+    def set_image_status(self, image_name, status):
+        if status not in ['empty', 'in_work', 'approve']:
+            return
+        im = self.get_image_data(image_name)
+        if im:
+            im["status"] = status
+
+    def get_image_last_user(self, image_name):
+        im = self.get_image_data(image_name)
+        if im and 'last_user' in im:
+            return im["last_user"]
+
+    def set_image_last_user(self, image_name, last_user):
+        im = self.get_image_data(image_name)
+        if im:
+            im["last_user"] = last_user
+
     def set_lrm_for_all_images(self, lrms_data):
         set_names = []
         unset_names = []
@@ -120,7 +142,7 @@ class ProjectHandler(QWidget):
             if im_name in im_names_in_folder:
                 im = self.get_image_data(im_name)
                 if not im:
-                    self.set_image_data({"filename": im_name, "shapes": [], "lrm": None})
+                    self.set_image_data({"filename": im_name, "shapes": [], "lrm": None, "status": 'empty', 'last_user': None})
 
     def set_label_color(self, cls_name, color=None, alpha=None):
 

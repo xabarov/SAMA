@@ -8,7 +8,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QMovie, QPainter, QIcon, QColor
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, QToolButton, QLabel, \
-    QColorDialog, QListWidget
+    QColorDialog, QListWidget, QSizePolicy, QFrame
 from PyQt5.QtWidgets import QApplication
 from qt_material import apply_stylesheet
 
@@ -29,6 +29,7 @@ from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountCon
 from ui.splash_screen import MovieSplashScreen
 from ui.toolbars import ProgressBarToolbar
 from ui.view import GraphicsView
+from ui.images_widget import ImagesWidget
 from utils import config
 from utils import help_functions as hf
 from utils.importer import Importer
@@ -42,6 +43,7 @@ class MainWindow(QtWidgets.QMainWindow):
     """
     Базовое окно для работы с разметкой без поддержки моделей ИИ
     """
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -54,10 +56,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.is_rubber_band_mode = False
         self.rubber_band_change_conn = RubberBandModeConnection()
 
+        # Settings
+        self.settings = AppSettings()
+        self.icon_folder = self.settings.get_icon_folder()
         # GraphicsView
-
         self.view = GraphicsView(on_rubber_band_mode=self.rubber_band_change_conn.on_rubber_mode_change)
-        self.setCentralWidget(self.view)
 
         # Signals with View
         self.view.polygon_clicked.id_pressed.connect(self.polygon_pressed)
@@ -71,9 +74,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.labels_count_conn = LabelsPanelCountConnection()
         self.on_theme_change_connection = ThemeChangeConnection()
 
-        # Settings
-        self.settings = AppSettings()
-        self.icon_folder = os.path.join(basedir, self.settings.get_icon_folder())
+        lay = QtWidgets.QSplitter(QtCore.Qt.Horizontal)  # QtWidgets.QWidget()
+
+        self.create_right_toolbar()
+        lay.addWidget(self.view)
+        lay.addWidget(self.toolBarRight)
+
+        lay.setStretchFactor(0, 4)
+        self.setCentralWidget(lay)
+
         # last_ for not recreate if not change
         self.last_theme = self.settings.read_theme()
 
@@ -175,8 +184,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.createNewProjectAct = QAction(
             "Создать новый проект" if self.settings.read_lang() == 'RU' else "Create new project",
-            self,
-            shortcut="Ctrl+N", triggered=self.createNewProject)
+            self, triggered=self.createNewProject)
         self.openProjAct = QAction("Загрузить проект" if self.settings.read_lang() == 'RU' else "Load Project", self,
                                    shortcut='Ctrl+O',
                                    triggered=self.open_project)
@@ -220,6 +228,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.squareAct = QAction("Прямоугольник" if self.settings.read_lang() == 'RU' else "Box", self, enabled=False,
                                  triggered=self.square_pressed,
                                  checkable=True)
+
+        # Данные о текущем разметчике
+        self.renameUserAct = QAction(
+            "Изменить имя пользователя" if self.settings.read_lang() == 'RU' else "Change user name", self,
+            triggered=self.rename_user)
+        self.deleteUserAct = QAction(
+            "Удалить имя пользователя" if self.settings.read_lang() == 'RU' else "Delete user name", self,
+            triggered=self.delete_user)
 
         # Export
         self.exportAnnToYoloBoxAct = QAction(
@@ -288,6 +304,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.fileMenu.addAction(self.printAct)
         self.fileMenu.addSeparator()
         self.fileMenu.addAction(self.exitAct)
+
         #
         self.viewMenu = QMenu("&Изображение" if self.settings.read_lang() == 'RU' else "&View", self)
         self.viewMenu.addAction(self.zoomInAct)
@@ -349,6 +366,8 @@ class MainWindow(QtWidgets.QMainWindow):
         toolBar.addAction(self.zoomOutAct)
         toolBar.addAction(self.fitToWindowAct)
         toolBar.addSeparator()
+        # toolBar.mouseMoveEvent = lambda e: print(e.x(), e.y())
+        toolBar.setMovable(True)
 
         self.annotatorToolButton = QToolButton(self)
         self.annotatorToolButton.setDefaultAction(self.polygonAct)
@@ -366,32 +385,51 @@ class MainWindow(QtWidgets.QMainWindow):
         self.toolBarLeft = toolBar
         self.addToolBar(QtCore.Qt.LeftToolBarArea, self.toolBarLeft)
 
-    def create_right_toolbar(self):
-        # Right toolbar
-        self.toolBarRight = QToolBar("Менеджер разметок" if self.settings.read_lang() == 'RU' else "Labeling Bar", self)
-
+    def compose_label_panel(self):
         # Labels
-        self.toolBarRight.addWidget(LabelsPanel(self, self.break_drawing, self.clean_all_labels, self.icon_folder,
-                                                on_color_change_signal=self.on_theme_change_connection.on_theme_change,
-                                                on_labels_count_change=self.labels_count_conn.on_labels_count_change))
+        panel = QtWidgets.QWidget()
+        lay = QtWidgets.QVBoxLayout()
+        label_panel = LabelsPanel(self, self.break_drawing, self.clean_all_labels, self.icon_folder,
+                                  on_color_change_signal=self.on_theme_change_connection.on_theme_change,
+                                  on_labels_count_change=self.labels_count_conn.on_labels_count_change)
+        label_panel.setMaximumHeight(300)
+        lay.addWidget(label_panel)
 
         self.labels_on_tek_image = QListWidget()
         self.labels_on_tek_image.itemClicked.connect(self.labels_on_tek_image_clicked)
-        self.toolBarRight.addWidget(self.labels_on_tek_image)
+        lay.addWidget(self.labels_on_tek_image)
 
+        panel.setLayout(lay)
+
+        return panel
+
+    def compose_image_panel(self):
         # Images
-        self.toolBarRight.addWidget(
-            ImagesPanel(self, self.add_im_to_proj_clicked, self.del_im_from_proj_clicked, self.icon_folder,
+        panel = QtWidgets.QWidget()
+        lay = QtWidgets.QVBoxLayout()
+        lay.addWidget(
+            ImagesPanel(self, self.add_im_to_proj_clicked, self.del_im_from_proj_clicked, self.change_image_status,
+                        self.icon_folder,
                         on_color_change_signal=self.on_theme_change_connection.on_theme_change,
                         on_images_list_change=self.im_panel_count_conn.on_image_count_change))
 
-        self.images_list_widget = QListWidget()
+        self.images_list_widget = ImagesWidget(self, self.settings.get_icon_folder())  # QListWidget()
         self.images_list_widget.itemClicked.connect(self.images_list_widget_clicked)
-        self.toolBarRight.addWidget(self.images_list_widget)
+        lay.addWidget(self.images_list_widget)
+        panel.setLayout(lay)
 
-        # Add panels to toolbars
+        return panel
 
-        self.addToolBar(QtCore.Qt.RightToolBarArea, self.toolBarRight)
+    def create_right_toolbar(self):
+        # Right toolbar
+        self.toolBarRight = QtWidgets.QSplitter(
+            QtCore.Qt.Vertical)  # "Менеджер разметок" if self.settings.read_lang() == 'RU' else "Labeling Bar",
+
+        # Labels
+        label_panel = self.compose_label_panel()
+        self.toolBarRight.addWidget(label_panel)
+        image_panel = self.compose_image_panel()
+        self.toolBarRight.addWidget(image_panel)
 
     def update_labels(self):
         self.write_scene_to_project_data()
@@ -410,9 +448,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.labelSettingsToolBar = QToolBar(
             "Настройки разметки" if self.settings.read_lang() == 'RU' else "Current Label Bar",
             self)
+
+        # имена классов
         self.cls_combo = StyledComboBox()
 
-        label = QLabel("Текущий класс:   " if self.settings.read_lang() == 'RU' else "Current label:   ")
+        label = QLabel("  Текущий класс:   " if self.settings.read_lang() == 'RU' else "  Current label:   ")
         cls_names = np.array(['no name'])
         self.cls_combo.addItems(cls_names)
         self.cls_combo.setMinimumWidth(150)
@@ -422,6 +462,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.labelSettingsToolBar.addWidget(label)
         self.labelSettingsToolBar.addWidget(self.cls_combo)
 
+        # кнопки справа от имен классов
         self.labelSettingsToolBar.addAction(self.change_label_color)
         self.labelSettingsToolBar.addAction(self.rename_label)
         self.labelSettingsToolBar.addAction(self.del_label)
@@ -429,12 +470,31 @@ class MainWindow(QtWidgets.QMainWindow):
         self.labelSettingsToolBar.addAction(self.add_label)
         self.labelSettingsToolBar.addSeparator()
 
+        # рулетка
         self.labelSettingsToolBar.addAction(self.ruler_act)
-
         self.labelSettingsToolBar.addSeparator()
 
+        # имя пользователя
+        self.user_names_combo = StyledComboBox()
+        user_label = QLabel("  Текущий пользователь:   " if self.settings.read_lang() == 'RU' else "  Current user:   ")
+        user_name_variants = np.array(self.settings.read_username_variants())
+        cur_user = self.settings.read_username()
+        self.user_names_combo.addItems(user_name_variants)
+        self.user_names_combo.setCurrentText(cur_user)
+        self.user_names_combo.currentTextChanged.connect(self.change_user_name)
+
+        self.user_names_combo.setMinimumWidth(150)
+
+        self.labelSettingsToolBar.addWidget(user_label)
+        self.labelSettingsToolBar.addWidget(self.user_names_combo)
+        self.labelSettingsToolBar.addSeparator()
+        self.labelSettingsToolBar.addAction(self.renameUserAct)
+        self.labelSettingsToolBar.addAction(self.deleteUserAct)
+        self.labelSettingsToolBar.addSeparator()
+
+        # прогресс-бар
         self.progress_toolbar = ProgressBarToolbar(self,
-                                                   right_padding=self.toolBarRight.width())
+                                                   right_padding=self.images_list_widget.width())
 
         self.labelSettingsToolBar.addWidget(self.progress_toolbar)
 
@@ -442,7 +502,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def createToolbar(self):
 
-        self.create_right_toolbar()
         self.create_left_toolbar()
         self.create_top_toolbar()
 
@@ -535,6 +594,37 @@ class MainWindow(QtWidgets.QMainWindow):
             self.images_list_widget.setCurrentRow(current_idx)
 
             self.update_labels()
+
+    def change_image_status(self):
+        if self.tek_image_name:
+            # current_idx = self.images_list_widget.currentRow()
+
+            tek_im_name = self.tek_image_name
+
+            title = f'Изменение статуса изображения' if self.settings.read_lang() == 'RU' else 'Change image status'
+            text = f'Выберите новый статус изображения {tek_im_name}' if self.settings.read_lang() == 'RU' else f'Choose new image {tek_im_name} status'
+            variants = ['empty', 'in_work', 'approve']
+
+            theme = self.settings.read_theme()
+
+            self.change_image_status_dialog = CustomComboDialog(self, theme=theme, variants=variants, editable=True,
+                                                                title_name=title,
+                                                                question_name=text)
+            self.change_image_status_dialog.setMinimumWidth(500)
+
+            self.change_image_status_dialog.okBtn.clicked.connect(self.on_change_image_status_ok)
+            self.change_image_status_dialog.show()
+
+    def on_change_image_status_ok(self):
+        tek_im_name = self.tek_image_name
+        new_status = self.change_image_status_dialog.getText()
+        self.change_image_status_dialog.close()
+
+        if new_status:
+            print(f"Set status {new_status} for image {tek_im_name}")
+            self.project_data.set_image_status(tek_im_name, new_status)
+            self.images_list_widget.set_status(status=new_status)
+            # self.fill_images_label(self.dataset_images)
 
     def fill_labels_on_tek_image_list_widget(self):
 
@@ -697,7 +787,7 @@ class MainWindow(QtWidgets.QMainWindow):
         msgbox = QMessageBox()
         msgbox.setIcon(QMessageBox.Information)
         msgbox.setText(
-            f"Экспорт в формат {self.export_format} завершен успешно" if self.settings.read_lang() == 'RU' else f"Export to {export_format} was successful")
+            f"Экспорт в формат {self.export_format} завершен успешно" if self.settings.read_lang() == 'RU' else f"Export to {self.export_format} was successful")
         msgbox.setWindowTitle("Экспорт завершен")
         msgbox.exec()
 
@@ -784,7 +874,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if self.tek_image_name:
             shapes = self.view.get_all_shapes()
-            image_updated = {"filename": self.tek_image_name, "shapes": shapes, "lrm": self.lrm}
+            status = self.project_data.get_image_status(self.tek_image_name)
+            last_user = self.project_data.get_image_last_user(self.tek_image_name)
+            image_updated = {"filename": self.tek_image_name, "shapes": shapes, "lrm": self.lrm, "status": status, "last_user": last_user}
             self.project_data.set_image_data(image_updated)
 
     def remove_label_with_change(self):
@@ -922,8 +1014,6 @@ class MainWindow(QtWidgets.QMainWindow):
         Задать иконки
         """
 
-        self.icon_folder = self.settings.get_icon_folder()
-
         self.setWindowIcon(QIcon(self.icon_folder + "/neural.png"))
         self.createNewProjectAct.setIcon(QIcon(self.icon_folder + "/folder.png"))
         self.printAct.setIcon(QIcon(self.icon_folder + "/printer.png"))
@@ -964,6 +1054,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.del_label.setIcon((QIcon(self.icon_folder + "/del.png")))
         self.change_label_color.setIcon((QIcon(self.icon_folder + "/color.png")))
         self.rename_label.setIcon((QIcon(self.icon_folder + "/rename.png")))
+
+        # user
+        self.renameUserAct.setIcon((QIcon(self.icon_folder + "/rename.png")))
+        self.deleteUserAct.setIcon((QIcon(self.icon_folder + "/del.png")))
 
         # menus
 
@@ -1130,7 +1224,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.images_list_widget.clear()
         for name in image_names:
-            self.images_list_widget.addItem(name)
+            status = self.project_data.get_image_status(name)
+            self.images_list_widget.addItem(name, status)
 
     def progress_bar_changed(self, percent):
         # print(percent)
@@ -1341,8 +1436,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.view.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
-        self.zoomInAct.setEnabled(self.scaleFactor < 3.0)
-        self.zoomOutAct.setEnabled(self.scaleFactor > 0.1)
+        self.zoomInAct.setEnabled(self.scaleFactor < 30.0)
+        self.zoomOutAct.setEnabled(self.scaleFactor > 0.0001)
 
     def fitToWindow(self):
         """
@@ -1754,6 +1849,49 @@ class MainWindow(QtWidgets.QMainWindow):
             self.view.on_ruler_mode_on(self.lrm)
         else:
             self.view.on_ruler_mode_off()
+
+    def rename_user(self):
+        theme = self.settings.read_theme()
+        user_name = self.user_names_combo.currentText()
+        variants = [name for name in self.user_names_combo.getAll() if name != user_name]
+
+        self.user_dialog = CustomComboDialog(self, theme=theme, variants=variants, editable=True,
+                                             title_name=f"Редактирование имени пользователя {user_name}" if self.settings.read_lang() == 'RU' else f"Rename user {user_name}",
+                                             question_name="Введите новое имя пользователя:" if self.settings.read_lang() == 'RU' else "Enter new user name:")
+        self.user_dialog.setMinimumWidth(500)
+
+        self.user_dialog.okBtn.clicked.connect(self.rename_user_ok_clicked)
+        self.user_dialog.show()
+
+    def rename_user_ok_clicked(self):
+        new_name = self.user_dialog.getText()
+        self.user_dialog.close()
+
+        if new_name:
+            if not self.user_names_combo.hasText(new_name):
+                self.user_names_combo.addItem(new_name)
+
+            self.change_user_name(new_name)
+
+    def delete_user(self):
+        self.del_user_name = self.user_names_combo.currentText()
+
+        title = f'Удаление пользователя' if self.settings.read_lang() == 'RU' else 'User delete'
+        text = f'Вы точно хотите удалить пользователя {self.del_user_name}?' if self.settings.read_lang() == 'RU' else f'Are you really want to delete {self.del_user_name}?'
+        self.delete_box = OkCancelDialog(self, title=title, text=text, on_ok=self.on_delete_user_ok)
+        self.delete_box.setMinimumWidth(300)
+
+    def on_delete_user_ok(self):
+        self.delete_box.hide()
+        idx = self.user_names_combo.getPos(self.del_user_name)
+        self.user_names_combo.removeItem(idx)
+        self.change_user_name(self.user_names_combo.currentText())
+
+    def change_user_name(self, new_name):
+        if new_name:
+            self.user_names_combo.setCurrentText(new_name)
+            self.settings.write_username(new_name)
+            self.settings.write_username_variants(self.user_names_combo.getAll())
 
 
 if __name__ == '__main__':

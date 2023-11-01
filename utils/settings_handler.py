@@ -20,6 +20,18 @@ class AppSettings:
     def read_sam_hq(self):
         return self.qt_settings.value("cnn/sam_hq", True)
 
+    def write_username(self, username):
+        self.qt_settings.setValue("general/username", username)
+
+    def read_username(self):
+        return self.qt_settings.value("general/username", "no_name")
+
+    def write_username_variants(self, username_variants):
+        self.qt_settings.setValue("general/username_variants", username_variants)
+
+    def read_username_variants(self):
+        return self.qt_settings.value("general/username_variants", [self.read_username()])
+
     def write_size_pos_settings(self, size, pos):
         self.qt_settings.beginGroup("main_window")
         self.qt_settings.setValue("size", size)
