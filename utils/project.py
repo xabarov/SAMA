@@ -69,6 +69,9 @@ class ProjectHandler(QWidget):
             ujson.dump(self.data, f)
 
     def update_ids(self):
+
+        if not self.data["images"]:
+            return
         id_num = 0
         for im in self.data['images']:
             for shape in im['shapes']:
@@ -92,6 +95,17 @@ class ProjectHandler(QWidget):
         im = self.get_image_data(image_name)
         if im and 'status' in im:
             return im["status"]
+        
+    def get_all_images_info(self):
+        res = {}
+        for im in self.data["images"]:
+            image_name = im["filename"]
+
+            status = im.get("status", "empty")
+            last_user = im.get("last_user", "unknown")
+
+            res[image_name] = {"status": status, "last_user": last_user}
+        return res
 
     def set_image_status(self, image_name, status):
         if status not in ['empty', 'in_work', 'approve']:

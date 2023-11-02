@@ -36,6 +36,15 @@ from utils.importer import Importer
 from utils.project import ProjectHandler
 from utils.settings_handler import AppSettings
 
+from enum import Enum
+
+
+class Mode(Enum):
+    normal = 1
+    drawing = 2
+    rubber_band = 3
+
+
 basedir = os.path.dirname(__file__)
 
 
@@ -53,7 +62,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # self.start_gif(is_prog_load=True)
 
         # Rubber band
-        self.is_rubber_band_mode = False
+        self.mode = Mode.normal
         self.rubber_band_change_conn = RubberBandModeConnection()
 
         # Settings
@@ -222,6 +231,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Annotators
         self.polygonAct = QAction("Полигон" if self.settings.read_lang() == 'RU' else "Polygon", self, enabled=False,
+                                  shortcut="Ctrl+B",
                                   triggered=self.polygon_tool_pressed, checkable=True)
         self.circleAct = QAction("Эллипс" if self.settings.read_lang() == 'RU' else "Ellips", self, enabled=False,
                                  triggered=self.circle_pressed, checkable=True)
@@ -230,6 +240,9 @@ class MainWindow(QtWidgets.QMainWindow):
                                  checkable=True)
 
         # Данные о текущем разметчике
+        self.addUserAct = QAction(
+            "Добавить нового пользователя" if self.settings.read_lang() == 'RU' else "Add new user", self,
+            enabled=True, triggered=self.add_user_clicked)
         self.renameUserAct = QAction(
             "Изменить имя пользователя" if self.settings.read_lang() == 'RU' else "Change user name", self,
             triggered=self.rename_user)
@@ -488,6 +501,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.labelSettingsToolBar.addWidget(user_label)
         self.labelSettingsToolBar.addWidget(self.user_names_combo)
         self.labelSettingsToolBar.addSeparator()
+        self.labelSettingsToolBar.addAction(self.addUserAct)
         self.labelSettingsToolBar.addAction(self.renameUserAct)
         self.labelSettingsToolBar.addAction(self.deleteUserAct)
         self.labelSettingsToolBar.addSeparator()
@@ -510,7 +524,7 @@ class MainWindow(QtWidgets.QMainWindow):
         Действие - выбрать область
         """
         self.break_drawing()  # Если до этого что-то рисовали - сбросить
-        self.is_rubber_band_mode = True
+        self.mode = Mode.rubber_band
         self.rubber_band_change_conn.on_rubber_mode_change.emit(True)
 
     def change_polygon_cls_num(self, cls_num, cls_id):
@@ -601,15 +615,21 @@ class MainWindow(QtWidgets.QMainWindow):
 
             tek_im_name = self.tek_image_name
 
-            title = f'Изменение статуса изображения' if self.settings.read_lang() == 'RU' else 'Change image status'
-            text = f'Выберите новый статус изображения {tek_im_name}' if self.settings.read_lang() == 'RU' else f'Choose new image {tek_im_name} status'
+            last_user = self.project_data.get_image_last_user(tek_im_name)
+            if not last_user:
+                last_user = ""
+            else:
+                last_user = f"Последние правки сделаны {last_user}" if self.settings.read_lang() == 'RU' else f"Last edit user {last_user}"
+
+            title = f'Изменение статуса изображения {tek_im_name}' if self.settings.read_lang() == 'RU' else f'Change image {tek_im_name} status'
+            text = f'Выберите новый\nстатус изображения: ' if self.settings.read_lang() == 'RU' else f'Choose new image status: '
             variants = ['empty', 'in_work', 'approve']
 
             theme = self.settings.read_theme()
 
             self.change_image_status_dialog = CustomComboDialog(self, theme=theme, variants=variants, editable=True,
                                                                 title_name=title,
-                                                                question_name=text)
+                                                                question_name=text, post_label=last_user)
             self.change_image_status_dialog.setMinimumWidth(500)
 
             self.change_image_status_dialog.okBtn.clicked.connect(self.on_change_image_status_ok)
@@ -623,6 +643,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if new_status:
             print(f"Set status {new_status} for image {tek_im_name}")
             self.project_data.set_image_status(tek_im_name, new_status)
+            self.project_data.set_image_last_user(tek_im_name, self.settings.read_username())
             self.images_list_widget.set_status(status=new_status)
             # self.fill_images_label(self.dataset_images)
 
@@ -876,7 +897,8 @@ class MainWindow(QtWidgets.QMainWindow):
             shapes = self.view.get_all_shapes()
             status = self.project_data.get_image_status(self.tek_image_name)
             last_user = self.project_data.get_image_last_user(self.tek_image_name)
-            image_updated = {"filename": self.tek_image_name, "shapes": shapes, "lrm": self.lrm, "status": status, "last_user": last_user}
+            image_updated = {"filename": self.tek_image_name, "shapes": shapes, "lrm": self.lrm, "status": status,
+                             "last_user": last_user}
             self.project_data.set_image_data(image_updated)
 
     def remove_label_with_change(self):
@@ -1056,6 +1078,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.rename_label.setIcon((QIcon(self.icon_folder + "/rename.png")))
 
         # user
+        self.addUserAct.setIcon((QIcon(self.icon_folder + "/add.png")))
         self.renameUserAct.setIcon((QIcon(self.icon_folder + "/rename.png")))
         self.deleteUserAct.setIcon((QIcon(self.icon_folder + "/del.png")))
 
@@ -1223,8 +1246,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def fill_images_label(self, image_names):
 
         self.images_list_widget.clear()
+        images_info = self.project_data.get_all_images_info()
         for name in image_names:
-            status = self.project_data.get_image_status(name)
+            status = images_info[name]["status"]
             self.images_list_widget.addItem(name, status)
 
     def progress_bar_changed(self, percent):
@@ -1518,6 +1542,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def polygon_tool_pressed(self):
 
+        self.mode = Mode.drawing
         self.set_labels_color()
         cls_txt = self.cls_combo.currentText()
         cls_num = self.cls_combo.currentIndex()
@@ -1529,6 +1554,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.start_drawing(self.ann_type, cls_num, color=label_color, alpha=alpha_tek)
 
     def polygon_pressed(self, pressed_id):
+        self.mode = Mode.normal
         for i in range(self.labels_on_tek_image.count()):
             item = self.labels_on_tek_image.item(i)
             item_id = item.text().split(" ")[-1]
@@ -1537,9 +1563,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 break
 
     def on_polygon_delete(self, delete_id):
+        self.mode = Mode.normal
         self.update_labels()
 
     def square_pressed(self):
+        self.mode = Mode.drawing
         self.set_labels_color()
         cls_txt = self.cls_combo.currentText()
         cls_num = self.cls_combo.currentIndex()
@@ -1551,6 +1579,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
 
     def circle_pressed(self):
+        self.mode = Mode.drawing
         self.set_labels_color()
         cls_txt = self.cls_combo.currentText()
         cls_num = self.cls_combo.currentIndex()
@@ -1633,7 +1662,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def end_drawing(self):
 
-        if self.is_rubber_band_mode:
+        if self.mode == Mode.rubber_band:
             # Режим селекции области на изображении
 
             if not self.image_set:
@@ -1659,7 +1688,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.fill_images_label(self.dataset_images)
 
             # Отключаем режим выделения области
-            self.is_rubber_band_mode = False
+            self.mode = Mode.normal
             self.rubber_band_change_conn.on_rubber_mode_change.emit(False)
 
             return
@@ -1667,7 +1696,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.ann_type in ["Polygon", "Box", "Ellips"]:
             self.view.end_drawing()  # save it to
 
-        self.update_labels()
+        if self.mode != Mode.normal:
+            self.mode = Mode.normal
+            self.update_labels()
 
     def start_drawing(self):
         """
@@ -1684,13 +1715,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         alpha_tek = self.settings.read_alpha()
 
-        if self.is_rubber_band_mode:
+        if self.mode == Mode.rubber_band:
             self.rubber_band_change_conn.on_rubber_mode_change.emit(False)
-            self.is_rubber_band_mode = False
-
+        self.mode = Mode.drawing
         self.view.start_drawing(self.ann_type, cls_num=cls_num, color=label_color, alpha=alpha_tek)
 
     def break_drawing(self):
+        self.mode = Mode.normal
         if not self.image_set:
             return
 
@@ -1721,8 +1752,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def undo(self):
         # print('Undo')
-        self.view.remove_last_changes()
-        self.update_labels()
+        if self.mode != Mode.normal:
+            self.view.remove_last_changes()
+            self.update_labels()
+            self.mode = Mode.normal
 
     def keyPressEvent(self, e):
         # e.accept()
@@ -1756,6 +1789,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.get_before_image_name():
                 self.reload_image()
                 self.images_list_widget.setCurrentRow(next_idx)
+                # self.images_list_widget_clicked(self.images_list_widget.currentItem())
 
         elif e.key() == 46 or e.key() == 1070:
 
@@ -1769,6 +1803,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.get_next_image_name():
                 self.reload_image()
                 self.images_list_widget.setCurrentRow(next_idx)
+                # self.images_list_widget_clicked(self.images_list_widget.currentItem())
 
         elif e.key() == 68 or e.key() == 1042:
             # D
@@ -1850,12 +1885,35 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.view.on_ruler_mode_off()
 
-    def rename_user(self):
-        theme = self.settings.read_theme()
+    def add_user_clicked(self):
+        print("Add user clicked")
         user_name = self.user_names_combo.currentText()
-        variants = [name for name in self.user_names_combo.getAll() if name != user_name]
 
-        self.user_dialog = CustomComboDialog(self, theme=theme, variants=variants, editable=True,
+        self.user_dialog = CustomInputDialog(self,
+                                             title_name=f"Добавление нового пользователя {user_name}" if self.settings.read_lang() == 'RU' else f"Add new user {user_name}",
+                                             question_name="Введите имя нового пользователя:" if self.settings.read_lang() == 'RU' else "Enter new user name:")
+        self.user_dialog.setMinimumWidth(500)
+
+        self.user_dialog.okBtn.clicked.connect(self.add_user_ok_clicked)
+        self.user_dialog.show()
+
+    def add_user_ok_clicked(self):
+        new_name = self.user_dialog.getText()
+        self.user_dialog.close()
+
+        if new_name:
+            if new_name not in self.user_names_combo.getAll():
+                self.user_names_combo.addItem(new_name)
+                idx = self.user_names_combo.getPos(new_name)
+                self.user_names_combo.setCurrentIndex(idx)
+            else:
+                self.statusBar().showMessage(
+                    f"Не могу добавить пользователя {new_name}. Такой пользователь уже существует" if self.settings.read_lang() == 'RU' else f"Can't add {new_name}. User already exists")
+
+    def rename_user(self):
+        user_name = self.user_names_combo.currentText()
+
+        self.user_dialog = CustomInputDialog(self,
                                              title_name=f"Редактирование имени пользователя {user_name}" if self.settings.read_lang() == 'RU' else f"Rename user {user_name}",
                                              question_name="Введите новое имя пользователя:" if self.settings.read_lang() == 'RU' else "Enter new user name:")
         self.user_dialog.setMinimumWidth(500)
@@ -1868,9 +1926,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.user_dialog.close()
 
         if new_name:
-            if not self.user_names_combo.hasText(new_name):
-                self.user_names_combo.addItem(new_name)
-
+            items = [it for it in self.user_names_combo.getAll() if it != self.user_names_combo.currentText()]
+            items.append(new_name)
+            self.user_names_combo.clear()
+            self.user_names_combo.addItems(items)
+            idx = self.user_names_combo.getPos(new_name)
+            self.user_names_combo.setCurrentIndex(idx)
             self.change_user_name(new_name)
 
     def delete_user(self):
@@ -1885,11 +1946,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.delete_box.hide()
         idx = self.user_names_combo.getPos(self.del_user_name)
         self.user_names_combo.removeItem(idx)
-        self.change_user_name(self.user_names_combo.currentText())
 
     def change_user_name(self, new_name):
         if new_name:
-            self.user_names_combo.setCurrentText(new_name)
             self.settings.write_username(new_name)
             self.settings.write_username_variants(self.user_names_combo.getAll())
 

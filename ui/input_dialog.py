@@ -38,7 +38,8 @@ class CustomInputDialog(QWidget):
 
 class CustomComboDialog(QWidget):
     def __init__(self, parent=None, theme='dark_blue.xml', dark_color=(255, 255, 255), light_color=(0, 0, 0),
-                 title_name="ComboBoxTitle", question_name="Question:", variants=None, editable=False):
+                 title_name="ComboBoxTitle", question_name="Question:", variants=None, editable=False,
+                 pre_label=None, post_label=None):
         super().__init__(parent)
         self.setWindowTitle(f"{title_name}")
         self.setWindowFlag(Qt.Tool)
@@ -69,7 +70,15 @@ class CustomComboDialog(QWidget):
         btnLayout.addWidget(self.okBtn)
 
         self.mainLayout = QVBoxLayout()
+
+        if pre_label:
+            self.mainLayout.addWidget(QLabel(pre_label))
+
         self.mainLayout.addLayout(layout)
+
+        if post_label:
+            self.mainLayout.addWidget(QLabel(post_label))
+
         self.mainLayout.addLayout(btnLayout)
         self.setLayout(self.mainLayout)
 

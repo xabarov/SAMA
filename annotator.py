@@ -461,6 +461,7 @@ class Annotator(MainWindow):
                     else:
                         self.statusBar().showMessage(
                             f"Can't create label. Area of label is too small {area:0.3f}. Try again", 3000)
+                    return
 
             if not cls_num:
                 cls_num = self.cls_combo.currentIndex()

@@ -1087,13 +1087,13 @@ class GraphicsView(QtWidgets.QGraphicsView):
             self.drag_mode = "No"
 
             if self.active_item:
-                if self.active_item.check_polygon(min_width=self.min_ellipse_size,
-                                                  min_height=self.min_ellipse_size):
-                    self.crop_by_pixmap_size(self.active_item)
-                    if self.drawing_type != "AiMask":
-                        self.polygon_end_drawing.on_end_drawing.emit(True)
-                    else:
-                        self.mask_end_drawing.on_mask_end_drawing.emit(True)
+                # if self.active_item.check_polygon(min_width=self.min_ellipse_size,
+                #                                   min_height=self.min_ellipse_size):
+                self.crop_by_pixmap_size(self.active_item)
+                if self.drawing_type != "AiMask":
+                    self.polygon_end_drawing.on_end_drawing.emit(True)
+                else:
+                    self.mask_end_drawing.on_mask_end_drawing.emit(True)
 
     def remove_active(self, is_delete_id=True):
         if self.active_item:

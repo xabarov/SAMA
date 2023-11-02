@@ -1,7 +1,5 @@
-from PyQt5.QtWidgets import QLabel, QWidget, QHBoxLayout, QVBoxLayout, QPushButton, QListWidget, QListWidgetItem
 from PyQt5.QtGui import QIcon
-
-from utils import config
+from PyQt5.QtWidgets import QListWidget, QListWidgetItem
 
 
 class ImagesWidget(QListWidget):
@@ -9,6 +7,7 @@ class ImagesWidget(QListWidget):
     def __init__(self, parent, icon_folder):
         super(ImagesWidget, self).__init__(parent)
         self.icon_folder = icon_folder
+        # self.setMouseTracking(True)
 
     def addItem(self, text, status=None) -> None:
         """
@@ -35,3 +34,5 @@ class ImagesWidget(QListWidget):
             item.setIcon(QIcon(self.icon_folder + "/in_work.png"))
         elif status == "approve":
             item.setIcon(QIcon(self.icon_folder + "/approve.png"))
+
+
