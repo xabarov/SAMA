@@ -35,4 +35,38 @@ class ImagesWidget(QListWidget):
         elif status == "approve":
             item.setIcon(QIcon(self.icon_folder + "/approve.png"))
 
+    def get_next_idx(self):
+        if self.count() == 0:
+            return -1
+        current_idx = self.currentRow()
+        return current_idx + 1 if current_idx < self.count() - 1 else 0
 
+    def get_next_name(self):
+        next_idx = self.get_next_idx()
+        if next_idx == -1:
+            return
+        return self.item(next_idx).text()
+
+    def move_next(self):
+        next_idx = self.get_next_idx()
+        if next_idx == -1:
+            return
+        self.setCurrentRow(next_idx)
+
+    def get_idx_before(self):
+        if self.count() == 0:
+            return -1
+        current_idx = self.currentRow()
+        return current_idx - 1 if current_idx > 0 else self.count() - 1
+
+    def get_before_name(self):
+        before_idx = self.get_idx_before()
+        if before_idx == -1:
+            return
+        return self.item(before_idx).text()
+
+    def move_before(self):
+        before_idx = self.get_idx_before()
+        if before_idx == -1:
+            return
+        self.setCurrentRow(before_idx)

@@ -596,7 +596,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.tek_image_name = None
 
             else:
-                self.get_next_image_name()
+                self.tek_image_name = self.images_list_widget.get_next_name()
+                self.tek_image_path = os.path.join(self.dataset_dir, self.tek_image_name)
                 self.reload_image()
                 self.dataset_images = [image for image in self.dataset_images if image != tek_im_name]
 
@@ -610,8 +611,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def change_image_status(self):
         if self.tek_image_name:
-            # current_idx = self.images_list_widget.currentRow()
-
             tek_im_name = self.tek_image_name
 
             last_user = self.project_data.get_image_last_user(tek_im_name)
@@ -1616,52 +1615,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 self.view.add_polygon_to_scene(cls_num, points, color=color, alpha=alpha_tek, id=shape["id"])
 
-    def get_next_image_name(self):
-
-        if self.tek_image_name:
-
-            if len(self.dataset_images) == 1:
-                return self.tek_image_name
-
-            id_tek = 0
-            for i, name in enumerate(self.dataset_images):
-                if name == self.tek_image_name:
-                    id_tek = i
-                    break
-
-            if id_tek == len(self.dataset_images) - 1:
-                # last image
-                id_tek = 0
-            else:
-                id_tek += 1
-
-            self.tek_image_name = self.dataset_images[id_tek]
-            self.tek_image_path = os.path.join(self.dataset_dir, self.tek_image_name)
-
-            return self.dataset_images[id_tek]
-
-    def get_before_image_name(self):
-
-        if self.tek_image_name:
-
-            if len(self.dataset_images) == 1:
-                return self.tek_image_name
-
-            id_tek = 0
-            for i, name in enumerate(self.dataset_images):
-                if name == self.tek_image_name:
-                    id_tek = i
-                    break
-            if id_tek == 0:
-                # first image
-                id_tek = len(self.dataset_images) - 1
-            else:
-                id_tek -= 1
-
-            self.tek_image_name = self.dataset_images[id_tek]
-            self.tek_image_path = os.path.join(self.dataset_dir, self.tek_image_name)
-            return self.dataset_images[id_tek]
-
     def end_drawing(self):
 
         if self.mode == Mode.rubber_band:
@@ -1780,32 +1733,27 @@ class MainWindow(QtWidgets.QMainWindow):
 
         elif e.key() == 44 or e.key() == 1041:
 
-            if not self.image_set:
-                return
-
             # <<< Before image
             self.update_labels()
 
-            current_idx = self.images_list_widget.currentRow()
-            next_idx = current_idx - 1 if current_idx > 0 else self.images_list_widget.count() - 1
-            if self.get_before_image_name():
+            before_im_name = self.images_list_widget.get_before_name()
+            if before_im_name:
+                self.tek_image_name = before_im_name
+                self.tek_image_path = os.path.join(self.dataset_dir, before_im_name)
                 self.reload_image()
-                self.images_list_widget.setCurrentRow(next_idx)
-                # self.images_list_widget_clicked(self.images_list_widget.currentItem())
+                self.images_list_widget.move_before()
 
         elif e.key() == 46 or e.key() == 1070:
 
-            if not self.image_set:
-                return
             # >>> Next image
             self.update_labels()
 
-            current_idx = self.images_list_widget.currentRow()
-            next_idx = current_idx + 1 if current_idx < self.images_list_widget.count() - 1 else 0
-            if self.get_next_image_name():
+            next_im_name = self.images_list_widget.get_next_name()
+            if next_im_name:
+                self.tek_image_name = next_im_name
+                self.tek_image_path = os.path.join(self.dataset_dir, next_im_name)
                 self.reload_image()
-                self.images_list_widget.setCurrentRow(next_idx)
-                # self.images_list_widget_clicked(self.images_list_widget.currentItem())
+                self.images_list_widget.move_next()
 
         elif e.key() == 68 or e.key() == 1042:
             # D
