@@ -1033,6 +1033,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Задать иконки
         """
+        self.icon_folder = self.settings.get_icon_folder()
 
         self.setWindowIcon(QIcon(self.icon_folder + "/neural.png"))
         self.createNewProjectAct.setIcon(QIcon(self.icon_folder + "/folder.png"))
