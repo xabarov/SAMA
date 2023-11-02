@@ -23,7 +23,6 @@ class ImagesPanel(QWidget):
         images_header.addWidget(self.change_im_status_button)
 
         self.del_im_button = QPushButton()
-        self.del_im_button.setEnabled(False)
         self.del_im_button.clicked.connect(del_image_from_projectAct)
         images_header.addWidget(self.del_im_button)
 
@@ -51,6 +50,8 @@ class ImagesPanel(QWidget):
 
         self.setLayout(images_header)
 
+        self.toggle_buttons(False)
+
     def on_color_change(self, icon_folder):
         self.del_im_button.setIcon((QIcon(icon_folder + "/del.png")))
         self.add_im_button.setIcon((QIcon(icon_folder + "/add.png")))
@@ -58,13 +59,14 @@ class ImagesPanel(QWidget):
 
     def on_im_list_change(self, images_size):
         if images_size > 0:
-            self.del_im_button.setEnabled(True)
-            self.add_im_button.setEnabled(True)
-            self.change_im_status_button.setEnabled(True)
+            self.toggle_buttons(True)
             return
-        self.del_im_button.setEnabled(False)
-        self.add_im_button.setEnabled(False)
-        self.change_im_status_button.setEnabled(False)
+        self.toggle_buttons(False)
+
+    def toggle_buttons(self, enable):
+        self.del_im_button.setEnabled(enable)
+        self.add_im_button.setEnabled(enable)
+        self.change_im_status_button.setEnabled(enable)
 
 
 class LabelsPanel(QWidget):

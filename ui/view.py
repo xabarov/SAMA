@@ -408,6 +408,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 if item != self.active_item and item not in self.active_group:
                     item.setBrush(QtGui.QBrush(QColor(*item.color), QtCore.Qt.SolidPattern))
                     item.setPen(QPen(QColor(*hf.set_alpha_to_max(item.color)), self.line_width, QtCore.Qt.SolidLine))
+                else:
+                    item.setBrush(self.active_brush)
+                    item.setPen(self.active_pen)
             except:
                 pass
 
@@ -807,11 +810,10 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 if self.check_active_pressed(lp):
 
                     # нажали прямо по активному полигону, строго внутри
-                    # Начать перемещение,
-                    # если distance_start - distance_point > threshold = переместить
-                    # иначе - поменять цвет
+                    # Начать перемещение
                     self.drag_mode = "PolygonMoveMode"
                     self.start_point = lp
+                    self.switch_all_polygons_to_default_except_active()  # на всякий случай зажечь активным светом
                     # self.setMouseTracking(True)
 
                 else:

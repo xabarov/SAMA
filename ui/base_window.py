@@ -1,6 +1,7 @@
 import os
 import shutil
 import sys
+from enum import Enum
 
 import cv2
 import numpy as np
@@ -8,7 +9,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QMovie, QPainter, QIcon, QColor
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, QToolButton, QLabel, \
-    QColorDialog, QListWidget, QSizePolicy, QFrame
+    QColorDialog, QListWidget
 from PyQt5.QtWidgets import QApplication
 from qt_material import apply_stylesheet
 
@@ -17,6 +18,7 @@ from ui.combo_box_styled import StyledComboBox
 from ui.create_project_dialog import CreateProjectDialog
 from ui.edit_with_button import EditWithButton
 from ui.export_dialog import ExportDialog
+from ui.images_widget import ImagesWidget
 from ui.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog
 from ui.import_dialogs import ImportLRMSDialog
 from ui.input_dialog import CustomInputDialog, CustomComboDialog
@@ -29,14 +31,11 @@ from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountCon
 from ui.splash_screen import MovieSplashScreen
 from ui.toolbars import ProgressBarToolbar
 from ui.view import GraphicsView
-from ui.images_widget import ImagesWidget
 from utils import config
 from utils import help_functions as hf
 from utils.importer import Importer
 from utils.project import ProjectHandler
 from utils.settings_handler import AppSettings
-
-from enum import Enum
 
 
 class Mode(Enum):
@@ -1361,6 +1360,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Загрузка проекта
         """
+
         loaded_proj_name, _ = QFileDialog.getOpenFileName(self,
                                                           'Загрузка проекта' if self.settings.read_lang() == 'RU' else "Loading project",
                                                           'projects',
@@ -1387,6 +1387,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.labels_on_tek_image.clear()
             self.images_list_widget.clear()
             self.view.clearScene()
+            self.dataset_images.clear()
+            self.im_panel_count_conn.on_image_count_change.emit(0)  # zero images
 
         self.toggle_act(False)
 
