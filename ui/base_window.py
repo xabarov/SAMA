@@ -30,6 +30,7 @@ from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountCon
     RubberBandModeConnection
 from ui.splash_screen import MovieSplashScreen
 from ui.toolbars import ProgressBarToolbar
+from ui.shortcuts_editor import ShortCutsEditor
 from ui.view import GraphicsView
 from utils import config
 from utils import help_functions as hf
@@ -188,49 +189,93 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.splash.show()
 
+    def reset_shortcuts(self):
+        shortcuts = self.settings.read_shortcuts()
+
+        for sc, act in zip(
+                ['copy', 'crop', 'del', 'end_drawing', 'fit', 'image_after', 'image_before',
+                 'open_project', 'paste', 'polygon', 'print', 'quit',
+                 'save_project', 'settings', 'start_drawing', 'undo', 'zoom_in', 'zoom_out'],
+                [self.copyAct, self.selectAreaAct, self.deleteLabelAct, self.stopDrawAct, self.fitToWindowAct,
+                 self.goNextAct, self.goBeforeAct, self.openProjAct, self.pasteAct, self.polygonAct, self.printAct,
+                 self.exitAct,
+                 self.saveProjAct, self.settingsAct, self.startDrawAct, self.undoAct, self.zoomInAct, self.zoomOutAct]):
+            shortcut = shortcuts[sc]
+            appearance = shortcut['appearance']
+            act.setShortcut(appearance)
+
+
     def createActions(self):
+
+        self.copyAct = QAction(
+            "Копировать метку" if self.settings.read_lang() == 'RU' else "Copy label",
+            self, triggered=self.copy_label)
+
+        self.pasteAct = QAction(
+            "Вставить метку" if self.settings.read_lang() == 'RU' else "Paste label",
+            self, triggered=self.paste_label)
+
+        self.undoAct = QAction(
+            "Отменить" if self.settings.read_lang() == 'RU' else "Undo",
+            self, triggered=self.undo)
+
+        self.deleteLabelAct = QAction(
+            "Удалить метку" if self.settings.read_lang() == 'RU' else "Delete label",
+            self, triggered=self.break_drawing)
+
+        self.startDrawAct = QAction(
+            "Начать рисовать метку" if self.settings.read_lang() == 'RU' else "Start drawing label",
+            self, triggered=self.start_drawing)
+
+        self.stopDrawAct = QAction(
+            "Закончить рисовать метку" if self.settings.read_lang() == 'RU' else "Stop drawing label",
+            self, triggered=self.end_drawing)
+
+        self.goNextAct = QAction(
+            "Следующее изображение" if self.settings.read_lang() == 'RU' else "Next Image",
+            self, triggered=self.go_next)
+
+        self.goBeforeAct = QAction(
+            "Предыдущее изображение" if self.settings.read_lang() == 'RU' else "Before Image",
+            self, triggered=self.go_before)
 
         self.createNewProjectAct = QAction(
             "Создать новый проект" if self.settings.read_lang() == 'RU' else "Create new project",
             self, triggered=self.createNewProject)
         self.openProjAct = QAction("Загрузить проект" if self.settings.read_lang() == 'RU' else "Load Project", self,
-                                   shortcut='Ctrl+O',
                                    triggered=self.open_project)
         self.saveProjAsAct = QAction(
             "Сохранить проект как..." if self.settings.read_lang() == 'RU' else "Save project as...",
             self, triggered=self.save_project_as, enabled=False)
         self.saveProjAct = QAction("Сохранить проект" if self.settings.read_lang() == 'RU' else "Save project", self,
-                                   shortcut="Ctrl+S", triggered=self.save_project, enabled=False)
+                                   triggered=self.save_project, enabled=False)
 
-        self.printAct = QAction("Печать" if self.settings.read_lang() == 'RU' else "Print", self, shortcut="Ctrl+P",
+        self.printAct = QAction("Печать" if self.settings.read_lang() == 'RU' else "Print", self,
                                 enabled=False, triggered=self.print_)
-        self.exitAct = QAction("Выход" if self.settings.read_lang() == 'RU' else "Exit", self, shortcut="Ctrl+Q",
+        self.exitAct = QAction("Выход" if self.settings.read_lang() == 'RU' else "Exit", self,
                                triggered=self.close)
+
         self.zoomInAct = QAction("Увеличить" if self.settings.read_lang() == 'RU' else "Zoom In", self,
-                                 shortcut="Ctrl++",
                                  enabled=False,
                                  triggered=self.zoomIn)
         self.zoomOutAct = QAction("Уменьшить" if self.settings.read_lang() == 'RU' else "Zoom Out", self,
-                                  shortcut="Ctrl+-",
                                   enabled=False,
                                   triggered=self.zoomOut)
-
         self.fitToWindowAct = QAction(
             "Подогнать под размер окна" if self.settings.read_lang() == 'RU' else "Fit to window size",
             self, enabled=False,
-            shortcut="Ctrl+F",
             triggered=self.fitToWindow)
+
         self.aboutAct = QAction("О модуле" if self.settings.read_lang() == 'RU' else "About", self,
                                 triggered=self.about)
-        self.tutorialAct = QAction("Горячие клавиши" if self.settings.read_lang() == 'RU' else "Shortcuts", self,
-                                   triggered=self.show_tutorial)
+        self.shortCutsEditAct = QAction("Горячие клавиши" if self.settings.read_lang() == 'RU' else "Shortcuts", self,
+                                        triggered=self.show_shortcuts)
 
         self.settingsAct = QAction("Настройки приложения" if self.settings.read_lang() == 'RU' else "Settings", self,
                                    enabled=True, triggered=self.showSettings)
 
         # Annotators
         self.polygonAct = QAction("Полигон" if self.settings.read_lang() == 'RU' else "Polygon", self, enabled=False,
-                                  shortcut="Ctrl+B",
                                   triggered=self.polygon_tool_pressed, checkable=True)
         self.circleAct = QAction("Эллипс" if self.settings.read_lang() == 'RU' else "Ellips", self, enabled=False,
                                  triggered=self.circle_pressed, checkable=True)
@@ -295,7 +340,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.selectAreaAct = QAction("Выделить область" if self.settings.read_lang() == 'RU' else "Select an area",
                                      self,
-                                     shortcut="Ctrl+I", enabled=False, triggered=self.getArea)
+                                     enabled=False, triggered=self.getArea)
 
         self.load_lrm_data_act = QAction(
             "Загрузить данные о ЛРМ" if self.settings.read_lang() == 'RU' else "Load linear ground res. data", self,
@@ -304,6 +349,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ruler_act = QAction(
             "Линейка" if self.settings.read_lang() == 'RU' else "Ruler", self,
             enabled=False, triggered=self.ruler_pressed, checkable=True)
+
+        self.reset_shortcuts()
 
     def createMenus(self):
 
@@ -356,10 +403,10 @@ class MainWindow(QtWidgets.QMainWindow):
         #
         self.settingsMenu = QMenu("Настройки" if self.settings.read_lang() == 'RU' else "Settings", self)
         self.settingsMenu.addAction(self.settingsAct)
+        self.settingsMenu.addAction(self.shortCutsEditAct)
         #
         self.helpMenu = QMenu("&Помощь" if self.settings.read_lang() == 'RU' else "Help", self)
         self.helpMenu.addAction(self.aboutAct)
-        self.helpMenu.addAction(self.tutorialAct)
 
         self.menuBar().addMenu(self.fileMenu)
         self.menuBar().addMenu(self.viewMenu)
@@ -1063,8 +1110,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.importAnnFromYoloSegAct.setIcon(QIcon(self.icon_folder + "/yolo_white.png"))
         self.importAnnFromCOCOAct.setIcon(QIcon(self.icon_folder + "/coco.png"))
 
-        # tutorial
-        self.tutorialAct.setIcon(QIcon(self.icon_folder + "/keyboard.png"))
+        # shortcuts
+        self.shortCutsEditAct.setIcon(QIcon(self.icon_folder + "/keyboard.png"))
 
         self.polygonAct.setIcon(QIcon(self.icon_folder + "/polygon.png"))
         self.circleAct.setIcon(QIcon(self.icon_folder + "/circle.png"))
@@ -1247,7 +1294,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.images_list_widget.clear()
         images_info = self.project_data.get_all_images_info()
         for name in image_names:
-            status = images_info[name]["status"]
+            if name in images_info:
+                status = images_info[name].get('status', None)
+            else:
+                status = None
             self.images_list_widget.addItem(name, status)
 
     def progress_bar_changed(self, percent):
@@ -1677,16 +1727,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.start_drawing(self.ann_type, cls_num=cls_num, color=label_color, alpha=alpha_tek)
 
     def break_drawing(self):
-        self.mode = Mode.normal
-        if not self.image_set:
-            return
 
         if not "Continue" in self.view.drag_mode:
             self.view.remove_active()
 
-        if self.tek_image_name:
-            self.view.end_drawing()
-            self.update_labels()
+        if self.mode != Mode.normal:
+            self.mode = Mode.normal
+            if self.tek_image_name:
+                self.view.end_drawing()
+                self.update_labels()
 
     def reload_image(self):
         """
@@ -1699,12 +1748,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.load_image_data(self.tek_image_name)
         self.update_labels()
 
-    def show_tutorial(self):
-        path_to_png = os.path.join(os.getcwd(), 'ui', 'tutorial', 'shortcuts.png')
-        self.tutorial = ShowImgWindow(self, title='Горячие клавиши', img_file=path_to_png, icon_folder=self.icon_folder,
-                                      is_fit_button=False)
-        self.tutorial.scaleImage(0.4)
-        self.tutorial.show()
+    def show_shortcuts(self):
+        self.shortcuts_window = ShortCutsEditor(on_ok_act=self.reset_shortcuts)
+        self.shortcuts_window.show()
 
     def undo(self):
         # print('Undo')
@@ -1713,71 +1759,71 @@ class MainWindow(QtWidgets.QMainWindow):
             self.update_labels()
             self.mode = Mode.normal
 
+    def match_modifiers(self, shortcut_modifiers, pressed_modifiers):
+
+        if not shortcut_modifiers:
+            return True
+
+        for m in shortcut_modifiers:
+            if m not in pressed_modifiers:
+                return False
+
+        return True
+
     def keyPressEvent(self, e):
-        # e.accept()
-        # print(e.key())
         modifierPressed = QApplication.keyboardModifiers()
         modifierName = ''
-        # if (modifierPressed & QtCore.Qt.AltModifier) == QtCore.Qt.AltModifier:
-        #     modifierName += 'Alt'
 
         if (modifierPressed & QtCore.Qt.ControlModifier) == QtCore.Qt.ControlModifier:
             modifierName += 'Ctrl'
+        if (modifierPressed & QtCore.Qt.AltModifier) == QtCore.Qt.AltModifier:
+            modifierName += 'Alt'
+        if (modifierPressed & QtCore.Qt.ShiftModifier) == QtCore.Qt.ShiftModifier:
+            modifierName += 'Shift'
 
-        if e.key() == 83 or e.key() == 1067:  # start poly
-            # S
-            self.start_drawing()
+        shortcuts = self.settings.read_shortcuts()
+        # print(shortcuts)
 
-        elif e.key() == 32:  # end poly
-            # Space
-            self.end_drawing()
+        for sc_key, act in zip(
+                ['copy', 'del', 'end_drawing', 'image_after', 'image_before', 'paste', 'start_drawing', 'undo']
+                ,
+                [self.copy_label, self.break_drawing, self.end_drawing, self.go_before, self.go_next, self.paste_label,
+                 self.start_drawing, self.undo]):
+            shortcut = shortcuts[sc_key]
+            shortciut_modifiers = shortcut['modifier']
+            if e.key() == shortcut['shortcut_key_eng'] or e.key() == shortcut[
+                'shortcut_key_ru'] and self.match_modifiers(shortciut_modifiers, modifierName):
+                act()
 
-        elif e.key() == 44 or e.key() == 1041:
+    def go_next(self):
+        self.update_labels()
 
-            # <<< Before image
-            self.update_labels()
+        next_im_name = self.images_list_widget.get_next_name()
+        if next_im_name:
+            self.tek_image_name = next_im_name
+            self.tek_image_path = os.path.join(self.dataset_dir, next_im_name)
+            self.reload_image()
+            self.images_list_widget.move_next()
 
-            before_im_name = self.images_list_widget.get_before_name()
-            if before_im_name:
-                self.tek_image_name = before_im_name
-                self.tek_image_path = os.path.join(self.dataset_dir, before_im_name)
-                self.reload_image()
-                self.images_list_widget.move_before()
+    def go_before(self):
+        self.update_labels()
 
-        elif e.key() == 46 or e.key() == 1070:
+        before_im_name = self.images_list_widget.get_before_name()
+        if before_im_name:
+            self.tek_image_name = before_im_name
+            self.tek_image_path = os.path.join(self.dataset_dir, before_im_name)
+            self.reload_image()
+            self.images_list_widget.move_before()
 
-            # >>> Next image
-            self.update_labels()
+    def copy_label(self):
+        self.view.copy_active_item_to_buffer()
 
-            next_im_name = self.images_list_widget.get_next_name()
-            if next_im_name:
-                self.tek_image_name = next_im_name
-                self.tek_image_path = os.path.join(self.dataset_dir, next_im_name)
-                self.reload_image()
-                self.images_list_widget.move_next()
+    def paste_label(self):
+        if not self.image_set:
+            return
 
-        elif e.key() == 68 or e.key() == 1042:
-            # D
-
-            self.break_drawing()
-
-        elif (e.key() == 90 or e.key() == 1071) and 'Ctrl' in modifierName:
-            # Ctrl + Z
-
-            self.undo()
-
-        elif (e.key() == 67 or e.key() == 1057) and 'Ctrl' in modifierName:
-            # Ctrl + C
-
-            self.view.copy_active_item_to_buffer()
-
-        elif (e.key() == 86 or e.key() == 1052) and 'Ctrl' in modifierName:
-            # Ctrl + V
-            if not self.image_set:
-                return
-
-            self.view.paste_buffer()
-            self.update_labels()
+        self.view.paste_buffer()
+        self.update_labels()
 
     def on_quit(self):
         self.exit_box.hide()
@@ -1790,7 +1836,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.close()
 
     def closeEvent(self, event):
-
         if self.is_asked_before_close:
             self.clear_temp_folder()
             event.accept()
@@ -1837,7 +1882,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.view.on_ruler_mode_off()
 
     def add_user_clicked(self):
-        print("Add user clicked")
         user_name = self.user_names_combo.currentText()
 
         self.user_dialog = CustomInputDialog(self,

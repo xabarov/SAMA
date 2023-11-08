@@ -12,13 +12,13 @@ from shapely import Polygon
 from ui.signals_and_slots import LoadPercentConnection, InfoConnection
 from utils.calc_methods import DNTheam, GrigStructs
 from utils.primitives import DNWLine, DNWPoint, DNPoly, DNWPoly
-from utils.sam_fragment import create_masks as create_sam_pkl
+from utils.sam_fragment import create_masks, create_generator
 from utils.settings_handler import AppSettings
 
 
 class PostProcessingWorker(QtCore.QThread):
 
-    def __init__(self, yolo_txt_name, tek_image_path, edges_stats, lrm, save_folder, sam_path):
+    def __init__(self, sam_model, yolo_txt_name, tek_image_path, edges_stats, lrm, save_folder):
         """
         yolo_txt_name - результаты классификации CNN_Worker
         tek_image_path - путь к изображению
@@ -30,13 +30,8 @@ class PostProcessingWorker(QtCore.QThread):
         self.edges_stats = edges_stats
         self.lrm = lrm
         self.save_folder = save_folder
-        self.sam_path = sam_path
         self.settings = AppSettings()
-
-        if 'sam_hq' in sam_path:
-            self.use_hq = True
-        else:
-            self.use_hq = False
+        self.sam_model = sam_model
 
         self.polygons = []
 
@@ -90,17 +85,20 @@ class PostProcessingWorker(QtCore.QThread):
 
         step = 0
         steps = len(crop_names) * 2
+        points_per_side = self.calc_points_per_side(min_obj_width_meters=80)
+        print(f"Points per side = {points_per_side}")
+
+        generator = create_generator(self.sam_model, pred_iou_thresh=0.88, box_nms_thresh=0.7,
+                                     points_per_side=points_per_side, crop_n_points_downscale_factor=1,
+                                     crop_nms_thresh=0.7,
+                                     output_mode="binary_mask")
 
         for i, crop_name in enumerate(crop_names):
             pkl_name = os.path.join(self.save_folder, f'crop{i}.pkl')
 
-            points_per_side = self.calc_points_per_side(min_obj_width_meters=80)
-            print(f"Points per side = {points_per_side}")
-
-            create_sam_pkl(crop_name, checkpoint=self.sam_path,
-                           device=self.settings.read_platform(), output_path=None,
-                           one_image_name=os.path.join(self.save_folder, f'crop{i}_sam.jpg'),
-                           pickle_name=pkl_name, use_sam_hq=self.use_hq, points_per_side=points_per_side)
+            create_masks(generator, crop_name, output_path=None,
+                         one_image_name=os.path.join(self.save_folder, f'crop{i}_sam.jpg'),
+                         pickle_name=pkl_name)
 
             step += 1
             self.psnt_connection.percent.emit(40 + 60 * float(step) / steps)

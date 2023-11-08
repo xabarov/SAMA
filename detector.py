@@ -41,7 +41,6 @@ class Detector(Annotator):
                     f"{geo_x:.6f}, {geo_y:.6f}")
 
     def createActions(self):
-        super(Detector, self).createActions()
 
         self.detectScanAct = QAction(
             "Обнаружить объекты сканированием" if self.settings.read_lang() == 'RU' else "Detect objects with scanning",
@@ -58,6 +57,8 @@ class Detector(Annotator):
             enabled=False,
             triggered=self.export_to_esri)
 
+        super(Detector, self).createActions()
+
     def createMenus(self):
         super(Detector, self).createMenus()
 
@@ -69,7 +70,6 @@ class Detector(Annotator):
 
     def createToolbar(self):
 
-        self.create_right_toolbar()
         self.create_top_toolbar()
 
         toolBar = QToolBar("Панель инструментов" if self.settings.read_lang() == 'RU' else "ToolBar", self)

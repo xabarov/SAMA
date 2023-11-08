@@ -9,6 +9,10 @@ from segment_anything import SamAutomaticMaskGenerator
 from segment_anything import build_sam, build_sam_hq
 import gc
 import torch
+from utils.settings_handler import AppSettings
+from segment_anything import SamPredictor
+
+import utils.config as config
 
 
 def create_random_color():
@@ -87,20 +91,11 @@ def write_masks_to_folder(masks: List[Dict[str, Any]], path: str) -> None:
     return
 
 
-def create_masks(input_path, output_path=None, checkpoint='sam_hq_vit_l.pth', device='cuda',
-                 one_image_name=None, pickle_name=None, use_sam_hq=True, pred_iou_thresh=0.88, box_nms_thresh=0.7,
-                 points_per_side=32, crop_n_points_downscale_factor=1, crop_nms_thresh=0.7):
-    print("Loading model...")
-
-    if use_sam_hq:
-        sam = build_sam_hq(checkpoint=checkpoint).to(device)
-    else:
-        sam = build_sam(checkpoint=checkpoint).to(device)
-
-    # sam = sam_model_registry[model_type](checkpoint=checkpoint)
-    # _ = sam.to(device=device)
-    output_mode = "binary_mask"
+def create_generator(sam, pred_iou_thresh=0.88, box_nms_thresh=0.7,
+                     points_per_side=32, crop_n_points_downscale_factor=1, crop_nms_thresh=0.7,
+                     output_mode="binary_mask"):
     # amg_kwargs = get_amg_kwargs()
+
     generator = SamAutomaticMaskGenerator(sam, pred_iou_thresh=pred_iou_thresh,  # 0.88
                                           stability_score_thresh=0.95,
                                           stability_score_offset=1.0,
@@ -110,11 +105,22 @@ def create_masks(input_path, output_path=None, checkpoint='sam_hq_vit_l.pth', de
                                           crop_n_points_downscale_factor=crop_n_points_downscale_factor,
                                           output_mode=output_mode)
 
+    return generator
+
+
+def create_masks(generator, input_path, output_path=None, one_image_name=None, pickle_name=None,
+                 output_mode="binary_mask"):
     if output_path:
         os.makedirs(output_path, exist_ok=True)
 
     print(f"Processing '{input_path}'...")
     image = cv2.imread(input_path)
+    # shape = image.shape
+    # h = shape[0]
+    # w = shape[1]
+    # if w > 800:
+    #     factor = w/800.0
+    #     image = cv2.resize(image, (int(w/factor), int(h/factor)), interpolation=cv2.INTER_AREA)
     if image is None:
         print(f"Could not load '{input_path}' as an image, skipping...")
         return
@@ -139,10 +145,7 @@ def create_masks(input_path, output_path=None, checkpoint='sam_hq_vit_l.pth', de
 
     print("Done!")
 
-    sam.to('cpu')
-    del sam
-    gc.collect()
-    torch.cuda.empty_cache()
+
 
     return [mask['segmentation'] for mask in masks]
 

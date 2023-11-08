@@ -11,7 +11,7 @@ from utils import cls_settings
 from utils import config
 from utils.edges_from_mask import mask_results_to_yolo_txt
 from utils.nuclear_post_processing import PostProcessingWorker
-
+import gc
 from ui.ask_next_step_dialog import AskNextStepDialog
 
 basedir = os.path.dirname(__file__)
@@ -27,7 +27,9 @@ class DetectorNuclear(Detector):
 
     def on_post_finished(self):
 
-        self.sam.model.to('cuda')
+        # Back models
+        self.handle_detection_model()
+        self.gd_model = self.load_gd_model()
 
         polygons = self.post_worker.polygons
         for pol in polygons:
@@ -60,6 +62,12 @@ class DetectorNuclear(Detector):
             message,
             3000)
 
+    def cuda_model_clear(self, model):
+        model.to('cpu')
+        del model
+        gc.collect()
+        torch.cuda.empty_cache()
+
     def start_post_processing(self):
         """
         Старт пост-обработки классическими методами
@@ -73,8 +81,6 @@ class DetectorNuclear(Detector):
 
             self.progress_toolbar.show_progressbar()
             self.block_geo_coords_message = True
-            torch.cuda.empty_cache()
-            self.sam.model.to('cpu')
 
             yolo_txt_name = os.path.join(self.handle_temp_folder(), f'{self.tek_image_name.split(".jpg")[0]}.txt')
 
@@ -86,15 +92,14 @@ class DetectorNuclear(Detector):
             mask_results_to_yolo_txt(self.mask_res, tek_image_path, yolo_txt_name)
             edges_stats = os.path.join(basedir, 'nuclear_power', 'out_rebra.csv')
 
-            if self.settings.read_sam_hq():
-                sam_path = config.PATH_TO_SAM_HQ_CHECKPOINT
-            else:
-                sam_path = config.PATH_TO_SAM_CHECKPOINT
+            # before SAM - move other models to CPU and del
+            for m in [self.yolo, self.gd_model]:
+                self.cuda_model_clear(m)
 
-            self.post_worker = PostProcessingWorker(yolo_txt_name=yolo_txt_name, tek_image_path=tek_image_path,
+            self.post_worker = PostProcessingWorker(self.sam.model, yolo_txt_name=yolo_txt_name,
+                                                    tek_image_path=tek_image_path,
                                                     edges_stats=edges_stats, lrm=self.lrm,
-                                                    save_folder=os.path.join(basedir, 'nuclear_power'),
-                                                    sam_path=os.path.join(basedir, sam_path))
+                                                    save_folder=os.path.join(basedir, 'nuclear_power'))
 
             self.progress_toolbar.set_signal(self.post_worker.psnt_connection.percent)
 

@@ -89,11 +89,24 @@ class Annotator(MainWindow):
                 self.statusBar().showMessage(
                     "Neural networks will use CPU", 3000)
 
+    def reset_shortcuts(self):
+
+        super(Annotator, self).reset_shortcuts()
+
+        shortcuts = self.settings.read_shortcuts()
+
+        for sc, act in zip(
+                ['detect_single', 'gd', 'sam_box', 'sam_points'],
+                [self.detectAct, self.GroundingDINOSamAct, self.aiAnnotatorMaskAct, self.aiAnnotatorPointsAct]):
+            shortcut = shortcuts[sc]
+            appearance = shortcut['appearance']
+            act.setShortcut(appearance)
+
     def createActions(self):
         """
         Добавляем новые действия к базовой модели
         """
-        super(Annotator, self).createActions()
+
 
         self.balanceAct = QAction("Информация о датасете" if self.settings.read_lang() == 'RU' else "Dataset info",
                                   self,
@@ -107,7 +120,7 @@ class Annotator(MainWindow):
         # Object detector
         self.detectAct = QAction(
             "Обнаружить объекты за один проход" if self.settings.read_lang() == 'RU' else "Detect objects", self,
-            shortcut="Ctrl+Y", enabled=False,
+            enabled=False,
             triggered=self.detect)
 
         self.detectAllImagesAct = QAction(
@@ -118,20 +131,22 @@ class Annotator(MainWindow):
         # AI Annotators
         self.aiAnnotatorPointsAct = QAction(
             "Сегментация по точкам" if self.settings.read_lang() == 'RU' else "SAM by points",
-            self, enabled=False, shortcut="Ctrl+A",
+            self, enabled=False,
             triggered=self.ai_points_pressed,
             checkable=True)
         self.aiAnnotatorMaskAct = QAction(
             "Сегментация внутри бокса" if self.settings.read_lang() == 'RU' else "SAM by box", self,
-            enabled=False, shortcut="Ctrl+M",
+            enabled=False,
             triggered=self.ai_mask_pressed,
             checkable=True)
 
         self.GroundingDINOSamAct = QAction(
             "GroundingDINO + SAM" if self.settings.read_lang() == 'RU' else "GroundingDINO + SAM", self,
-            enabled=False, shortcut="Ctrl+G",
+            enabled=False,
             triggered=self.grounding_sam_pressed,
             checkable=True)
+
+        super(Annotator, self).createActions()
 
     def read_detection_model_names(self):
         """

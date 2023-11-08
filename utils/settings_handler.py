@@ -6,6 +6,57 @@ from PyQt5.QtCore import QSettings, QPoint, QSize
 from utils import config
 from utils.config import DOMEN_NAME
 
+shortcuts = {'copy': {'appearance': 'Ctrl+C', 'modifier': ['Ctrl'], 'name_eng': 'Copy label',
+                      'name_ru': 'Копировать выделенную метку', 'shortcut_key_eng': 67, 'shortcut_key_ru': 1057},
+             'crop': {'appearance': 'Ctrl+I', 'modifier': ['Ctrl'], 'name_eng': 'Crop image',
+                      'name_ru': 'Вырезать область', 'shortcut_key_eng': 73, 'shortcut_key_ru': 1064},
+             'del': {'appearance': 'Delete', 'modifier': None, 'name_eng': 'Delete polygon',
+                     'name_ru': 'Удаление полигона', 'shortcut_key_eng': 16777223, 'shortcut_key_ru': 16777223},
+             'detect_single': {'appearance': 'Ctrl+Y', 'modifier': ['Ctrl'], 'name_eng': 'Detect object by one pass',
+                               'name_ru': 'Обнаружить объекты за один проход', 'shortcut_key_eng': 89,
+                               'shortcut_key_ru': 1053},
+             'end_drawing': {'appearance': 'Space', 'modifier': None, 'name_eng': 'Finish label drawing',
+                             'name_ru': 'Закончить создание метки', 'shortcut_key_eng': 32, 'shortcut_key_ru': 32},
+             'fit': {'appearance': 'Ctrl+F', 'modifier': ['Ctrl'], 'name_eng': 'Fit image size',
+                     'name_ru': 'Подогнать под размер окна', 'shortcut_key_eng': 70, 'shortcut_key_ru': 1040},
+             'gd': {'appearance': 'Ctrl+G', 'modifier': ['Ctrl'], 'name_eng': 'Create labels by GroundingDINO+SAM',
+                    'name_ru': 'Создание полигонов с помощью GroundingDINO+SAM', 'shortcut_key_eng': 71,
+                    'shortcut_key_ru': 1055},
+             'image_after': {'appearance': 'PERIOD', 'modifier': None, 'name_eng': 'Go to next image',
+                             'name_ru': 'Следующее изображение', 'shortcut_key_eng': 46, 'shortcut_key_ru': 46},
+             'image_before': {'appearance': ',', 'modifier': None, 'name_eng': 'Go to image before',
+                              'name_ru': 'Предыдущее изображение', 'shortcut_key_eng': 44, 'shortcut_key_ru': 1041},
+             'open_project': {'appearance': 'Ctrl+O', 'modifier': ['Ctrl'], 'name_eng': 'Open project',
+                              'name_ru': 'Открыть проект', 'shortcut_key_eng': 79, 'shortcut_key_ru': 1065},
+             'paste': {'appearance': 'Ctrl+V', 'modifier': ['Ctrl'], 'name_eng': 'Paste label',
+                       'name_ru': 'Вставить выделенную метку', 'shortcut_key_eng': 86, 'shortcut_key_ru': 1052},
+             'polygon': {'appearance': 'Ctrl+B', 'modifier': ['Ctrl'], 'name_eng': 'Create polygon manually',
+                         'name_ru': 'Создание полигона  ручную', 'shortcut_key_eng': 66, 'shortcut_key_ru': 1048},
+             'print': {'appearance': 'Ctrl+P', 'modifier': ['Ctrl'], 'name_eng': 'Print', 'name_ru': 'Печать',
+                       'shortcut_key_eng': 80, 'shortcut_key_ru': 1047},
+             'quit': {'appearance': 'Ctrl+Q', 'modifier': ['Ctrl'], 'name_eng': 'Quit', 'name_ru': 'Выйти',
+                      'shortcut_key_eng': 81, 'shortcut_key_ru': 1049},
+             'sam_box': {'appearance': 'Ctrl+M', 'modifier': ['Ctrl'], 'name_eng': 'Create polygon by SAM box',
+                         'name_ru': 'Создание полигона с помощью бокса SAM', 'shortcut_key_eng': 77,
+                         'shortcut_key_ru': 1068},
+             'sam_points': {'appearance': 'Ctrl+A', 'modifier': ['Ctrl'], 'name_eng': 'Create polygon by SAM points',
+                            'name_ru': 'Создание полигона с помощью точек SAM', 'shortcut_key_eng': 65,
+                            'shortcut_key_ru': 1060},
+             'save_project': {'appearance': 'Ctrl+S', 'modifier': ['Ctrl'], 'name_eng': 'Save project',
+                              'name_ru': 'Сохранение проекта', 'shortcut_key_eng': 83, 'shortcut_key_ru': 1067},
+             'settings': {'appearance': 'Ctrl+PERIOD', 'modifier': ['Ctrl'], 'name_eng': 'Settings',
+                          'name_ru': 'Настройки', 'shortcut_key_eng': 46, 'shortcut_key_ru': 46},
+             'start_drawing': {'appearance': 'S', 'modifier': None, 'name_eng': 'New label', 'name_ru': 'Новая метка',
+                               'shortcut_key_eng': 83, 'shortcut_key_ru': 1067},
+             'undo': {'appearance': 'Ctrl+Z', 'modifier': ['Ctrl'], 'name_eng': 'Undo', 'name_ru': 'Отменить',
+                      'shortcut_key_eng': 90, 'shortcut_key_ru': 1071},
+             'zoom_in': {'appearance': 'Ctrl++', 'modifier': ['Ctrl', ''], 'name_eng': 'Zoom In',
+                         'name_ru': 'Увеличить масштаб', 'shortcut_key_eng': 61, 'shortcut_key_ru': 61},
+             'zoom_out': {'appearance': 'Ctrl+-', 'modifier': ['Ctrl'], 'name_eng': 'Zoom Out',
+                          'name_ru': 'Уменьшить масштаб', 'shortcut_key_eng': 45, 'shortcut_key_ru': 45}}
+
+
+# print(list(shortcuts.keys()))
 
 class AppSettings:
     def __init__(self, app_name=None):
@@ -31,6 +82,15 @@ class AppSettings:
 
     def read_username_variants(self):
         return self.qt_settings.value("general/username_variants", [self.read_username()])
+
+    def write_shortcuts(self, shortcuts):
+        self.qt_settings.setValue("general/shortcuts", shortcuts)
+
+    def read_shortcuts(self):
+        return self.qt_settings.value("general/shortcuts", shortcuts)
+
+    def reset_shortcuts(self):
+        self.qt_settings.setValue("general/shortcuts", shortcuts)
 
     def write_size_pos_settings(self, size, pos):
         self.qt_settings.beginGroup("main_window")

@@ -1,15 +1,15 @@
-from PyQt5.QtWidgets import QLabel, QWidget, QVBoxLayout, QPushButton, QLineEdit, QFormLayout, QDoubleSpinBox, \
-    QProgressBar
-from PyQt5.QtCore import Qt
-from utils import config
-
 import numpy as np
-from ui.combo_box_styled import StyledComboBox, StyledDoubleSpinBox
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QLabel
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLineEdit, QFormLayout, QProgressBar
+
+from ui.combo_box_styled import StyledComboBox
+from ui.combo_box_styled import StyledDoubleSpinBox
 from utils.settings_handler import AppSettings
 
 
 class CustomInputDialog(QWidget):
-    def __init__(self, parent, title_name, question_name):
+    def __init__(self, parent, title_name, question_name, placeholder="", min_width=300):
         super().__init__(parent)
         self.setWindowTitle(f"{title_name}")
         self.setWindowFlag(Qt.Tool)
@@ -19,6 +19,7 @@ class CustomInputDialog(QWidget):
 
         self.label = QLabel(f"{question_name}")
         self.edit = QLineEdit()
+        self.edit.setPlaceholderText(placeholder)
 
         btnLayout = QVBoxLayout()
 
@@ -31,9 +32,13 @@ class CustomInputDialog(QWidget):
         self.mainLayout.addWidget(self.edit)
         self.mainLayout.addLayout(btnLayout)
         self.setLayout(self.mainLayout)
+        self.setMinimumWidth(min_width)
 
     def getText(self):
         return self.edit.text()
+
+
+
 
 
 class CustomComboDialog(QWidget):
