@@ -44,16 +44,16 @@ shortcuts = {'copy': {'appearance': 'Ctrl+C', 'modifier': ['Ctrl'], 'name_eng': 
                             'shortcut_key_ru': 1060},
              'save_project': {'appearance': 'Ctrl+S', 'modifier': ['Ctrl'], 'name_eng': 'Save project',
                               'name_ru': 'Сохранение проекта', 'shortcut_key_eng': 83, 'shortcut_key_ru': 1067},
-             'settings': {'appearance': 'Ctrl+PERIOD', 'modifier': ['Ctrl'], 'name_eng': 'Settings',
-                          'name_ru': 'Настройки', 'shortcut_key_eng': 46, 'shortcut_key_ru': 46},
+             'settings': {'appearance': 'Ctrl+/', 'modifier': ['Ctrl'], 'name_eng': 'Settings', 'name_ru': 'Настройки',
+                          'shortcut_key_eng': 46, 'shortcut_key_ru': 46},
              'start_drawing': {'appearance': 'S', 'modifier': None, 'name_eng': 'New label', 'name_ru': 'Новая метка',
                                'shortcut_key_eng': 83, 'shortcut_key_ru': 1067},
              'undo': {'appearance': 'Ctrl+Z', 'modifier': ['Ctrl'], 'name_eng': 'Undo', 'name_ru': 'Отменить',
                       'shortcut_key_eng': 90, 'shortcut_key_ru': 1071},
-             'zoom_in': {'appearance': 'Ctrl++', 'modifier': ['Ctrl', ''], 'name_eng': 'Zoom In',
-                         'name_ru': 'Увеличить масштаб', 'shortcut_key_eng': 61, 'shortcut_key_ru': 61},
-             'zoom_out': {'appearance': 'Ctrl+-', 'modifier': ['Ctrl'], 'name_eng': 'Zoom Out',
-                          'name_ru': 'Уменьшить масштаб', 'shortcut_key_eng': 45, 'shortcut_key_ru': 45}}
+             'zoom_in': {'appearance': 'PgUp', 'modifier': None, 'name_eng': 'Zoom In', 'name_ru': 'Увеличить масштаб',
+                         'shortcut_key_eng': 16777238, 'shortcut_key_ru': 16777238},
+             'zoom_out': {'appearance': 'PgDown', 'modifier': None, 'name_eng': 'Zoom Out',
+                          'name_ru': 'Уменьшить масштаб', 'shortcut_key_eng': 16777239, 'shortcut_key_ru': 16777239}}
 
 
 # print(list(shortcuts.keys()))

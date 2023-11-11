@@ -6,7 +6,7 @@ from enum import Enum
 import cv2
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtGui import QMovie, QPainter, QIcon, QColor
+from PyQt5.QtGui import QMovie, QPainter, QIcon, QColor, QKeySequence
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, QToolButton, QLabel, \
     QColorDialog, QListWidget
@@ -191,6 +191,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def reset_shortcuts(self):
         shortcuts = self.settings.read_shortcuts()
+        # print(shortcuts)
 
         for sc, act in zip(
                 ['copy', 'crop', 'del', 'end_drawing', 'fit', 'image_after', 'image_before',
@@ -202,8 +203,11 @@ class MainWindow(QtWidgets.QMainWindow):
                  self.saveProjAct, self.settingsAct, self.startDrawAct, self.undoAct, self.zoomInAct, self.zoomOutAct]):
             shortcut = shortcuts[sc]
             appearance = shortcut['appearance']
-            act.setShortcut(appearance)
-
+            if appearance == 'Ctrl+Plus':
+                seq = QKeySequence.ZoomIn
+            else:
+                seq = QKeySequence(appearance)
+            act.setShortcut(seq)
 
     def createActions(self):
 

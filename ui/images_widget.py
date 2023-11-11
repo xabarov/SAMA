@@ -1,12 +1,13 @@
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QListWidget, QListWidgetItem
-
+import os
 
 class ImagesWidget(QListWidget):
 
     def __init__(self, parent, icon_folder):
         super(ImagesWidget, self).__init__(parent)
-        self.icon_folder = icon_folder
+        icon_folder = icon_folder
+        self.icon_folder = os.path.join(icon_folder, '..', 'images_status')
         # self.setMouseTracking(True)
 
     def addItem(self, text, status=None) -> None:

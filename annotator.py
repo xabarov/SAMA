@@ -5,7 +5,7 @@ import cv2
 import matplotlib.pyplot as plt
 import torch
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtGui import QIcon, QCursor
+from PyQt5.QtGui import QIcon, QCursor, QKeySequence
 from PyQt5.QtWidgets import QAction, QMessageBox, QMenu
 from bs4 import BeautifulSoup
 from openvino.runtime import Core
@@ -100,7 +100,7 @@ class Annotator(MainWindow):
                 [self.detectAct, self.GroundingDINOSamAct, self.aiAnnotatorMaskAct, self.aiAnnotatorPointsAct]):
             shortcut = shortcuts[sc]
             appearance = shortcut['appearance']
-            act.setShortcut(appearance)
+            act.setShortcut(QKeySequence(appearance))
 
     def createActions(self):
         """

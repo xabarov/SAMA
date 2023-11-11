@@ -6,18 +6,18 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, \
     QToolButton, QLineEdit, QLabel, QMessageBox, QHeaderView
 from qt_material import apply_stylesheet
-
+import os
 from utils.settings_handler import AppSettings
 
 ru_text_to_key = {'й': 1049, 'ц': 1062, 'у': 1059, 'к': 1050, 'е': 1045, 'н': 1053, 'г': 1043,
                   'ш': 1064, 'щ': 1065, 'з': 1047, 'х': 1061, 'ъ': 1066, 'ф': 1060, 'ы': 1067, 'в': 1042, 'а': 1040,
                   'п': 1055, 'р': 1056, 'о': 1054, 'л': 1051, 'д': 1044, 'ж': 1046, 'э': 1069, 'я': 1071, 'ч': 1063,
-                  'с': 1057, 'м': 1052, 'и': 1048, 'т': 1058, 'ь': 1068, 'б': 1041, 'ю': 1070, '.': 46}
+                  'с': 1057, 'м': 1052, 'и': 1048, 'т': 1058, 'ь': 1068, 'б': 1041, 'ю': 1070}
 
 eng_text_to_key = {'q': 81, 'w': 87, 'e': 69, 'r': 82, 't': 84, 'y': 89, 'u': 85, 'i': 73, 'o': 79,
                    'p': 80, '[': 91, ']': 93, 'a': 65, 's': 83, 'd': 68, 'f': 70, 'g': 71, 'h': 72, 'j': 74, 'k': 75,
                    'l': 76, ';': 59, "'": 39, 'z': 90, 'x': 88, 'c': 67, 'v': 86, 'b': 66, 'n': 78, 'm': 77, ',': 44,
-                   '.': 46, '/': 47}
+                   '.': 46}
 
 ru_to_eng = {k: v for k, v in zip(ru_text_to_key.keys(), eng_text_to_key.keys())}
 
@@ -77,7 +77,9 @@ class ShortCutEdit(QLineEdit):
 
     def convert_shortcut_to_pyqt(self, sc):
 
-        maps = {'Control': 'Ctrl', 'PERIOD': '.', 'Equal': '+', "Minus": '-', 'Comma': ','}
+        maps = {'Control': 'Ctrl', 'Period': '.', 'Comma': ',', 'Minus': '-', 'Equal': '+', 'Plus': '+',
+                'BraceLeft': '[', 'BraceRight': ']', 'PageUp': 'PgUp', 'PageDown': 'PgDown',
+                'Slash': '/', 'Apostrophe': "'", 'Semicolon': ";"}
         for k, v in maps.items():
             if k in sc:
                 sc = sc.replace(k, v)
@@ -165,19 +167,22 @@ class ShortCutsTable(QTableWidget):
 
 class ShortCutsEditor(QWidget):
 
-    def __init__(self, parent=None, min_width=500, on_ok_act=None):
+    def __init__(self, parent=None, on_ok_act=None, width_percent=0.5, height_percent=0.6):
         super(ShortCutsEditor, self).__init__(parent)
 
-        self.setWindowFlag(QtCore.Qt.Window)
-
         self.settings = AppSettings()
+        self.lang = self.settings.read_lang()
+        self.icon_folder = self.settings.get_icon_folder()
+
+        self.setWindowTitle("Настройки горячих клавиш" if self.lang == 'RU' else 'Shortcuts Settings')
+        self.setWindowIcon(QIcon(self.icon_folder + "/keyboard.png"))
+        self.setWindowFlag(QtCore.Qt.Window)
 
         self.shortcuts = self.settings.read_shortcuts()
 
-        self.icon_folder = self.settings.get_icon_folder()
         self.create_actions()
         self.create_toolbar()
-        self.table = ShortCutsTable(lang=self.settings.read_lang(), shortcuts=self.shortcuts)
+        self.table = ShortCutsTable(lang=self.lang, shortcuts=self.shortcuts)
 
         mainlayout = QVBoxLayout()
 
@@ -186,15 +191,15 @@ class ShortCutsEditor(QWidget):
         self.tablelay.addWidget(self.table)
 
         buttons_lay = QHBoxLayout()
-        ok_button = QPushButton('Применить' if self.settings.read_lang() == 'RU' else 'Apply')
+        ok_button = QPushButton('Применить' if self.lang == 'RU' else 'Apply')
         ok_button.clicked.connect(self.on_ok)
         if on_ok_act:
             ok_button.clicked.connect(on_ok_act)
 
-        cancel_button = QPushButton('Отменить' if self.settings.read_lang() == 'RU' else 'Cancel')
+        cancel_button = QPushButton('Отменить' if self.lang == 'RU' else 'Cancel')
         cancel_button.clicked.connect(self.hide)
 
-        reset_all_button = QPushButton(" Вернуть к исходным" if self.settings.read_lang() == 'RU' else ' Reset')
+        reset_all_button = QPushButton(" Вернуть к исходным" if self.lang == 'RU' else ' Reset')
         # reset_all_button.setIcon(QIcon(self.icon_folder + "/circle.png"))
         reset_all_button.clicked.connect(self.on_reset_all)
 
@@ -207,19 +212,21 @@ class ShortCutsEditor(QWidget):
         mainlayout.addLayout(buttons_lay)
 
         self.setLayout(mainlayout)
-        self.setMinimumWidth(min_width)
+        size, pos = self.settings.read_size_pos_settings()
+        self.setMinimumWidth(int(size.width()*width_percent))
+        self.setMinimumHeight(int(size.height()*height_percent))
 
     def on_ok(self):
         self.settings.write_shortcuts(self.shortcuts)
         self.hide()
 
     def create_actions(self):
-        self.edit = QPushButton(" Правка" if self.settings.read_lang() == 'RU' else ' Edit')
-        self.edit.setIcon(QIcon(self.icon_folder + "/reset.png"))
+        self.edit = QPushButton(" Правка" if self.lang == 'RU' else ' Edit')
+        self.edit.setIcon(QIcon(self.icon_folder + "/edit.png"))
         self.edit.clicked.connect(self.on_edit)
 
-        self.reset = QPushButton(" Удалить" if self.settings.read_lang() == 'RU' else ' Clear')
-        self.reset.setIcon(QIcon(self.icon_folder + "/clean.png"))
+        self.reset = QPushButton(" Удалить" if self.lang == 'RU' else ' Clear')
+        self.reset.setIcon(QIcon(self.icon_folder + "/clear.png"))
         self.reset.clicked.connect(self.on_reset)
 
     def create_toolbar(self):
@@ -245,7 +252,7 @@ class ShortCutsEditor(QWidget):
         self.settings.reset_shortcuts()
         self.shortcuts = self.settings.read_shortcuts()
         self.table.close()
-        self.table = ShortCutsTable(lang=self.settings.read_lang(), shortcuts=self.shortcuts)
+        self.table = ShortCutsTable(lang=self.lang, shortcuts=self.shortcuts)
         self.tablelay.addWidget(self.table)
         self.update()
 
@@ -258,8 +265,8 @@ class ShortCutsEditor(QWidget):
         shortcut_apperance = self.shortcuts[self.selected_k]['appearance']
 
         self.input_dialog = ShortCutInputDialog(self,
-                                                title_name=f"Редактирование комманды {cmd}" if self.settings.read_lang() == 'RU' else f"Edit shortcut {cmd}",
-                                                question_name="Введите новую комманду:" if self.settings.read_lang() == 'RU' else "Enter new shortcut:",
+                                                title_name=f"Редактирование комманды {cmd}" if self.lang == 'RU' else f"Edit shortcut {cmd}",
+                                                question_name="Введите новую комманду:" if self.lang == 'RU' else "Enter new shortcut:",
                                                 placeholder=shortcut_apperance, min_width=400)
         self.input_dialog.okBtn.clicked.connect(self.on_edit_shortcut_ok)
         self.input_dialog.show()
@@ -277,7 +284,7 @@ class ShortCutsEditor(QWidget):
         shortcut_command = self.input_dialog.getCommand()  # {'appearance': appearance, 'key': e_key, 'modifiers': modifiers}
 
         if not shortcut_command:
-            if self.settings.read_lang() == 'RU':
+            if self.lang == 'RU':
                 text = f"Введите команду для {self.table.item(self.edit_row, 1).text()}"
                 title = "Не задана команда"
             else:
@@ -286,7 +293,7 @@ class ShortCutsEditor(QWidget):
             show_message(title, text)
             return
         if not self.check_shortcut(shortcut_command, self.selected_k):
-            if self.settings.read_lang() == 'RU':
+            if self.lang == 'RU':
                 text = "Команда уже занята"
                 title = "Не верно задана команда"
             else:
