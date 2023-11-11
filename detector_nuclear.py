@@ -143,7 +143,8 @@ class DetectorNuclear(Detector):
 
         message = f"Найдено {len(self.detected_shapes)} объектов" if self.settings.read_lang() == 'RU' else f"{len(self.detected_shapes)} objects has been detected"
 
-        self.ask_next_step = AskNextStepDialog(None, "Поиск объектов нейросетью", "Поиск БНС", message)
+        self.ask_next_step = AskNextStepDialog(None, "Поиск объектов нейросетью", "Поиск БНС", message,
+                                               width_percent=0.2, height_percent=0.2)
         self.ask_next_step.nextBtn.clicked.connect(self.start_post_processing)
         self.ask_next_step.show()
 
