@@ -2,6 +2,7 @@ import os
 
 import screeninfo
 from PyQt5.QtCore import QSettings, QPoint, QSize
+from PyQt5.QtGui import QPolygonF, QColor, QPen, QPainter, QPixmap, QFont, QIcon
 
 from utils import config
 from utils.config import DOMEN_NAME
@@ -192,3 +193,16 @@ class AppSettings:
 
     def read_iou_thres(self):
         return self.qt_settings.value("cnn/iou_thres", 0.5)
+
+    def write_label_text_params(self, font, hide=False, auto_color=False,
+                                default_color=(255, 255, 255, 255)):
+        self.qt_settings.setValue("general/label_text",
+                                  {'hide': hide, 'font': font, 'auto_color': auto_color,
+                                   'default_color': default_color})
+
+    def read_label_text_params(self):
+        size, pos = self.read_size_pos_settings()
+        pixel_size = max(10, int(size.height() / 128.0))
+        font = QFont("Arial", pixel_size, QFont.Normal)
+        return self.qt_settings.value("general/label_text", {'font': font, 'auto_color': False,
+                                                             'default_color': (255, 255, 255, 255), 'hide': False})

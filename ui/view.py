@@ -240,7 +240,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def remove_all_segments(self):
         for s in self.segments:
-            self.scene().removeItem(s)
+            self.remove_item(s)
 
     def clearScene(self):
         """
@@ -512,14 +512,14 @@ class GraphicsView(QtWidgets.QGraphicsView):
             self.remove_shape_by_id(item_id)
         self.last_added = []
 
-    def add_polygons_group_to_scene(self, cls_num, point_of_points_mass, color=None, alpha=50):
+    def add_polygons_group_to_scene(self, cls_num, point_of_points_mass, color=None, alpha=50, text=None):
         self.last_added = []
         for points_mass in point_of_points_mass:
             id = self.get_unique_label_id()
             self.last_added.append(id)
-            self.add_polygon_to_scene(cls_num, points_mass, color=color, alpha=alpha, id=id, is_save_last=False)
+            self.add_polygon_to_scene(cls_num, points_mass, color=color, alpha=alpha, id=id, is_save_last=False, text=text)
 
-    def add_polygon_to_scene(self, cls_num, point_mass, color=None, alpha=50, id=None, is_save_last=True):
+    def add_polygon_to_scene(self, cls_num, point_mass, color=None, alpha=50, id=None, is_save_last=True, text=None):
         """
         Добавление полигона на сцену
         color - цвет. Если None - будет выбран цвет, соответствующий номеру класса из config.COLORS
@@ -538,7 +538,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if id not in self.labels_ids:
             self.labels_ids.append(id)
 
-        polygon_new = GrPolygonLabel(None, color=color, cls_num=cls_num, alpha_percent=alpha, id=id)
+        polygon_new = GrPolygonLabel(None, color=color, cls_num=cls_num, alpha_percent=alpha, id=id, text=text,
+                                     text_pos=hf.calc_label_pos(point_mass))
 
         polygon_new.setBrush(QtGui.QBrush(QColor(*polygon_new.color), QtCore.Qt.SolidPattern))
         polygon_new.setPen(QPen(QColor(*hf.set_alpha_to_max(polygon_new.color)), self.line_width, QtCore.Qt.SolidLine))
@@ -551,6 +552,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
         polygon_new.setPolygon(poly)
 
         self.scene().addItem(polygon_new)
+        if text:
+            self.scene().addItem(polygon_new.get_label())
 
     def addPointToActivePolygon(self, lp):
 
@@ -594,6 +597,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                         poly_new.append(p)
 
                 self.active_item.setPolygon(poly_new)
+                print(poly_new)
 
     def get_active_shape(self, is_filter=True):
         if self.active_item:
@@ -842,9 +846,10 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def add_fat_point_to_polygon_vertex(self, vertex):
         scale = self._zoom / 5.0 + 1
-        self.fat_point = QtWidgets.QGraphicsEllipseItem(vertex.x() - self.fat_width / (2 * scale),
-                                                        vertex.y() - self.fat_width / (2 * scale),
-                                                        self.fat_width / scale, self.fat_width / scale)
+        self.fat_point = GrEllipsLabel()
+        self.fat_point.setRect(vertex.x() - self.fat_width / (2 * scale),
+                               vertex.y() - self.fat_width / (2 * scale),
+                               self.fat_width / scale, self.fat_width / scale)
         self.fat_point.setPen(self.fat_point_pen)
         self.fat_point.setBrush(self.fat_point_brush)
 
@@ -852,9 +857,10 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def add_positive_ai_point_to_scene(self, point):
         scale = self._zoom / 2.5 + 1
-        positive_point = QtWidgets.QGraphicsEllipseItem(point.x() - self.fat_width / (2 * scale),
-                                                        point.y() - self.fat_width / (2 * scale),
-                                                        self.fat_width / scale, self.fat_width / scale)
+        positive_point = GrEllipsLabel()
+        positive_point.setRect(point.x() - self.fat_width / (2 * scale),
+                                       point.y() - self.fat_width / (2 * scale),
+                                       self.fat_width / scale, self.fat_width / scale)
         positive_point.setPen(self.positive_point_pen)
         positive_point.setBrush(self.positive_point_brush)
 
@@ -863,9 +869,10 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def add_negative_ai_point_to_scene(self, point):
         scale = self._zoom / 2.5 + 1
-        negative_point = QtWidgets.QGraphicsEllipseItem(point.x() - self.fat_width / (2 * scale),
-                                                        point.y() - self.fat_width / (2 * scale),
-                                                        self.fat_width / scale, self.fat_width / scale)
+        negative_point = GrEllipsLabel()
+        negative_point.setRect(point.x() - self.fat_width / (2 * scale),
+                                       point.y() - self.fat_width / (2 * scale),
+                                       self.fat_width / scale, self.fat_width / scale)
         negative_point.setPen(self.negative_point_pen)
         negative_point.setBrush(self.negative_point_brush)
 
@@ -1109,6 +1116,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
             if item.id == self.last_label_id:
                 self.last_label_id = self.last_label_id - 1
 
+        text_label = item.get_label()
+        if text_label:
+            self.scene().removeItem(text_label)
         self.scene().removeItem(item)
 
     def remove_all_polygons(self):
@@ -1408,9 +1418,10 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         ruler_point_width = self.fat_width / 2.0
 
-        ruler_draw_point = QtWidgets.QGraphicsEllipseItem(pressed_point.x() - ruler_point_width / (2 * scale),
-                                                          pressed_point.y() - ruler_point_width / (2 * scale),
-                                                          ruler_point_width / scale, ruler_point_width / scale)
+        ruler_draw_point = GrEllipsLabel()
+        ruler_draw_point.setRect(pressed_point.x() - ruler_point_width / (2 * scale),
+                                         pressed_point.y() - ruler_point_width / (2 * scale),
+                                         ruler_point_width / scale, ruler_point_width / scale)
         ruler_draw_point.setPen(self.ruler_pen)
         ruler_draw_point.setBrush(self.ruler_brush)
 

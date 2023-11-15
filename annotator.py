@@ -484,7 +484,13 @@ class Annotator(MainWindow):
             alpha_tek = self.settings.read_alpha()
             color = self.project_data.get_label_color(cls_name)
 
-            self.view.add_polygons_group_to_scene(cls_num, filtered_points_mass, color, alpha_tek)
+            label_text_params = self.settings.read_label_text_params()
+            if label_text_params['hide']:
+                text = None
+            else:
+                text = cls_name
+
+            self.view.add_polygons_group_to_scene(cls_num, filtered_points_mass, color, alpha_tek, text=text)
 
             self.update_labels()
 
@@ -690,7 +696,15 @@ class Annotator(MainWindow):
             if not color:
                 color = cls_settings.PALETTE[cls_num]
 
-            self.view.add_polygon_to_scene(cls_num, points, color=color, id=shape_id)
+            cls_name = self.cls_combo.itemText(cls_num)
+
+            label_text_params = self.settings.read_label_text_params()
+            if label_text_params['hide']:
+                text = None
+            else:
+                text = cls_name
+
+            self.view.add_polygon_to_scene(cls_num, points, color=color, id=shape_id, text=text)
 
             shape = {'id': shape_id, 'cls_num': cls_num, 'points': points, 'conf': res['conf']}
             self.detected_shapes.append(shape)

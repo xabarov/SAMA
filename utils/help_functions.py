@@ -75,6 +75,18 @@ def calc_areas(seg_results, lrm, verbose=False, cls_names=None, scale=1):
     return areas
 
 
+def calc_point_mass_centroid(point_mass):
+    p = Polygon(point_mass)
+    c = p.centroid
+    return [int(c.x), int(c.y)]
+
+
+def calc_label_pos(point_mass):
+    p = Polygon(point_mass)
+    c = p.boundary.coords[1]
+    return [int(c[0]), int(c[1])]
+
+
 def get_extension(filename):
     return coords_calc.get_ext(filename)
 

@@ -1,26 +1,21 @@
-from PyQt5.QtWidgets import QLabel, QGroupBox, QFormLayout, QVBoxLayout, QDoubleSpinBox, QCheckBox
+from PyQt5.QtWidgets import QLabel, QGroupBox, QFormLayout, QVBoxLayout, QDoubleSpinBox, QCheckBox, QTabWidget
 
 from utils import cls_settings
 from ui.settings_window_base import SettingsWindowBase
 from ui.combo_box_styled import StyledComboBox, StyledDoubleSpinBox
 import numpy as np
+from PyQt5 import QtWidgets
+import sys
+
+from qt_material import apply_stylesheet
 
 
 class SettingsWindow(SettingsWindowBase):
     def __init__(self, parent):
         super().__init__(parent)
-
-    def stack_layouts(self):
         self.create_cnn_layout()
 
-        self.mainLayout = QVBoxLayout()
-        self.mainLayout.addWidget(self.main_group)
-        self.mainLayout.addWidget(self.labeling_group)
-        self.mainLayout.addWidget(self.classifierGroupBox)
-
-        btnLayout = self.create_buttons()
-        self.mainLayout.addLayout(btnLayout)
-        self.setLayout(self.mainLayout)
+        self.tabs.addTab(self.classifierGroupBox, "Обнаружение" if self.lang == 'RU' else 'Detection')
 
     def create_cnn_layout(self):
         theme = self.settings.read_theme()
@@ -35,7 +30,7 @@ class SettingsWindow(SettingsWindowBase):
         self.where_calc_combo.setCurrentIndex(idx)
 
         # Настройки обнаружения
-        self.classifierGroupBox = QGroupBox("Настройки классификации" if self.lang == 'RU' else 'Classifier')
+        self.classifierGroupBox = QGroupBox()
 
         classifier_layout = QFormLayout()
 
@@ -103,3 +98,13 @@ class SettingsWindow(SettingsWindowBase):
         self.settings.write_simplify_factor(self.simplify_spin.value())
 
         self.settings.write_sam_hq(int(self.SAM_HQ_checkbox.isChecked()))
+
+
+if __name__ == '__main__':
+    app = QtWidgets.QApplication(sys.argv)
+
+    apply_stylesheet(app, theme='dark_blue.xml', invert_secondary=False)
+
+    w = SettingsWindow(None)
+    w.show()
+    sys.exit(app.exec_())

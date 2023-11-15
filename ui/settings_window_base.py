@@ -1,10 +1,13 @@
 import numpy as np
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QLabel, QWidget, QGroupBox, QFormLayout, QVBoxLayout, \
-    QHBoxLayout, QPushButton, QSlider
-
+    QHBoxLayout, QPushButton, QSlider, QTabWidget, QFontDialog, QCheckBox, QColorDialog
+from PyQt5.QtGui import QPolygonF, QColor, QPen, QPainter, QPixmap, QFont, QIcon
 from ui.combo_box_styled import StyledComboBox
 from utils.settings_handler import AppSettings
+from PyQt5 import QtWidgets
+import sys
+from qt_material import apply_stylesheet
 
 
 class SettingsWindowBase(QWidget):
@@ -21,19 +24,23 @@ class SettingsWindowBase(QWidget):
         self.resize(500, 500)
 
     def stack_layouts(self):
-        self.mainLayout = QVBoxLayout()
-        self.mainLayout.addWidget(self.main_group)
-        self.mainLayout.addWidget(self.labeling_group)
 
-        btnLayout = self.create_buttons()
-        self.mainLayout.addLayout(btnLayout)
+        self.mainLayout = QVBoxLayout()
+        self.tabs = QTabWidget()
+        self.tabs.addTab(self.main_group,
+                         "Общие" if self.lang == 'RU' else 'General')  # addWidget(self.main_group)
+        self.tabs.addTab(self.labeling_group,
+                         "Разметка" if self.lang == 'RU' else 'Labeling')  # addWidget(self.labeling_group)
+        self.mainLayout.addWidget(self.tabs)
+
+        btns = self.create_buttons()
+        self.mainLayout.addLayout(btns)
         self.setLayout(self.mainLayout)
 
     def create_main_group(self):
         # настройки темы
 
-        self.main_group = QGroupBox(
-            "Настройки приложения" if self.lang == 'RU' else 'Appearance')
+        self.main_group = QGroupBox()
 
         layout_global = QFormLayout()
 
@@ -129,7 +136,7 @@ class SettingsWindowBase(QWidget):
 
     def create_labeling_group(self):
         # Настройки разметки
-        self.labeling_group = QGroupBox("Настройки разметки" if self.lang == 'RU' else 'Labeling')
+        self.labeling_group = QGroupBox()
 
         layout = QFormLayout()
 
@@ -145,13 +152,122 @@ class SettingsWindowBase(QWidget):
         layout.addRow(QLabel("Толщина граней разметки" if self.lang == 'RU' else 'Edges width'),
                       self.fat_width_slider)
 
+        label_text_params = self.settings.read_label_text_params()
+        is_hide = label_text_params['hide']
+        auto_color = label_text_params['auto_color']
+        self.cur_font = label_text_params['font']
+        self.default_color = label_text_params['default_color']
+
+        # Скрывать ли метки
+
+        self.font_hide_checkbox = QCheckBox()
+        self.font_hide_checkbox.setChecked(is_hide)
+        self.font_hide_checkbox.stateChanged.connect(self.font_hide_checkbox_clicked)
+        layout.addRow(QLabel('Скрывать текст' if self.lang == 'RU' else 'Hide text'), self.font_hide_checkbox)
+
+        # Шрифт Меток
+        self.font_btn = QPushButton('Задать' if self.lang == 'RU' else 'Settings')
+        self.font_btn.setIcon(QIcon(self.icon_folder + "/color.png"))
+        self.font_btn.clicked.connect(self.on_font_clicked)
+
+        self.font_label = QLabel()
+        self.set_font_btn_label()
+
+        layout.addRow(self.font_label, self.font_btn)
+
+        # Цвет текста
+        # Чекбокс
+        self.autocolor_checkbox = QCheckBox()
+        self.autocolor_checkbox.setChecked(auto_color)
+        self.autocolor_checkbox.stateChanged.connect(self.autocolor_checkbox_clicked)
+        self.autocolor_checkbox_label = QLabel(
+            'Задать цвет текста как у метки' if self.lang == 'RU' else 'Set text color the same as label')
+        layout.addRow(self.autocolor_checkbox_label,
+                      self.autocolor_checkbox)
+
+        # Палитра
+        self.color_btn = QPushButton('Задать' if self.lang == 'RU' else 'Settings')
+
+        self.color_btn.setIcon(QIcon(self.icon_folder + "/color.png"))
+        self.color_btn.clicked.connect(self.on_color_clicked)
+
+        self.color_label = QLabel()
+        self.set_color_btn_label()
+
+        layout.addRow(self.color_label, self.color_btn)
+
+        # Положение текста относительно метки
+
+        self.font_hide_checkbox_clicked()
+        self.autocolor_checkbox_clicked()
+
         self.labeling_group.setLayout(layout)
+
+    def autocolor_checkbox_clicked(self):
+        auto_color = self.autocolor_checkbox.isChecked()
+        if auto_color:
+            self.color_btn.hide()
+            self.color_label.hide()
+        else:
+            self.color_btn.show()
+            self.color_label.show()
+
+    def set_font_btn_label(self):
+        font_btn_text = 'Шрифт меток: ' if self.lang == 'RU' else 'Labels  font: '
+        font_btn_text += f"{self.cur_font.family()},{self.cur_font.pointSize()}"
+        self.font_label.setText(font_btn_text)
+
+    def set_color_btn_label(self):
+        color_btn_text = 'Цвет шрифта: ' if self.lang == 'RU' else 'Font color: '
+        color_btn_text += f"{self.default_color}"
+        self.color_label.setText(color_btn_text)
+
+    def font_hide_checkbox_clicked(self):
+        hide = self.font_hide_checkbox.isChecked()
+        if hide:
+            self.font_btn.hide()
+            self.font_label.hide()
+            self.color_btn.hide()
+            self.color_label.hide()
+            self.autocolor_checkbox.hide()
+            self.autocolor_checkbox_label.hide()
+        else:
+            self.font_btn.show()
+            self.font_label.show()
+            self.color_btn.show()
+            self.color_label.show()
+            self.autocolor_checkbox.show()
+            self.autocolor_checkbox_label.show()
+
+    def on_font_clicked(self):
+        font_dialog = QFontDialog()
+        font_dialog.setWindowTitle(
+            f"Выберите шрифт для меток" if self.settings.read_lang() == 'RU' else f"Set font for labels")
+
+        font_dialog.setCurrentFont(self.cur_font)
+        font_dialog.setWindowIcon(QIcon(self.icon_folder + "/color.png"))
+
+        font, ok = font_dialog.getFont()
+        if ok:
+            self.cur_font = font
+            self.set_font_btn_label()
+
+    def on_color_clicked(self):
+        color_dialog = QColorDialog()
+
+        color_dialog.setCurrentColor(QColor(*self.default_color))
+        color_dialog.setWindowIcon(QIcon(self.icon_folder + "/color.png"))
+        color_dialog.exec()
+        rgb = color_dialog.selectedColor().getRgb()
+        self.default_color = (rgb[0], rgb[1], rgb[2], 255)
+        self.set_color_btn_label()
 
     def import_settings(self):
         self.settings = AppSettings()
         self.lang = self.settings.read_lang()
         self.setWindowTitle("Настройки приложения" if self.lang == 'RU' else 'Settings')
-        self.setWindowFlag(Qt.Tool)
+        self.icon_folder = self.settings.get_icon_folder()
+        self.setWindowFlag(Qt.Tool)  # убрать при тесте
 
     def create_buttons(self):
         btnLayout = QHBoxLayout()
@@ -175,7 +291,21 @@ class SettingsWindowBase(QWidget):
         self.settings.write_fat_width(self.fat_width_slider.value())
         self.settings.write_density(self.density_slider.value())
 
+        self.settings.write_label_text_params(self.cur_font, hide=self.font_hide_checkbox.isChecked(),
+                                              auto_color=self.autocolor_checkbox.isChecked(),
+                                              default_color=self.default_color)
+
         self.close()
 
     def on_cancel_clicked(self):
         self.close()
+
+
+if __name__ == '__main__':
+    app = QtWidgets.QApplication(sys.argv)
+
+    apply_stylesheet(app, theme='dark_blue.xml', invert_secondary=False)
+
+    w = SettingsWindowBase(None)
+    w.show()
+    sys.exit(app.exec_())

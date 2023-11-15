@@ -9,10 +9,10 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QMovie, QPainter, QIcon, QColor, QKeySequence
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, QToolButton, QLabel, \
-    QColorDialog, QListWidget
+    QColorDialog, QListWidget, QProgressBar
 from PyQt5.QtWidgets import QApplication
 from qt_material import apply_stylesheet
-
+from PyQt5.QtGui import QPolygonF, QColor, QPen, QPainter, QPixmap, QFont
 from ui.ask_del_polygon import AskDelWindow
 from ui.combo_box_styled import StyledComboBox
 from ui.create_project_dialog import CreateProjectDialog
@@ -58,6 +58,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.setWindowTitle("AI Annotator")
 
+        # Settings
+        self.settings = AppSettings()
+        self.icon_folder = self.settings.get_icon_folder()
+        # Work with project
+        self.project_data = ProjectHandler()
+        # Some settings
+        self.init_global_values()
+
         # Start on Loading Animation
         # self.start_gif(is_prog_load=True)
 
@@ -65,9 +73,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.mode = Mode.normal
         self.rubber_band_change_conn = RubberBandModeConnection()
 
-        # Settings
-        self.settings = AppSettings()
-        self.icon_folder = self.settings.get_icon_folder()
         # GraphicsView
         self.view = GraphicsView(on_rubber_band_mode=self.rubber_band_change_conn.on_rubber_mode_change)
 
@@ -106,11 +111,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Printer
         self.printer = QPrinter()
-
-        # Work with project
-        self.project_data = ProjectHandler()
-
-        self.init_global_values()
 
         # self.splash.finish(self)
         self.statusBar().showMessage(
@@ -476,6 +476,12 @@ class MainWindow(QtWidgets.QMainWindow):
                         on_color_change_signal=self.on_theme_change_connection.on_theme_change,
                         on_images_list_change=self.im_panel_count_conn.on_image_count_change))
 
+        self.image_panel_progress_bar = QProgressBar()
+        self.image_panel_progress_bar.setMinimum(0)
+        self.image_panel_progress_bar.setMaximum(100)
+        self.image_panel_progress_bar.setMaximumHeight(5)
+        lay.addWidget(self.image_panel_progress_bar)
+
         self.images_list_widget = ImagesWidget(self, self.settings.get_icon_folder())  # QListWidget()
         self.images_list_widget.itemClicked.connect(self.images_list_widget_clicked)
         lay.addWidget(self.images_list_widget)
@@ -694,7 +700,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.project_data.set_image_status(tek_im_name, new_status)
             self.project_data.set_image_last_user(tek_im_name, self.settings.read_username())
             self.images_list_widget.set_status(status=new_status)
-            # self.fill_images_label(self.dataset_images)
+            self.reset_image_panel_progress_bar()
 
     def fill_labels_on_tek_image_list_widget(self):
 
@@ -1372,6 +1378,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
             self.images_list_widget.setCurrentRow(0)
 
+            self.reset_image_panel_progress_bar()
+
         self.statusBar().showMessage(
             f"Число загруженных в проект изображений: {len(self.dataset_images)}" if self.settings.read_lang() == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
             3000)
@@ -1668,7 +1676,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 color = self.project_data.get_label_color(cls_name)
 
-                self.view.add_polygon_to_scene(cls_num, points, color=color, alpha=alpha_tek, id=shape["id"])
+                label_text_params = self.settings.read_label_text_params()
+                if label_text_params['hide']:
+                    text = None
+                else:
+                    text = cls_name
+                self.view.add_polygon_to_scene(cls_num, points, color=color, alpha=alpha_tek, id=shape["id"], text=text)
 
     def end_drawing(self):
 
@@ -1739,7 +1752,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.mode = Mode.normal
             if self.tek_image_name:
                 self.view.end_drawing()
-                self.update_labels()
+        self.update_labels()
 
     def reload_image(self):
         """
@@ -1950,6 +1963,24 @@ class MainWindow(QtWidgets.QMainWindow):
         if new_name:
             self.settings.write_username(new_name)
             self.settings.write_username_variants(self.user_names_combo.getAll())
+
+    def reset_image_panel_progress_bar(self):
+        if len(self.dataset_images) == 0:
+            return
+        images_info = self.project_data.get_all_images_info()
+        approved_count = 0
+        for name in self.dataset_images:
+            if name in images_info:
+                status = images_info[name].get('status', None)
+                if status == 'approve':
+                    approved_count += 1
+        percent = int(approved_count * 100.0 / len(self.dataset_images))
+        self.image_panel_progress_bar.setValue(percent)
+
+        message = f"Число изображений со статусом approved: " if self.settings.read_lang() == 'RU' else f"Approved images count: "
+        message += f"{approved_count} из {len(self.dataset_images)}"
+        self.statusBar().showMessage(message,
+                                     3000)
 
 
 if __name__ == '__main__':
