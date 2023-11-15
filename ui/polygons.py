@@ -64,12 +64,22 @@ class GrEllipsLabel(QtWidgets.QGraphicsEllipseItem):
         self.alpha_percent = alpha_percent
         self.color = get_color(color, cls_num, alpha_percent)
         self.label = None
+        self.text = text
+        self.text_pos = text_pos
 
         if text and text_pos:
             self.label = make_label(text, text_pos, self.color)
 
+    def set_cls_num(self, cls_num):
+        self.cls_num = cls_num
+
     def get_label(self):
         return self.label
+
+    def set_label(self, text, text_pos, color=None):
+        if not color:
+            color = self.color
+        self.label = make_label(text, text_pos, color)
 
     def reset_label_pos(self, x, y):
         if self.label:
@@ -129,6 +139,9 @@ class GrPolygonLabel(QtWidgets.QGraphicsPolygonItem):
         self.alpha_percent = alpha_percent
         self.color = get_color(color, cls_num, alpha_percent)
         self.label = None
+        self.text = text
+        self.text_pos = text_pos
+
         if text and text_pos:
             self.label = make_label(text, text_pos, self.color)
 
@@ -146,6 +159,14 @@ class GrPolygonLabel(QtWidgets.QGraphicsPolygonItem):
 
     def get_label(self):
         return self.label
+
+    def set_cls_num(self, cls_num):
+        self.cls_num = cls_num
+
+    def set_label(self, text, text_pos, color=None):
+        if not color:
+            color = self.color
+        self.label = make_label(text, text_pos, color)
 
     def __str__(self):
         pol = self.polygon()

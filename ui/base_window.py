@@ -509,7 +509,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.remove_all_polygons()
 
         if self.tek_image_name:
-            self.view.end_drawing()
+            cls_txt = self.cls_combo.currentText()
+            cls_num = self.cls_combo.currentIndex()
+            self.view.end_drawing(cls_num=cls_num, text=cls_txt)
             self.update_labels()
 
     def create_top_toolbar(self):
@@ -1717,7 +1719,9 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         if self.ann_type in ["Polygon", "Box", "Ellips"]:
-            self.view.end_drawing()  # save it to
+            cls_txt = self.cls_combo.currentText()
+            cls_num = self.cls_combo.currentIndex()
+            self.view.end_drawing(cls_num=cls_num, text=cls_txt) # save it to
 
         if self.mode != Mode.normal:
             self.mode = Mode.normal
@@ -1751,7 +1755,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.mode != Mode.normal:
             self.mode = Mode.normal
             if self.tek_image_name:
-                self.view.end_drawing()
+                cls_txt = self.cls_combo.currentText()
+                cls_num = self.cls_combo.currentIndex()
+                self.view.end_drawing(cls_num=cls_num, text=cls_txt)
         self.update_labels()
 
     def reload_image(self):

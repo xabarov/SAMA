@@ -517,7 +517,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
         for points_mass in point_of_points_mass:
             id = self.get_unique_label_id()
             self.last_added.append(id)
-            self.add_polygon_to_scene(cls_num, points_mass, color=color, alpha=alpha, id=id, is_save_last=False, text=text)
+            self.add_polygon_to_scene(cls_num, points_mass, color=color, alpha=alpha, id=id, is_save_last=False,
+                                      text=text)
 
     def add_polygon_to_scene(self, cls_num, point_mass, color=None, alpha=50, id=None, is_save_last=True, text=None):
         """
@@ -859,8 +860,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
         scale = self._zoom / 2.5 + 1
         positive_point = GrEllipsLabel()
         positive_point.setRect(point.x() - self.fat_width / (2 * scale),
-                                       point.y() - self.fat_width / (2 * scale),
-                                       self.fat_width / scale, self.fat_width / scale)
+                               point.y() - self.fat_width / (2 * scale),
+                               self.fat_width / scale, self.fat_width / scale)
         positive_point.setPen(self.positive_point_pen)
         positive_point.setBrush(self.positive_point_brush)
 
@@ -871,8 +872,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
         scale = self._zoom / 2.5 + 1
         negative_point = GrEllipsLabel()
         negative_point.setRect(point.x() - self.fat_width / (2 * scale),
-                                       point.y() - self.fat_width / (2 * scale),
-                                       self.fat_width / scale, self.fat_width / scale)
+                               point.y() - self.fat_width / (2 * scale),
+                               self.fat_width / scale, self.fat_width / scale)
         negative_point.setPen(self.negative_point_pen)
         negative_point.setBrush(self.negative_point_brush)
 
@@ -989,6 +990,11 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 for point in self.active_item.polygon():
                     point_moved = QtCore.QPointF(point.x() + delta_x, point.y() + delta_y)
                     poly.append(point_moved)
+
+                label = self.active_item.get_label()
+                if label:
+                    pos = label.pos()
+                    label.setPos(pos.x() + delta_x, pos.y() + delta_y)
 
                 self.active_item.setPolygon(poly)
 
@@ -1336,7 +1342,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         return []
 
-    def end_drawing(self):
+    def end_drawing(self, text=None, cls_num=-1):
         self.is_drawing = False
         # self.setMouseTracking(True)
         self.remove_fat_point_from_scene()
@@ -1346,6 +1352,13 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         if self.active_item:
             self.toggle(self.active_item)
+            if text and cls_num != -1:
+                # post settings
+                point_mass = hf.convert_item_polygon_to_point_mass(self.active_item.polygon())
+                text_pos = hf.calc_label_pos(point_mass)
+                self.active_item.set_label(text, text_pos)
+                self.active_item.set_cls_num(cls_num)
+                self.scene().addItem(self.active_item.get_label())
 
     def is_all_actives_same_class(self):
         if len(self.active_group) == 0:
@@ -1420,8 +1433,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         ruler_draw_point = GrEllipsLabel()
         ruler_draw_point.setRect(pressed_point.x() - ruler_point_width / (2 * scale),
-                                         pressed_point.y() - ruler_point_width / (2 * scale),
-                                         ruler_point_width / scale, ruler_point_width / scale)
+                                 pressed_point.y() - ruler_point_width / (2 * scale),
+                                 ruler_point_width / scale, ruler_point_width / scale)
         ruler_draw_point.setPen(self.ruler_pen)
         ruler_draw_point.setBrush(self.ruler_brush)
 

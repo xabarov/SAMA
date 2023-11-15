@@ -87,6 +87,13 @@ def calc_label_pos(point_mass):
     return [int(c[0]), int(c[1])]
 
 
+def convert_item_polygon_to_point_mass(pol):
+    points = []
+    for p in pol:
+        points.append([p.x(), p.y()])
+    return points
+
+
 def get_extension(filename):
     return coords_calc.get_ext(filename)
 

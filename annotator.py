@@ -548,8 +548,7 @@ class Annotator(MainWindow):
             else:
                 self.view.remove_active()
 
-            self.view.clear_ai_points()
-            self.view.end_drawing()
+            self.view.end_drawing()  # clear points inside view
 
             self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
 
