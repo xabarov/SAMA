@@ -1,22 +1,66 @@
-from PyQt5 import QtCore
-
-from shapely import Polygon
-
-from PIL import Image
-
-from utils import coords_calc
-from utils import cls_settings
-from utils import config
-from utils.gdal_translate import get_data
-
+import datetime
 import math
+import os
+
+import geopandas as gpd
 import matplotlib as mpl
 import numpy as np
-import yaml
-import geopandas as gpd
-import datetime
-import os
 import screeninfo
+import yaml
+from PIL import Image
+from PyQt5 import QtCore
+from PyQt5.QtGui import QPolygonF
+from shapely import Polygon, unary_union
+
+from utils import cls_settings
+from utils import config
+from utils import coords_calc
+from utils.gdal_translate import get_data
+
+
+def convert_item_polygon_to_shapely(pol):
+    """
+    Конвертер полигона QPolygonF to shapely.Polygon
+    """
+    points = convert_item_polygon_to_point_mass(pol)
+    return Polygon(points)
+
+
+def convert_shapely_to_item_polygon(pol):
+    coords = pol.exterior.coords
+    shapely_pol = QPolygonF()
+    for c in coords:
+        shapely_pol.append(QtCore.QPointF(c[0], c[1]))
+    return shapely_pol
+
+
+def make_shapely_box(width, height):
+    box = []
+    box.append([0, 0])
+    box.append([width, 0])
+    box.append([width, height])
+    box.append([0, height])
+
+    box = Polygon(box)
+
+    return box
+
+
+def merge_polygons(polygons):
+    if len(polygons) == 1:
+        return polygons
+
+    for i in range(len(polygons)):
+        pola = polygons[i]
+        for j in range(i + 1, len(polygons)):
+            polb = polygons[j]
+            if pola.intersects(polb):
+                merged_pol = unary_union([pola, polb])
+                polygons_new = [polygons[c] for c in range(len(polygons)) if c != i and c != j]
+                polygons_new.append(merged_pol)
+                return merge_polygons(polygons_new)
+
+    return polygons
 
 
 def try_read_lrm(image_name, from_crs='epsg:3395', to_crs='epsg:4326'):

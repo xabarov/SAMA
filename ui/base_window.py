@@ -607,9 +607,9 @@ class MainWindow(QtWidgets.QMainWindow):
             if lbl == new_cls_name:
                 break
 
-        self.project_data.change_cls_num_by_id(self.changed_cls_id, new_cls_num)
-        self.reload_image()
+        self.project_data.change_cls_num_by_id(self.tek_image_name, self.changed_cls_id, new_cls_num)
         self.combo_dialog.close()
+        self.reload_image()
 
     def add_im_to_proj_clicked(self):
 

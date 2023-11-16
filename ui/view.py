@@ -16,6 +16,8 @@ from utils import help_functions as hf
 from utils.ids_worker import IdsSetterWorker
 from utils.settings_handler import AppSettings
 
+import shapely
+
 
 class GraphicsView(QtWidgets.QGraphicsView):
     """
@@ -170,27 +172,28 @@ class GraphicsView(QtWidgets.QGraphicsView):
             shapely_pol = Polygon([(p.x(), p.y()) for p in pol])
             shapely_polygons.append(shapely_pol)
 
-        shapely_union = unary_union([shapely_polygons[0], shapely_polygons[1]])
-        for i in range(len(shapely_polygons) - 2):
-            shapely_union = unary_union([shapely_union, shapely_polygons[i + 2]])
+        # shapely_union = unary_union([shapely_polygons[0], shapely_polygons[1]])
+        # for i in range(len(shapely_polygons) - 2):
+        #     shapely_union = unary_union([shapely_union, shapely_polygons[i + 2]])
+        shapely_union = hf.merge_polygons(shapely_polygons)
 
-        if shapely_union and shapely_union.geom_type != 'MultiPolygon':
+        # if shapely_union and shapely_union.geom_type != 'MultiPolygon':
 
-            point_mass = list(shapely_union.exterior.coords)
+        for shape in shapely_union:
+            point_mass = list(shape.exterior.coords)
             cls_num = self.active_group[0].cls_num
             color = self.active_group[0].color
             alpha = self.active_group[0].alpha_percent
 
             self.add_polygon_to_scene(cls_num, point_mass, color, alpha)
 
-            for item in self.active_group:
-                self.remove_item(item, is_delete_id=True)
+        for item in self.active_group:
+            self.remove_item(item, is_delete_id=True)
+        self.active_group = []
+        self.active_item = None
+        self.switch_all_polygons_to_default_except_active()
 
-            self.active_group = []
-            self.active_item = None
-            self.switch_all_polygons_to_default_except_active()
-
-            self.polygon_end_drawing.on_end_drawing.emit(True)
+        self.polygon_end_drawing.on_end_drawing.emit(True)
 
     def on_change_cls_num(self):
         if self.pressed_polygon:
@@ -374,32 +377,22 @@ class GraphicsView(QtWidgets.QGraphicsView):
         return is_in_range
 
     def crop_by_pixmap_size(self, item):
+        """
+        Обрезка полигона рабочей областью. Решается как пересечение двух полигонов - активного и рабочей области
+        """
+        # Активный полигон
+        pol = item.polygon()
+        pol = hf.convert_item_polygon_to_shapely(pol)
+
+        # Полигон рабочей области
         pixmap_width = self.pixmap_item.pixmap().width()
         pixmap_height = self.pixmap_item.pixmap().height()
-        pol = item.polygon()
+        pixmap_box = hf.make_shapely_box(pixmap_width, pixmap_height)
 
-        pol_new = QPolygonF()
-        is_changed = False
-        for p in pol:
-            x = p.x()
-            y = p.y()
-            if p.x() > pixmap_width:
-                x = pixmap_width
-                is_changed = True
-            if p.x() < 0:
-                x = 0
-                is_changed = True
-            if p.y() > pixmap_height:
-                x = pixmap_height
-                is_changed = True
-            if p.y() < 0:
-                y = 0
-                is_changed = True
+        cropped_polygon = pixmap_box.intersection(pol)
+        pol = hf.convert_shapely_to_item_polygon(cropped_polygon)
 
-            pol_new.append(QtCore.QPointF(x, y))
-
-        if is_changed:
-            item.setPolygon(pol_new)
+        item.setPolygon(pol)
 
     def switch_all_polygons_to_default_except_active(self):
         for item in self.scene().items():
@@ -581,7 +574,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     poly_new.append(p1)
 
             self.active_item.setPolygon(poly_new)
-            self.crop_by_pixmap_size(self.active_item)
+            # self.crop_by_pixmap_size(self.active_item)
 
     def remove_polygon_vertext(self, lp):
 
@@ -740,7 +733,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     poly = self.active_item.polygon()
                     poly.append(lp)
                     self.active_item.setPolygon(poly)
-                    self.crop_by_pixmap_size(self.active_item)
+                    # self.crop_by_pixmap_size(self.active_item)
 
             elif self.drawing_type == "Ellips":
 
@@ -1104,8 +1097,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
             if self.active_item:
                 # if self.active_item.check_polygon(min_width=self.min_ellipse_size,
                 #                                   min_height=self.min_ellipse_size):
-                self.crop_by_pixmap_size(self.active_item)
                 if self.drawing_type != "AiMask":
+                    self.crop_by_pixmap_size(self.active_item)
                     self.polygon_end_drawing.on_end_drawing.emit(True)
                 else:
                     self.mask_end_drawing.on_mask_end_drawing.emit(True)
@@ -1354,6 +1347,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
             self.toggle(self.active_item)
             if text and cls_num != -1:
                 # post settings
+                self.crop_by_pixmap_size(self.active_item)
                 point_mass = hf.convert_item_polygon_to_point_mass(self.active_item.polygon())
                 text_pos = hf.calc_label_pos(point_mass)
                 self.active_item.set_label(text, text_pos)
