@@ -165,12 +165,16 @@ def predict(predictor, image_path, text_prompt, output_dir=None, grounded_checkp
     if len(transformed_boxes.size()) == 0:
         return []
 
-    masks, _, _ = predictor.predict_torch(
-        point_coords=None,
-        point_labels=None,
-        boxes=transformed_boxes.to(device),
-        multimask_output=False,
-    )
+    try:
+        masks, _, _ = predictor.predict_torch(
+            point_coords=None,
+            point_labels=None,
+            boxes=transformed_boxes.to(device),
+            multimask_output=False,
+        )
+    except:
+        print("An error in GroundingDINO mask creation")
+        return []
 
     if output_dir:  # draw output image
         image = cv2.imread(image_path)

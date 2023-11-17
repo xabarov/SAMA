@@ -52,22 +52,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self._pixmap_item = QtWidgets.QGraphicsPixmapItem()
         scene.addItem(self._pixmap_item)
 
-        self.is_rubber_mode = False
-        self.is_drawing = False
-        self.is_ruler_mode = False
-
-        self.drawing_type = "Polygon"
-        self.active_item = None
-        self.active_group = []
-        self.labels_ids = []
-        self.last_label_id = -1
-
-        # Ruler Items:
-        self.ruler_points = []
-        self.ruler_draw_points = []
-        self.ruler_line = None
-        self.ruler_lrm = None
-        self.ruler_text = None
+        self.init_objects_and_params()
 
         if not active_color:
             self.active_color = config.ACTIVE_COLOR
@@ -93,6 +78,36 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.set_brushes()
 
         # self.setMouseTracking(False)
+        self.min_ellipse_size = 10
+        self.fat_width_default_percent = 50
+
+        self.create_actions()
+
+        self.setRenderHint(QPainter.Antialiasing)
+
+        self.settings = AppSettings()
+
+    def init_objects_and_params(self):
+        """
+        Создание объектов по умолчанию
+        """
+        self.is_rubber_mode = False
+        self.is_drawing = False
+        self.is_ruler_mode = False
+
+        self.drawing_type = "Polygon"
+        self.active_item = None
+        self.active_group = []
+        self.labels_ids = []
+        self.last_label_id = -1
+
+        # Ruler Items:
+        self.ruler_points = []
+        self.ruler_draw_points = []
+        self.ruler_line = None
+        self.ruler_lrm = None
+        self.ruler_text = None
+
         self.setMouseTracking(True)
         self.fat_point = None
         self.drag_mode = "No"
@@ -102,9 +117,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.buffer = None
         self.pressed_polygon = None
 
-        self.min_ellipse_size = 10
         self._zoom = 0
-        self.fat_width_default_percent = 50
 
         self.negative_points = []
         self.positive_points = []
@@ -113,13 +126,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.groups = []
         self.segments = []
 
-        self.create_actions()
-
-        self.setRenderHint(QPainter.Antialiasing)
-
         self.last_added = []
-
-        self.settings = AppSettings()
 
     def start_circle_progress(self):
         w = self.scene().width()
@@ -196,6 +203,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.polygon_end_drawing.on_end_drawing.emit(True)
 
     def on_change_cls_num(self):
+        if self.active_item:
+            self.pressed_polygon = self.active_item
         if self.pressed_polygon:
             change_id = self.pressed_polygon.id
             cls_num = self.pressed_polygon.cls_num
@@ -205,8 +214,41 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if self.pressed_polygon:
             deleted_id = self.pressed_polygon.id
             self.remove_item(self.pressed_polygon, is_delete_id=True)
-            self.pressed_polygon = None
+            # self.pressed_polygon = None
             self.polygon_delete.id_delete.emit(deleted_id)
+
+    def set_pressed_polygon(self, cls_num, pol_id, color, text=None):
+        if self.pressed_polygon:
+            self.pressed_polygon.id = pol_id
+            self.pressed_polygon.cls_num = cls_num
+
+            active_alpha = self.pressed_polygon.alpha_percent
+
+            text_pos = self.pressed_polygon.text_pos
+
+            polygon_new = GrPolygonLabel(None, color=color, cls_num=cls_num,
+                                         alpha_percent=active_alpha, id=pol_id, text=text, text_pos=text_pos)
+            polygon_new.setPen(self.active_pen)
+            polygon_new.setBrush(self.active_brush)
+            poly = QPolygonF()
+            for point in self.pressed_polygon.polygon():
+                poly.append(point)
+
+            polygon_new.setPolygon(poly)
+
+            self.remove_item(self.pressed_polygon, is_delete_id=True)
+            self.pressed_polygon = None
+
+            self.active_item = polygon_new
+            self.switch_all_polygons_to_default_except_active()
+
+            self.scene().addItem(polygon_new)
+            if text:
+                self.scene().addItem(polygon_new.get_label())
+
+    def del_pressed_polygon(self):
+        if self.pressed_polygon:
+            self.pressed_polygon = None
 
     @property
     def pixmap_item(self):
@@ -221,10 +263,13 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self._pixmap_item = QtWidgets.QGraphicsPixmapItem()
         scene.addItem(self._pixmap_item)
         self.pixmap_item.setPixmap(pixmap)
+
+        self.init_objects_and_params()
+
         self.set_fat_width()
         self.set_pens()
-        self.active_item = None
-        self.active_group = []
+        self.remove_fat_point_from_scene()
+        self.clear_ai_points()
 
         # Ruler items clear:
         self.on_ruler_mode_off()
@@ -574,7 +619,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     poly_new.append(p1)
 
             self.active_item.setPolygon(poly_new)
-            # self.crop_by_pixmap_size(self.active_item)
 
     def remove_polygon_vertext(self, lp):
 
@@ -591,7 +635,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
                         poly_new.append(p)
 
                 self.active_item.setPolygon(poly_new)
-                print(poly_new)
 
     def get_active_shape(self, is_filter=True):
         if self.active_item:
@@ -733,7 +776,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     poly = self.active_item.polygon()
                     poly.append(lp)
                     self.active_item.setPolygon(poly)
-                    # self.crop_by_pixmap_size(self.active_item)
 
             elif self.drawing_type == "Ellips":
 
@@ -1013,13 +1055,19 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 poly.append(point)
 
         self.active_item.setPolygon(poly)
-        self.crop_by_pixmap_size(self.active_item)
 
     def get_rubber_band_polygon(self):
         if self.is_rubber_mode and self.active_item and self.active_item.cls_num == -1:
             points = []
             for p in self.active_item.polygon():
-                points.append([p.x(), p.y()])
+                points.append([int(p.x()), int(p.y())])
+            return points
+
+    def get_active_item_polygon(self):
+        if self.active_item:
+            points = []
+            for p in self.active_item.polygon():
+                points.append([int(p.x()), int(p.y())])
             return points
 
     def mouseReleaseEvent(self, event: QtGui.QMouseEvent):
@@ -1335,6 +1383,15 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         return []
 
+    def break_drawing(self):
+        self.is_drawing = False
+        self.box_start_point = None
+        self.drag_mode = "No"
+        self.remove_active()
+        self.remove_fat_point_from_scene()
+        if self.drawing_type == "AiPoints":
+            self.clear_ai_points()
+
     def end_drawing(self, text=None, cls_num=-1):
         self.is_drawing = False
         # self.setMouseTracking(True)
@@ -1345,9 +1402,10 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         if self.active_item:
             self.toggle(self.active_item)
+            self.crop_by_pixmap_size(self.active_item)
+
             if text and cls_num != -1:
                 # post settings
-                self.crop_by_pixmap_size(self.active_item)
                 point_mass = hf.convert_item_polygon_to_point_mass(self.active_item.polygon())
                 text_pos = hf.calc_label_pos(point_mass)
                 self.active_item.set_label(text, text_pos)

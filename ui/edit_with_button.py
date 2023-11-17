@@ -1,6 +1,8 @@
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLineEdit, QFileDialog
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
+from utils.settings_handler import AppSettings
+import os
 
 
 class EditWithButton(QWidget):
@@ -12,6 +14,8 @@ class EditWithButton(QWidget):
         Поле Edit с кнопкой
         """
         super().__init__(parent)
+        self.settings = AppSettings()
+        last_opened_path = self.settings.read_last_opened_path()
 
         if in_separate_window:
             self.setWindowFlag(Qt.Tool)
@@ -23,7 +27,7 @@ class EditWithButton(QWidget):
         self.file_type = file_type
         self.on_button_clicked_callback = on_button_clicked_callback
         self.dialog_text = dialog_text
-        self.start_folder = start_folder
+        self.start_folder = last_opened_path
         self.is_existing_file_only = is_existing_file_only
 
         layout = QHBoxLayout()
@@ -54,11 +58,12 @@ class EditWithButton(QWidget):
     def on_button_clicked(self):
 
         if self.is_dir:
-            dir = QFileDialog.getExistingDirectory(self,
-                                                   self.dialog_text,
-                                                   self.start_folder)
-            if dir:
-                self.edit.setText(dir)
+            dir_ = QFileDialog.getExistingDirectory(self,
+                                                    self.dialog_text,
+                                                    self.start_folder)
+            if dir_:
+                self.settings.write_last_opened_path(dir_)
+                self.edit.setText(dir_)
                 if self.on_button_clicked_callback:
                     self.on_button_clicked_callback()
 
@@ -72,10 +77,11 @@ class EditWithButton(QWidget):
 
             else:
                 file_name, _ = QFileDialog.getSaveFileName(self,
-                                                          self.dialog_text,
-                                                          self.start_folder,
-                                                          f'{self.file_type} File (*.{self.file_type})')
+                                                           self.dialog_text,
+                                                           self.start_folder,
+                                                           f'{self.file_type} File (*.{self.file_type})')
             if file_name:
+                self.settings.write_last_opened_path(os.path.dirname(file_name))
                 self.edit.setText(file_name)
                 if self.on_button_clicked_callback:
                     self.on_button_clicked_callback()

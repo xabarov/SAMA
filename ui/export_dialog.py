@@ -28,7 +28,7 @@ class ExportDialog(QWidget):
             self.export_edit_with_button = EditWithButton(None, theme=theme,
                                                           on_button_clicked_callback=self.on_export_button_clicked,
                                                           is_dir=True,
-                                                          dialog_text=placeholder, start_folder='projects',
+                                                          dialog_text=placeholder,
                                                           placeholder=placeholder)
         elif export_format == 'coco':
             placeholder = "Имя экспортируемого файла COCO" if config.LANGUAGE == 'RU' else 'Export filename'
@@ -36,7 +36,7 @@ class ExportDialog(QWidget):
             self.export_edit_with_button = EditWithButton(None, theme=theme,
                                                           on_button_clicked_callback=self.on_export_button_clicked,
                                                           is_dir=False, file_type='json',
-                                                          dialog_text=placeholder, start_folder='projects',
+                                                          dialog_text=placeholder,
                                                           placeholder=placeholder, is_existing_file_only=False)
         # Выбор меток
         # Чекбокс

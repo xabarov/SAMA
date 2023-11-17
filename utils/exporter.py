@@ -122,12 +122,12 @@ class Exporter(QtCore.QThread):
         if not export_map:
             export_map = self.get_export_map(labels_names)
 
-        for im_num, image in enumerate(self.data["images"]):
+        im_num = 0
+        for filename, image in self.data["images"].items():
 
             if not len(image["shapes"]):  # чтобы не создавать пустых файлов
                 continue
 
-            filename = image["filename"]
             fullname = os.path.join(self.data["path_to_images"], filename)
 
             if not os.path.exists(fullname):
@@ -166,7 +166,7 @@ class Exporter(QtCore.QThread):
                 mask = get_mask_from_yolo_txt(fullname, blur_txt_name, [0])
                 blurred_image_cv2 = blur_image_by_mask(fullname, mask)
                 cv2.imwrite(os.path.join(images_dir, filename), blurred_image_cv2)
-
+            im_num += 1
             self.export_percent_conn.percent.emit(int(100 * im_num / (len(self.data['images']))))
 
     def exportToYOLOBox(self, export_dir, export_map=None):
@@ -186,9 +186,9 @@ class Exporter(QtCore.QThread):
         if not export_map:
             export_map = self.get_export_map(labels_names)
 
-        for im_num, image in enumerate(self.data["images"]):
+        im_num = 0
+        for filename, image in self.data["images"].items():
             if len(image["shapes"]):  # чтобы не создавать пустых файлов
-                filename = image["filename"]
                 fullname = os.path.join(self.data["path_to_images"], filename)
                 txt_yolo_name = hf.convert_image_name_to_txt_name(filename)
 
@@ -225,6 +225,7 @@ class Exporter(QtCore.QThread):
                     blurred_image_cv2 = blur_image_by_mask(fullname, mask)
                     cv2.imwrite(os.path.join(images_dir, filename), blurred_image_cv2)
 
+            im_num += 1
             self.export_percent_conn.percent.emit(int(100 * im_num / (len(self.data['images']))))
 
     def exportToCOCO(self, export_сoco_name, export_map=None):
@@ -256,8 +257,7 @@ class Exporter(QtCore.QThread):
         id_tek = 1
         id_map = {}
 
-        for image in self.data["images"]:
-            filename = image["filename"]
+        for filename, image in self.data["images"].items():
             id_map[filename] = id_tek
             im_full_path = os.path.join(self.data["path_to_images"], filename)
 
@@ -278,8 +278,8 @@ class Exporter(QtCore.QThread):
         export_json["annotations"] = []
 
         seg_id = 1
-        for im_num, image in enumerate(self.data["images"]):
-            filename = image["filename"]
+        im_num = 0
+        for filename, image in self.data["images"].items():
             fullname = os.path.join(self.data["path_to_images"], filename)
 
             txt_yolo_name = hf.convert_image_name_to_txt_name(filename)
@@ -345,7 +345,7 @@ class Exporter(QtCore.QThread):
                 mask = get_mask_from_yolo_txt(fullname, blur_txt_name, [0])
                 blurred_image_cv2 = blur_image_by_mask(fullname, mask)
                 cv2.imwrite(os.path.join(images_dir, filename), blurred_image_cv2)
-
+            im_num += 1
             self.export_percent_conn.percent.emit(int(100 * im_num / (len(self.data['images']))))
 
         export_json["licenses"] = [{"id": 0, "name": "Unknown License", "url": ""}]
@@ -363,12 +363,12 @@ class Exporter(QtCore.QThread):
         return self.data["path_to_images"]
 
     def clear_not_existing_images(self):
-        images = []
+        images = {}
         im_path = self.get_image_path()
-        for im in self.data['images']:
-            if os.path.exists(os.path.join(im_path, im['filename'])):
-                images.append(im)
+        for filename, im in self.data['images'].items():
+            if os.path.exists(os.path.join(im_path, filename)):
+                images[filename] = im
             else:
-                print(f"Checking files: image {im['filename']} doesn't exist")
+                print(f"Checking files: image {filename} doesn't exist")
 
         self.data['images'] = images

@@ -2,6 +2,7 @@ import datetime
 import math
 import os
 
+import cv2
 import geopandas as gpd
 import matplotlib as mpl
 import numpy as np
@@ -11,11 +12,34 @@ from PIL import Image
 from PyQt5 import QtCore
 from PyQt5.QtGui import QPolygonF
 from shapely import Polygon, unary_union
+from skimage.morphology import binary_opening, binary_closing, remove_small_objects, square, label
 
 from utils import cls_settings
 from utils import config
 from utils import coords_calc
 from utils.gdal_translate import get_data
+
+
+def save_mask_as_image(mask, save_name):
+    height, width = mask.shape
+    im = np.zeros((width, height))
+    im[mask] = 255
+    cv2.imwrite(save_name, im)
+
+
+def clean_mask(mask, type='remove', min_size=64, connectivity=2):
+
+    mask = np.squeeze(mask)
+    imglab = label(mask)  # create labels in segmented image
+    if type == 'remove':
+        cleaned = remove_small_objects(imglab, min_size=min_size, connectivity=connectivity)
+    elif type == 'oc':
+        cleaned = binary_closing(binary_opening(mask, square(2)), square(2))
+
+    mask_new = np.zeros(cleaned.shape)  # create array of size cleaned
+    mask_new[cleaned > 0] = 255
+    mask_new = np.uint8(mask_new)
+    return mask_new
 
 
 def convert_item_polygon_to_shapely(pol):

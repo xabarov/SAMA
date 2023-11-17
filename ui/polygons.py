@@ -24,6 +24,8 @@ def make_label(text, text_pos, color):
     if not label_text_params['auto_color']:
         color = label_text_params['default_color']
 
+    # Reset alpha
+    color = [color[0], color[1], color[2], 255]
     label.setDefaultTextColor(QColor(*color))
 
     # set the alignment

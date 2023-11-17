@@ -54,7 +54,11 @@ shortcuts = {'copy': {'appearance': 'Ctrl+C', 'modifier': ['Ctrl'], 'name_eng': 
              'zoom_in': {'appearance': 'PgUp', 'modifier': None, 'name_eng': 'Zoom In', 'name_ru': 'Увеличить масштаб',
                          'shortcut_key_eng': 16777238, 'shortcut_key_ru': 16777238},
              'zoom_out': {'appearance': 'PgDown', 'modifier': None, 'name_eng': 'Zoom Out',
-                          'name_ru': 'Уменьшить масштаб', 'shortcut_key_eng': 16777239, 'shortcut_key_ru': 16777239}}
+                          'name_ru': 'Уменьшить масштаб', 'shortcut_key_eng': 16777239, 'shortcut_key_ru': 16777239},
+             'change_polygon_label': {'appearance': 'Ctrl+E', 'modifier': ['Ctrl'], 'name_eng': 'Change polygon label',
+                                      'name_ru': 'Изменить имя метки полигона', 'shortcut_key_eng': 84,
+                                      'shortcut_key_ru': 16777231}
+             }
 
 
 # print(list(shortcuts.keys()))
@@ -72,6 +76,12 @@ class AppSettings:
     def read_sam_hq(self):
         return self.qt_settings.value("cnn/sam_hq", True)
 
+    def write_last_opened_path(self, path):
+        self.qt_settings.setValue("general/last_opened_path", path)
+
+    def read_last_opened_path(self):
+        return self.qt_settings.value("general/last_opened_path", "")
+
     def write_username(self, username):
         self.qt_settings.setValue("general/username", username)
 
@@ -88,7 +98,14 @@ class AppSettings:
         self.qt_settings.setValue("general/shortcuts", shortcuts)
 
     def read_shortcuts(self):
-        return self.qt_settings.value("general/shortcuts", shortcuts)
+        # Check new features
+        shortcuts_reads = self.qt_settings.value("general/shortcuts", shortcuts)
+        if shortcuts_reads != shortcuts:
+            for key in shortcuts:
+                if key not in shortcuts_reads:
+                    shortcuts_reads[key] = shortcuts[key]
+
+        return shortcuts_reads
 
     def reset_shortcuts(self):
         self.qt_settings.setValue("general/shortcuts", shortcuts)

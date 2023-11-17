@@ -9,6 +9,7 @@ import cv2
 from . import help_functions as hf
 import math
 from copy import deepcopy
+from utils.project import create_blank_image
 
 
 class CNN_worker(QtCore.QThread):
@@ -30,7 +31,7 @@ class CNN_worker(QtCore.QThread):
         self.scanning = scanning
 
         self.mask_results = []
-        self.image_list_results = []
+        self.all_images_results = {}
 
         self.img_ld = linear_dim
         self.train_ld = 0.11
@@ -59,19 +60,18 @@ class CNN_worker(QtCore.QThread):
 
     def run_yolo8_image_list(self, image_list):
         self.psnt_connection.percent.emit(0)
-        self.image_list_results = []
+        self.all_images_results = {}
         id_tek = 0
 
         for im_num, img_path_full in enumerate(image_list):
             img = cv2.imread(img_path_full)
             image_height, image_width = img.shape[1], img.shape[0]
-            image_data = {'filename': os.path.basename(img_path_full), 'shapes': []}
+            filename = os.path.basename(img_path_full)
 
             if self.model_name == 'YOLOv8_openvino':
 
                 results = predict_and_return_mask_openvino(self.model, img, conf=self.conf_thres,
                                                            iou=self.iou_thres, save_txt=False, nc=self.nc)
-
                 boxes = results["det"]
                 masks = results.get("segment")
 
@@ -80,8 +80,9 @@ class CNN_worker(QtCore.QThread):
                 for idx, (*xyxy, conf, lbl) in enumerate(boxes):
                     shapes.append({'cls_num': int(lbl), 'points': masks[idx].astype(int), 'conf': conf})
 
-                image_data['shapes'] = shapes
-                self.image_list_results.append(image_data)
+                im_blank = create_blank_image() # return  {"shapes": [], "lrm": None, 'status': 'empty'}
+                im_blank['shapes'] = shapes
+                self.all_images_results[filename] = im_blank
 
             elif self.model_name == 'YOLOv8':
 
@@ -101,8 +102,9 @@ class CNN_worker(QtCore.QThread):
                         id_tek += 1
                         shapes.append(shape)
 
-                image_data['shapes'] = shapes
-                self.image_list_results.append(image_data)
+                im_blank = create_blank_image()  # return  {"shapes": [], "lrm": None, 'status': 'empty'}
+                im_blank['shapes'] = shapes
+                self.all_images_results[filename] = im_blank
 
             self.psnt_connection.percent.emit(int(im_num * 100.0 / len(image_list)))
 

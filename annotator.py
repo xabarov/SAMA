@@ -195,6 +195,8 @@ class Annotator(MainWindow):
 
             self.project_data.set_labels(labels)
             self.project_data.set_labels_colors(labels, rewrite=True)
+            self.reload_image(is_tek_image_changed=False)
+            self.save_view_to_project()
 
     def toggle_act(self, is_active):
         """
@@ -264,11 +266,11 @@ class Annotator(MainWindow):
         self.image_set = False
         self.queue_image_to_sam(image_name)  # создаем очередь загружаемых изображений
 
-    def reload_image(self):
+    def reload_image(self, is_tek_image_changed=False):
         """
         Заново загружает текущее изображение с разметкой
         """
-        super(Annotator, self).reload_image()
+        super(Annotator, self).reload_image(is_tek_image_changed=is_tek_image_changed)
         self.view.clear_ai_points()  # очищаем точки-prompts SAM
 
     def set_image(self, image_name):
@@ -440,7 +442,6 @@ class Annotator(MainWindow):
         """
         Старт рисования прямоугольной области в режиме SAM
         """
-
         self.ann_type = "AiMask"
         self.set_labels_color()
         cls_txt = self.cls_combo.currentText()
@@ -451,11 +452,16 @@ class Annotator(MainWindow):
         alpha_tek = self.settings.read_alpha()
         self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
 
-    def add_sam_polygon_to_scene(self, sam_mask, cls_num=None):
+    def add_sam_polygon_to_scene(self, sam_mask, cls_num=None, is_save_to_temp_folder=True):
         """
         Добавление полигонов SAM на сцену
         """
         simplify_factor = float(self.settings.read_simplify_factor())
+        sam_mask = hf.clean_mask(sam_mask, type='remove', min_size=80, connectivity=2)
+        if is_save_to_temp_folder:
+            mask_name = hf.create_unique_image_name(self.tek_image_name)
+            mask_name = os.path.join(self.handle_temp_folder(), mask_name)
+            hf.save_mask_as_image(sam_mask, mask_name)
         points_mass = mask_to_seg(sam_mask, simplify_factor=simplify_factor)
 
         if len(points_mass) > 0:
@@ -471,12 +477,12 @@ class Annotator(MainWindow):
                 else:
                     if self.settings.read_lang() == 'RU':
                         self.statusBar().showMessage(
-                            f"Метку сделать не удалось. Площадь маски слишком мала {area:0.3f}. Попробуйте еще раз",
+                            f"Метку сделать не удалось. Площадь маски слишком мала {area:0.3f}",
                             3000)
                     else:
                         self.statusBar().showMessage(
-                            f"Can't create label. Area of label is too small {area:0.3f}. Try again", 3000)
-                    return
+                            f"Can't create label. Area of label is too small {area:0.3f}", 3000)
+                    continue
 
             if not cls_num:
                 cls_num = self.cls_combo.currentIndex()
@@ -492,7 +498,7 @@ class Annotator(MainWindow):
 
             self.view.add_polygons_group_to_scene(cls_num, filtered_points_mass, color, alpha_tek, text=text)
 
-            self.update_labels()
+            self.save_view_to_project()
 
     def ai_mask_end_drawing(self):
         """
@@ -709,7 +715,7 @@ class Annotator(MainWindow):
             self.detected_shapes.append(shape)
 
         self.progress_toolbar.hide_progressbar()
-        self.update_labels()
+        self.save_view_to_project()
 
         self.statusBar().showMessage(
             f"Найдено {len(self.CNN_worker.mask_results)} объектов" if self.settings.read_lang() == 'RU' else f"{len(self.CNN_worker.mask_results)} objects has been detected",
@@ -858,11 +864,9 @@ class Annotator(MainWindow):
 
         self.progress_toolbar.hide_progressbar()
 
-        self.project_data.set_all_images(self.CNN_worker.image_list_results)
+        self.project_data.add_shapes_to_images(self.CNN_worker.all_images_results)
 
-        self.load_image_data(self.tek_image_name)
-        self.fill_labels_on_tek_image_list_widget()
-        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+        self.reload_image(is_tek_image_changed=False)
 
     def importFromYOLOBox(self):
         """
@@ -881,7 +885,7 @@ class Annotator(MainWindow):
         """
         yaml_data = self.import_dialog.getData()
 
-        if self.sam:
+        if self.sam and not self.is_seg_import:
             convert_to_masks = self.import_dialog.convert_to_mask_checkbox.isChecked()
         else:
             convert_to_masks = False

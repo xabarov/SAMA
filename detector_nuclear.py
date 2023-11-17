@@ -51,7 +51,7 @@ class DetectorNuclear(Detector):
         self.block_geo_coords_message = False
 
         self.progress_toolbar.hide_progressbar()
-        self.update_labels()
+        self.save_view_to_project()
 
         self.statusBar().showMessage(
             f"Найдено {len(self.detected_shapes)} объектов" if self.settings.read_lang() == 'RU' else f"{len(self.detected_shapes)} objects has been detected",
@@ -139,7 +139,7 @@ class DetectorNuclear(Detector):
             shape = {'id': shape_id, 'cls_num': cls_num, 'points': points, 'conf': res['conf']}
             self.detected_shapes.append(shape)
 
-        self.update_labels()
+        self.save_view_to_project()
 
         message = f"Найдено {len(self.detected_shapes)} объектов" if self.settings.read_lang() == 'RU' else f"{len(self.detected_shapes)} objects has been detected"
 

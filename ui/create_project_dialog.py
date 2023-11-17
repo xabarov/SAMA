@@ -20,7 +20,7 @@ class CreateProjectDialog(QWidget):
         placeholder = "Путь к изображениям" if config.LANGUAGE == 'RU' else 'Path to images'
 
         self.images_edit_with_button = EditWithButton(None, theme=theme,
-                                                      dialog_text=placeholder, start_folder='projects', is_dir=True,
+                                                      dialog_text=placeholder, is_dir=True,
                                                       placeholder=placeholder)
 
         # Project Name
@@ -28,7 +28,7 @@ class CreateProjectDialog(QWidget):
         placeholder = 'Введите имя нового проекта...' if config.LANGUAGE == 'RU' else "Set new project name..."
         self.project_name_edit_with_button = EditWithButton(None, theme=theme,
                                                             file_type='json',
-                                                            dialog_text=placeholder, start_folder='projects',
+                                                            dialog_text=placeholder,
                                                             placeholder=placeholder, is_dir=False, is_existing_file_only=False)
 
         # Buttons layout:

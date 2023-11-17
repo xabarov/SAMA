@@ -99,9 +99,11 @@ class Importer(QtCore.QThread):
 
         label_colors = hf.get_label_colors(label_names, alpha=alpha)
 
+        coco_url = None
+
         if self.copy_images_path:
             # change paths
-            images = []
+            images = {}
 
             for i, im in enumerate(data["images"]):
                 im_copy = im
@@ -118,18 +120,20 @@ class Importer(QtCore.QThread):
 
                 im_copy['flickr_url'] = os.path.join(save_images_folder, im["file_name"])
                 im_copy['coco_url'] = os.path.join(save_images_folder, im["file_name"])
-                images.append(im_copy)
+                if not coco_url:
+                    coco_url = im_copy['coco_url']
+                images[im["file_name"]] = im_copy
 
                 self.load_percent_conn.percent.emit(int(i * 100.0 / len(data["images"])))
 
             data["images"] = images
 
-        project_path = os.path.dirname(data["images"][0]["coco_url"])
+        project_path = os.path.dirname(coco_url)
         if not os.path.exists(project_path):
             self.info_conn.info_message.emit(
                 f"Can't find images in {project_path} Try to find images in {os.path.dirname(self.coco_name)} ")
             project_path = os.path.dirname(self.coco_name)
-            first_im_name = os.path.basename(data["images"][0]["coco_url"])
+            first_im_name = os.path.basename(coco_url)
             if not os.path.exists(os.path.join(project_path, first_im_name)):
                 self.project = {}
                 self.err_conn.error_message.emit(
@@ -137,12 +141,13 @@ class Importer(QtCore.QThread):
                 return
 
         project = {'path_to_images': project_path,
-                   "images": [], 'labels': label_names, 'labels_color': label_colors}
+                   "images":  {}, 'labels': label_names, 'labels_color': label_colors}
 
         id_num = 0
         for i, im in enumerate(data["images"]):
             im_id = im["id"]
-            proj_im = {'filename': im["file_name"], 'shapes': []}
+            filename = im["file_name"]
+            proj_im = {'shapes': []}
             for seg in data["annotations"]:
                 if seg["image_id"] == im_id:
                     cls = seg["category_id"] - 1
@@ -152,7 +157,7 @@ class Importer(QtCore.QThread):
                     id_num += 1
                     proj_im["shapes"].append(shape)
 
-            project['images'].append(proj_im)
+            project['images'][filename] = proj_im
 
             self.load_percent_conn.percent.emit(int(i * 100.0 / len(data["images"])))
 
@@ -192,19 +197,19 @@ class Importer(QtCore.QThread):
 
     def import_from_yolo_box(self, path_to_labels, path_to_images, labels_names, labels_color, convert_to_masks=False,
                              sam_predictor=None):
-        project = {'path_to_images': path_to_images, 'images': [], "labels": labels_names, "labels_color": labels_color}
+        project = {'path_to_images': path_to_images, 'images': {}, "labels": labels_names, "labels_color": labels_color}
         images = [im for im in os.listdir(path_to_images) if hf.is_im_path(im)]
         id_num = 0
-        for i, im in enumerate(images):
+        for i, filename in enumerate(images):
 
             if convert_to_masks and sam_predictor:
-                sam_predictor.set_image(cv2.imread(os.path.join(path_to_images, im)))
+                sam_predictor.set_image(cv2.imread(os.path.join(path_to_images, filename)))
 
-            width, height = Image.open(os.path.join(path_to_images, im)).size
+            width, height = Image.open(os.path.join(path_to_images, filename)).size
             im_shape = [height, width]
 
-            txt_name = hf.convert_image_name_to_txt_name(im)
-            image_data = {"filename": im, 'shapes': []}
+            txt_name = hf.convert_image_name_to_txt_name(filename)
+            image_data = {'shapes': []}
 
             if not os.path.exists(os.path.join(path_to_labels, txt_name)):
                 self.load_percent_conn.percent.emit(int(i * 100.0 / len(images)))
@@ -235,26 +240,26 @@ class Importer(QtCore.QThread):
 
                     image_data["shapes"].append(shape)
 
-            project['images'].append(image_data)
+            project['images'][filename] = image_data
             self.load_percent_conn.percent.emit(int(i * 100.0 / len(images)))
 
         self.project = project
 
     def import_from_yolo_seg(self, path_to_labels, path_to_images, labels_names, labels_color):
-        project = {'path_to_images': path_to_images, 'images': [], "labels": labels_names, "labels_color": labels_color}
+        project = {'path_to_images': path_to_images, 'images': {}, "labels": labels_names, "labels_color": labels_color}
         images = [im for im in os.listdir(path_to_images) if hf.is_im_path(im)]
         id_num = 0
-        for i, im in enumerate(images):
+        for i, filename in enumerate(images):
             # im_shape = cv2.imread(os.path.join(path_to_images, im)).shape
-            width, height = Image.open(os.path.join(path_to_images, im)).size
+            width, height = Image.open(os.path.join(path_to_images, filename)).size
             im_shape = [height, width]
 
-            txt_name = hf.convert_image_name_to_txt_name(im)
-            image_data = {"filename": im, 'shapes': []}
+            txt_name = hf.convert_image_name_to_txt_name(filename)
+            image_data = {'shapes': []}
 
             if not os.path.exists(os.path.join(path_to_labels, txt_name)):
                 self.load_percent_conn.percent.emit(int(i * 100.0 / len(images)))
-                self.info_conn.info_message.emit(f"Can't find labels for {im}")
+                self.info_conn.info_message.emit(f"Can't find labels for {filename}")
                 continue
 
             with open(os.path.join(path_to_labels, txt_name), 'r') as f:
@@ -271,7 +276,7 @@ class Importer(QtCore.QThread):
                         range(1, len(cls_data), 2)]
                     image_data["shapes"].append(shape)
 
-            project['images'].append(image_data)
+            project['images'][filename] = image_data
             self.load_percent_conn.percent.emit(int(i * 100.0 / len(images)))
 
         self.project = project

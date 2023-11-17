@@ -2,6 +2,7 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QListWidget, QListWidgetItem
 import os
 
+
 class ImagesWidget(QListWidget):
 
     def __init__(self, parent, icon_folder):
@@ -48,11 +49,26 @@ class ImagesWidget(QListWidget):
             return
         return self.item(next_idx).text()
 
+    def get_last_name(self):
+        next_idx = self.count() - 1
+        if next_idx == -1:
+            return
+        return self.item(next_idx).text()
+
     def move_next(self):
         next_idx = self.get_next_idx()
         if next_idx == -1:
             return
         self.setCurrentRow(next_idx)
+
+    def move_last(self):
+        next_idx = self.count() - 1
+        if next_idx == -1:
+            return
+        self.setCurrentRow(next_idx)
+
+    def move_to(self, index):
+        self.setCurrentRow(index)
 
     def get_idx_before(self):
         if self.count() == 0:

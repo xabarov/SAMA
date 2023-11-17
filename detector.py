@@ -181,7 +181,7 @@ class Detector(Annotator):
                 color = self.project_data.get_label_color(cls_name)
 
                 self.view.add_polygon_to_scene(cls_num, points, color, alpha_tek, id=None)
-                self.update_labels()
+                self.save_view_to_project()
 
             else:
                 if self.settings.read_lang() == 'RU':

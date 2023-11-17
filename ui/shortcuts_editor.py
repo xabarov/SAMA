@@ -4,9 +4,9 @@ from PyQt5 import QtCore, QtGui
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, \
-    QToolButton, QLineEdit, QLabel, QMessageBox, QHeaderView
+    QLineEdit, QLabel, QMessageBox, QHeaderView
 from qt_material import apply_stylesheet
-import os
+
 from utils.settings_handler import AppSettings
 
 ru_text_to_key = {'й': 1049, 'ц': 1062, 'у': 1059, 'к': 1050, 'е': 1045, 'н': 1053, 'г': 1043,

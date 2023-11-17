@@ -36,7 +36,7 @@ class ImportLRMSDialog(QWidget):
         self.json_edit_with_button = EditWithButton(None, theme=theme,
                                                     on_button_clicked_callback=self.on_json_button_clicked,
                                                     file_type='json',
-                                                    dialog_text=dialog_text, start_folder='projects',
+                                                    dialog_text=dialog_text,
                                                     placeholder=placeholder)
 
         self.okBtn = QPushButton('Загрузить' if self.lang == 'RU' else "Load", self)
@@ -68,7 +68,7 @@ class ImportLRMSDialog(QWidget):
         if json_name:
             with open(json_name, 'r') as f:
                 self.lrms_data = ujson.load(f)
-                
+
 
 class ImportFromYOLODialog(QWidget):
     def __init__(self, parent, width=480, height=200, on_ok_clicked=None,
@@ -87,10 +87,11 @@ class ImportFromYOLODialog(QWidget):
         placeholder = "Путь к YAML файлу" if self.lang == 'RU' else 'Path to YAML file'
         dialog_text = 'Открытие файла в формате YAML' if self.lang == 'RU' else 'Open file in YAML format'
 
+
         self.yaml_edit_with_button = EditWithButton(None, theme=theme,
                                                     on_button_clicked_callback=self.on_yaml_button_clicked,
                                                     file_type='yaml',
-                                                    dialog_text=dialog_text, start_folder='projects',
+                                                    dialog_text=dialog_text,
                                                     placeholder=placeholder)
 
         # Dataset Combo layout:
@@ -127,7 +128,7 @@ class ImportFromYOLODialog(QWidget):
         placeholder = 'Путь для сохранения изображений...' if self.lang == 'RU' else "Path to save imageds..."
         dialog_text = 'Выберите папку для сохранения изображений' if self.lang == 'RU' else "Set images folder"
         self.save_images_edit_with_button = EditWithButton(None, theme=theme,
-                                                           dialog_text=dialog_text, start_folder='projects',
+                                                           dialog_text=dialog_text,
                                                            placeholder=placeholder, is_dir=True)
 
         self.save_images_edit_with_button.setVisible(False)
@@ -235,12 +236,13 @@ class ImportFromCOCODialog(QWidget):
         Импорт разметки из COCO
         """
         super().__init__(parent)
-        self.setWindowTitle(
-            "Импорт разметки в формате COCO" if self.lang == 'RU' else 'Import labels in COCO format')
-        self.setWindowFlag(Qt.Tool)
 
         self.settings = AppSettings()
         self.lang = self.settings.read_lang()
+
+        self.setWindowTitle(
+            "Импорт разметки в формате COCO" if self.lang == 'RU' else 'Import labels in COCO format')
+        self.setWindowFlag(Qt.Tool)
 
         self.labels = []
 
@@ -251,7 +253,7 @@ class ImportFromCOCODialog(QWidget):
         self.coco_edit_with_button = EditWithButton(None, theme=theme,
                                                     on_button_clicked_callback=self.on_coco_button_clicked,
                                                     file_type='json',
-                                                    dialog_text=dialog_text, start_folder='projects',
+                                                    dialog_text=dialog_text,
                                                     placeholder=placeholder)
 
         self.progress_bar = QProgressBar()
@@ -274,7 +276,7 @@ class ImportFromCOCODialog(QWidget):
         placeholder = 'Путь для сохранения изображений...' if self.lang == 'RU' else "Path to save imageds..."
         dialog_text = 'Выберите папку для сохранения изображений' if self.lang == 'RU' else "Set images folder"
         self.save_images_edit_with_button = EditWithButton(None, theme=theme,
-                                                           dialog_text=dialog_text, start_folder='projects',
+                                                           dialog_text=dialog_text,
                                                            placeholder=placeholder, is_dir=True)
 
         self.save_images_edit_with_button.setVisible(False)
@@ -296,7 +298,7 @@ class ImportFromCOCODialog(QWidget):
         placeholder = 'Путь к txt-файлу с именами классов' if self.lang == 'RU' else "Path to txt file with labels names"
         self.label_names_edit_with_button = EditWithButton(None, theme=theme,
                                                            file_type='txt',
-                                                           dialog_text=dialog_text, start_folder='projects',
+                                                           dialog_text=dialog_text,
                                                            placeholder=placeholder)
 
         self.label_names_edit_with_button.setVisible(False)

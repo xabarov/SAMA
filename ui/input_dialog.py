@@ -71,8 +71,10 @@ class CustomComboDialog(QWidget):
         btnLayout = QVBoxLayout()
 
         self.okBtn = QPushButton('Ввести' if self.lang == 'RU' else "OK", self)
+        self.cancelBtn = QPushButton('Отменить' if self.lang == 'RU' else "Cancel", self)
 
         btnLayout.addWidget(self.okBtn)
+        btnLayout.addWidget(self.cancelBtn)
 
         self.mainLayout = QVBoxLayout()
 

@@ -13,11 +13,12 @@ class IdsSetterWorker(QtCore.QThread):
     def run(self):
         self.labels_ids = []
         self.load_ids_conn.percent.emit(0)
-        for i, im in enumerate(self.images_data):
+        i = 0
+        for im_name, im in self.images_data.items():
             for shape in im['shapes']:
                 if shape['id'] not in self.labels_ids:
                     self.labels_ids.append(shape['id'])
-
+            i += 1
             self.load_ids_conn.percent.emit(int(100 * (i + 1) / len(self.images_data)))
 
         self.load_ids_conn.percent.emit(100)
