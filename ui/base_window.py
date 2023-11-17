@@ -452,7 +452,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         toolBar.addWidget(self.annotatorToolButton)
 
-
         toolBar.addSeparator()
         toolBar.addAction(self.settingsAct)
         toolBar.addSeparator()
@@ -1118,13 +1117,15 @@ class MainWindow(QtWidgets.QMainWindow):
         color_dialog.setWindowIcon(QIcon(self.icon_folder + "/color.png"))
         color_dialog.exec()
         rgb = color_dialog.selectedColor().getRgb()
-        if rgb[0] != 0 and rgb[1] != 0 and rgb[2] != 0:  # not black
-            rgba = (rgb[0], rgb[1], rgb[2], self.settings.read_alpha())
-            # print(rgba)
+        if rgb[0] == 0 and rgb[1] == 0 and rgb[2] == 0:  # black
+            return
 
-            self.project_data.set_label_color(cls_txt, color=rgba)
+        rgba = (rgb[0], rgb[1], rgb[2], self.settings.read_alpha())
+        # print(rgba)
 
-            self.reload_image(is_tek_image_changed=False)
+        self.project_data.set_label_color(cls_txt, color=rgba)
+
+        self.reload_image(is_tek_image_changed=False)
 
     def rename_label_button_clicked(self):
 
@@ -1186,7 +1187,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # rubber band
         self.selectAreaAct.setIcon(QIcon(self.icon_folder + "/select.png"))
-        self.saveSelectedPolygonAsImage.setIcon(QIcon(self.icon_folder + "/save.png"))
+        self.saveSelectedPolygonAsImage.setIcon(QIcon(self.icon_folder + "/polygon_image.png"))
 
         # export
         self.exportAnnToYoloBoxAct.setIcon(QIcon(self.icon_folder + "/yolo.png"))
@@ -1210,7 +1211,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.del_label.setIcon((QIcon(self.icon_folder + "/del.png")))
         self.change_label_color.setIcon((QIcon(self.icon_folder + "/color.png")))
         self.rename_label.setIcon((QIcon(self.icon_folder + "/rename.png")))
-        self.changePolygonLabelAct.setIcon(QIcon(self.icon_folder + "/reset.png"))
+        self.changePolygonLabelAct.setIcon(QIcon(self.icon_folder + "/label_rename.png"))
 
         # user
         self.addUserAct.setIcon((QIcon(self.icon_folder + "/add.png")))

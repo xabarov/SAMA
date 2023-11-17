@@ -167,7 +167,7 @@ class SettingsWindowBase(QWidget):
 
         # Шрифт Меток
         self.font_btn = QPushButton('Задать' if self.lang == 'RU' else 'Settings')
-        self.font_btn.setIcon(QIcon(self.icon_folder + "/color.png"))
+        self.font_btn.setIcon(QIcon(self.icon_folder + "/font.png"))
         self.font_btn.clicked.connect(self.on_font_clicked)
 
         self.font_label = QLabel()
@@ -188,7 +188,7 @@ class SettingsWindowBase(QWidget):
         # Палитра
         self.color_btn = QPushButton('Задать' if self.lang == 'RU' else 'Settings')
 
-        self.color_btn.setIcon(QIcon(self.icon_folder + "/color.png"))
+        self.color_btn.setIcon(QIcon(self.icon_folder + "/font_color.png"))
         self.color_btn.clicked.connect(self.on_color_clicked)
 
         self.color_label = QLabel()

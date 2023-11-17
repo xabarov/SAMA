@@ -452,12 +452,13 @@ class Annotator(MainWindow):
         alpha_tek = self.settings.read_alpha()
         self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
 
-    def add_sam_polygon_to_scene(self, sam_mask, cls_num=None, is_save_to_temp_folder=True):
+    def add_sam_polygon_to_scene(self, sam_mask, cls_num=None, is_save_to_temp_folder=False):
         """
         Добавление полигонов SAM на сцену
         """
         simplify_factor = float(self.settings.read_simplify_factor())
-        sam_mask = hf.clean_mask(sam_mask, type='remove', min_size=80, connectivity=1)
+        min_size = self.settings.read_clear_sam_size()
+        sam_mask = hf.clean_mask(sam_mask, type='remove', min_size=min_size, connectivity=1)
         if is_save_to_temp_folder:
             mask_name = hf.create_unique_image_name(self.tek_image_name)
             mask_name = os.path.join(self.handle_temp_folder(), mask_name)

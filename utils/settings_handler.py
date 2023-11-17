@@ -76,6 +76,12 @@ class AppSettings:
     def read_sam_hq(self):
         return self.qt_settings.value("cnn/sam_hq", True)
 
+    def read_clear_sam_size(self):
+        return self.qt_settings.value("sam/clear_sam_size", 80)
+
+    def write_clear_sam_size(self, size):
+        self.qt_settings.setValue("sam/clear_sam_size", size)
+
     def write_last_opened_path(self, path):
         self.qt_settings.setValue("general/last_opened_path", path)
 

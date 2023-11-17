@@ -1505,7 +1505,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def delete_ruler_line(self):
         if self.ruler_line:
-            self.remove_item(self.ruler_line)
+            self.scene().removeItem(self.ruler_line)
 
     def draw_ruler_text(self, text, pos, pixel_size=None):
 
@@ -1525,4 +1525,4 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def delete_ruler_text(self):
         if self.ruler_text:
-            self.remove_item(self.ruler_text)
+            self.scene().removeItem(self.ruler_text)

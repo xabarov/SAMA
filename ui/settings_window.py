@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QLabel, QGroupBox, QFormLayout, QVBoxLayout, QDouble
 
 from utils import cls_settings
 from ui.settings_window_base import SettingsWindowBase
-from ui.combo_box_styled import StyledComboBox, StyledDoubleSpinBox
+from ui.combo_box_styled import StyledComboBox, StyledDoubleSpinBox, StyledSpinBox
 import numpy as np
 from PyQt5 import QtWidgets
 import sys
@@ -80,6 +80,15 @@ class SettingsWindow(SettingsWindowBase):
         classifier_layout.addRow(QLabel("Коэффициент упрощения полигонов:" if self.lang == 'RU' else "Simplify factor"),
                                  self.simplify_spin)
 
+        self.clear_sam_spin = StyledSpinBox(self, theme=theme)
+        clear_sam_size = self.settings.read_clear_sam_size()
+        self.clear_sam_spin.setValue(int(clear_sam_size))
+
+        self.clear_sam_spin.setMinimum(1)
+        self.clear_sam_spin.setMaximum(500)
+        classifier_layout.addRow(QLabel("Размер удаляемых мелких областей SAM, px:" if self.lang == 'RU' else "SAM remove small objects size, px"),
+                                 self.clear_sam_spin)
+
         self.SAM_HQ_checkbox = QCheckBox()
         self.SAM_HQ_checkbox.setChecked(bool(self.settings.read_sam_hq()))
         sam_hq_label = QLabel('Использовать SAM HQ' if self.lang == 'RU' else 'Use SAM HQ')
@@ -96,6 +105,7 @@ class SettingsWindow(SettingsWindowBase):
         self.settings.write_iou_thres(self.IOU_spin.value())
         self.settings.write_conf_thres(self.conf_thres_spin.value())
         self.settings.write_simplify_factor(self.simplify_spin.value())
+        self.settings.write_clear_sam_size(self.clear_sam_spin.value())
 
         self.settings.write_sam_hq(int(self.SAM_HQ_checkbox.isChecked()))
 

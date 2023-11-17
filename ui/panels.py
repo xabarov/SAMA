@@ -28,7 +28,7 @@ class ImagesPanel(QWidget):
 
         self.add_im_button.setIcon((QIcon(icon_folder + "/add.png")))
         self.del_im_button.setIcon((QIcon(icon_folder + "/del.png")))
-        self.change_im_status_button.setIcon((QIcon(icon_folder + "/reset.png")))
+        self.change_im_status_button.setIcon((QIcon(icon_folder + "/clipboard.png")))
 
         self.add_im_button.setFixedHeight(button_size)
         self.del_im_button.setFixedHeight(button_size)
@@ -55,7 +55,7 @@ class ImagesPanel(QWidget):
     def on_color_change(self, icon_folder):
         self.del_im_button.setIcon((QIcon(icon_folder + "/del.png")))
         self.add_im_button.setIcon((QIcon(icon_folder + "/add.png")))
-        self.change_im_status_button.setIcon((QIcon(icon_folder + "/reset.png")))
+        self.change_im_status_button.setIcon((QIcon(icon_folder + "/clipboard.png")))
 
     def on_im_list_change(self, images_size):
         if images_size > 0:
