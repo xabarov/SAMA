@@ -1,7 +1,7 @@
 import numpy as np
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QLabel
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLineEdit, QFormLayout, QProgressBar
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QFormLayout, QProgressBar
 
 from ui.combo_box_styled import StyledComboBox
 from ui.combo_box_styled import StyledDoubleSpinBox
@@ -38,13 +38,10 @@ class CustomInputDialog(QWidget):
         return self.edit.text()
 
 
-
-
-
 class CustomComboDialog(QWidget):
     def __init__(self, parent=None, theme='dark_blue.xml', dark_color=(255, 255, 255), light_color=(0, 0, 0),
                  title_name="ComboBoxTitle", question_name="Question:", variants=None, editable=False,
-                 pre_label=None, post_label=None):
+                 pre_label=None, post_label=None, width_percent=0.2, height_percent=0.1):
         super().__init__(parent)
         self.setWindowTitle(f"{title_name}")
         self.setWindowFlag(Qt.Tool)
@@ -68,7 +65,7 @@ class CustomComboDialog(QWidget):
 
         layout.addRow(self.label, self.combo)
 
-        btnLayout = QVBoxLayout()
+        btnLayout = QHBoxLayout()
 
         self.okBtn = QPushButton('Ввести' if self.lang == 'RU' else "OK", self)
         self.cancelBtn = QPushButton('Отменить' if self.lang == 'RU' else "Cancel", self)
@@ -88,6 +85,10 @@ class CustomComboDialog(QWidget):
 
         self.mainLayout.addLayout(btnLayout)
         self.setLayout(self.mainLayout)
+
+        size, pos = self.settings.read_size_pos_settings()
+        self.setMinimumWidth(int(size.width() * width_percent))
+        self.setMinimumHeight(int(size.height() * height_percent))
 
     def getText(self):
         return self.combo.currentText()

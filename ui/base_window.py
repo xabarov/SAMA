@@ -413,6 +413,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.annotatorMenu.addMenu(self.annotatorImportMenu)
 
         self.annotatorMenu.addAction(self.load_lrm_data_act)
+        self.annotatorMenu.addAction(self.changePolygonLabelAct)
 
         #
         self.settingsMenu = QMenu("Настройки" if self.settings.read_lang() == 'RU' else "Settings", self)
@@ -450,7 +451,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.annotatorToolButton.setMenu(self.AnnotatorMethodMenu)
 
         toolBar.addWidget(self.annotatorToolButton)
-        toolBar.addAction(self.changePolygonLabelAct)
+
 
         toolBar.addSeparator()
         toolBar.addAction(self.settingsAct)
@@ -647,7 +648,6 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Изменение имени нажатого полигона горячей клавишей
         """
-        print("Pressed change polygon name")
         self.view.on_change_cls_num()
 
     def change_polygon_cls_num(self, cls_num, cls_id):

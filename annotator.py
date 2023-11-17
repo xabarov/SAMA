@@ -457,7 +457,7 @@ class Annotator(MainWindow):
         Добавление полигонов SAM на сцену
         """
         simplify_factor = float(self.settings.read_simplify_factor())
-        sam_mask = hf.clean_mask(sam_mask, type='remove', min_size=80, connectivity=2)
+        sam_mask = hf.clean_mask(sam_mask, type='remove', min_size=80, connectivity=1)
         if is_save_to_temp_folder:
             mask_name = hf.create_unique_image_name(self.tek_image_name)
             mask_name = os.path.join(self.handle_temp_folder(), mask_name)
