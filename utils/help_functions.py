@@ -33,8 +33,11 @@ def clean_mask(mask, type='remove', min_size=64, connectivity=2):
     imglab = label(mask)  # create labels in segmented image
     if type == 'remove':
         cleaned = remove_small_objects(imglab, min_size=min_size, connectivity=connectivity)
-    elif type == 'oc':
+    elif type == 'oc':  # open-close
         cleaned = binary_closing(binary_opening(mask, square(2)), square(2))
+    else:
+        print(f"Clean_mask error: Unsupported type of clean algorithm: {type}. Return mask without changes")
+        return mask
 
     mask_new = np.zeros(cleaned.shape)  # create array of size cleaned
     mask_new[cleaned > 0] = 255
