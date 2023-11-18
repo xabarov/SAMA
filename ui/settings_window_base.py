@@ -138,19 +138,24 @@ class SettingsWindowBase(QWidget):
         # Настройки разметки
         self.labeling_group = QGroupBox()
 
-        layout = QFormLayout()
+        layout = QVBoxLayout()
 
+        alpha_slider_layout = QHBoxLayout()
         self.alpha_slider = QSlider(Qt.Orientation.Horizontal)
         self.alpha_slider.setValue(self.settings.read_alpha())
+        alpha_slider_layout.addWidget(QLabel("Степень непрозрачности масок" if self.lang == 'RU' else 'Label opaque'))
+        alpha_slider_layout.addWidget(self.alpha_slider)
 
-        layout.addRow(QLabel("Степень непрозрачности масок" if self.lang == 'RU' else 'Label opaque'),
-                      self.alpha_slider)
+        layout.addLayout(alpha_slider_layout)
 
+        fat_slider_layout = QHBoxLayout()
         self.fat_width_slider = QSlider(Qt.Orientation.Horizontal)
         self.fat_width_slider.setValue(self.settings.read_fat_width())
+        fat_slider_layout.addWidget(QLabel("Толщина граней разметки" if self.lang == 'RU' else 'Edges width'))
+        fat_slider_layout.addWidget(self.fat_width_slider)
 
-        layout.addRow(QLabel("Толщина граней разметки" if self.lang == 'RU' else 'Edges width'),
-                      self.fat_width_slider)
+        layout.addLayout(fat_slider_layout)
+        layout.addStretch()
 
         label_text_params = self.settings.read_label_text_params()
         is_hide = label_text_params['hide']
@@ -159,42 +164,48 @@ class SettingsWindowBase(QWidget):
         self.default_color = label_text_params['default_color']
 
         # Скрывать ли метки
-
+        font_hide_layout = QHBoxLayout()
         self.font_hide_checkbox = QCheckBox()
         self.font_hide_checkbox.setChecked(is_hide)
         self.font_hide_checkbox.stateChanged.connect(self.font_hide_checkbox_clicked)
-        layout.addRow(QLabel('Скрывать текст' if self.lang == 'RU' else 'Hide text'), self.font_hide_checkbox)
-
-        # Шрифт Меток
-        self.font_btn = QPushButton('Задать' if self.lang == 'RU' else 'Settings')
-        self.font_btn.setIcon(QIcon(self.icon_folder + "/font.png"))
-        self.font_btn.clicked.connect(self.on_font_clicked)
-
-        self.font_label = QLabel()
-        self.set_font_btn_label()
-
-        layout.addRow(self.font_label, self.font_btn)
+        font_hide_layout.addWidget(self.font_hide_checkbox)
+        font_hide_layout.addWidget(QLabel('скрыть имена меток' if self.lang == 'RU' else 'hide label text'))
+        font_hide_layout.addStretch()
+        layout.addLayout(font_hide_layout)
 
         # Цвет текста
         # Чекбокс
+        autocolor_layout = QHBoxLayout()
         self.autocolor_checkbox = QCheckBox()
         self.autocolor_checkbox.setChecked(auto_color)
         self.autocolor_checkbox.stateChanged.connect(self.autocolor_checkbox_clicked)
         self.autocolor_checkbox_label = QLabel(
-            'Задать цвет текста как у метки' if self.lang == 'RU' else 'Set text color the same as label')
-        layout.addRow(self.autocolor_checkbox_label,
-                      self.autocolor_checkbox)
+            'задать цвет текста как у метки' if self.lang == 'RU' else 'set text color the same as label')
+        autocolor_layout.addWidget(self.autocolor_checkbox)
+        autocolor_layout.addWidget(self.autocolor_checkbox_label)
+        autocolor_layout.addStretch()
 
+        layout.addLayout(autocolor_layout)
+
+        # Шрифт Меток
+        btn_layout = QHBoxLayout()
+        self.font_btn = QPushButton(' Задать шрифт метки' if self.lang == 'RU' else ' Set label font')
+        self.font_btn.setIcon(QIcon(self.icon_folder + "/font.png"))
+        self.font_btn.clicked.connect(self.on_font_clicked)
+
+        # self.set_font_btn_label()
         # Палитра
-        self.color_btn = QPushButton('Задать' if self.lang == 'RU' else 'Settings')
+        self.color_btn = QPushButton(' Задать цвет шрифта метки' if self.lang == 'RU' else ' Set label font color')
 
         self.color_btn.setIcon(QIcon(self.icon_folder + "/font_color.png"))
         self.color_btn.clicked.connect(self.on_color_clicked)
 
-        self.color_label = QLabel()
-        self.set_color_btn_label()
+        # self.set_color_btn_label()
+        btn_layout.addWidget(self.font_btn)
+        btn_layout.addWidget(self.color_btn)
 
-        layout.addRow(self.color_label, self.color_btn)
+        layout.addLayout(btn_layout)
+
 
         # Положение текста относительно метки
 
@@ -207,35 +218,29 @@ class SettingsWindowBase(QWidget):
         auto_color = self.autocolor_checkbox.isChecked()
         if auto_color:
             self.color_btn.hide()
-            self.color_label.hide()
         else:
             self.color_btn.show()
-            self.color_label.show()
 
-    def set_font_btn_label(self):
-        font_btn_text = 'Шрифт меток: ' if self.lang == 'RU' else 'Labels  font: '
-        font_btn_text += f"{self.cur_font.family()},{self.cur_font.pointSize()}"
-        self.font_label.setText(font_btn_text)
-
-    def set_color_btn_label(self):
-        color_btn_text = 'Цвет шрифта: ' if self.lang == 'RU' else 'Font color: '
-        color_btn_text += f"{self.default_color}"
-        self.color_label.setText(color_btn_text)
+    # def set_font_btn_label(self):
+    #     font_btn_text = 'Шрифт меток: ' if self.lang == 'RU' else 'Labels  font: '
+    #     font_btn_text += f"{self.cur_font.family()},{self.cur_font.pointSize()}"
+    #     self.font_label.setText(font_btn_text)
+    #
+    # def set_color_btn_label(self):
+    #     color_btn_text = 'Цвет шрифта: ' if self.lang == 'RU' else 'Font color: '
+    #     color_btn_text += f"{self.default_color}"
+    #     self.color_label.setText(color_btn_text)
 
     def font_hide_checkbox_clicked(self):
         hide = self.font_hide_checkbox.isChecked()
         if hide:
             self.font_btn.hide()
-            self.font_label.hide()
             self.color_btn.hide()
-            self.color_label.hide()
             self.autocolor_checkbox.hide()
             self.autocolor_checkbox_label.hide()
         else:
             self.font_btn.show()
-            self.font_label.show()
             self.color_btn.show()
-            self.color_label.show()
             self.autocolor_checkbox.show()
             self.autocolor_checkbox_label.show()
 
@@ -250,7 +255,7 @@ class SettingsWindowBase(QWidget):
         font, ok = font_dialog.getFont()
         if ok:
             self.cur_font = font
-            self.set_font_btn_label()
+            # self.set_font_btn_label()
 
     def on_color_clicked(self):
         color_dialog = QColorDialog()
@@ -260,7 +265,7 @@ class SettingsWindowBase(QWidget):
         color_dialog.exec()
         rgb = color_dialog.selectedColor().getRgb()
         self.default_color = (rgb[0], rgb[1], rgb[2], 255)
-        self.set_color_btn_label()
+        # self.set_color_btn_label()
 
     def import_settings(self):
         self.settings = AppSettings()

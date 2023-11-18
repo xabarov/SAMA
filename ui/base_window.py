@@ -95,9 +95,6 @@ class MainWindow(QtWidgets.QMainWindow):
         lay.setStretchFactor(0, 4)
         self.setCentralWidget(lay)
 
-        # last_ for not recreate if not change
-        self.last_theme = self.settings.read_theme()
-
         # Menu and toolbars
         self.createActions()
         self.createMenus()
@@ -128,8 +125,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tek_image_path = None
         self.dataset_dir = None
 
-        self.last_alpha = None
         self.last_fat_width = None
+        self.last_theme = self.settings.read_theme()
+        self.last_density = self.settings.read_density()
+
         self.lrm = None  # ЛРМ снимка
 
         self.image_types = ['jpg', 'png', 'tiff', 'jpeg', 'tif']
@@ -1670,24 +1669,21 @@ class MainWindow(QtWidgets.QMainWindow):
         lang = self.settings.read_lang()
 
         theme = self.settings.read_theme()
-        if theme != self.last_theme:
+        density = self.settings.read_density()
+        if theme != self.last_theme and density != self.last_density:
             self.last_theme = theme
+            self.last_density = density
             self.change_theme()
 
         self.set_icons()
 
         fat_width = self.settings.read_fat_width()
-        alpha = self.settings.read_alpha()
-
-        if alpha != self.last_alpha:
-            self.last_alpha = alpha
-            self.reload_image(is_tek_image_changed=False)
 
         if fat_width != self.last_fat_width:
             self.last_fat_width = fat_width
             self.view.set_fat_width(self.settings.read_fat_width())
-            self.reload_image(is_tek_image_changed=False)
 
+        self.reload_image(is_tek_image_changed=False)
         self.statusBar().showMessage(
             f"Настройки проекта изменены" if lang == 'RU' else "Settings is saved", 3000)
 

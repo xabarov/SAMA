@@ -113,7 +113,7 @@ class Annotator(MainWindow):
                                   enabled=False, triggered=self.on_dataset_balance_clicked)
 
         self.syncLabelsAct = QAction(
-            "Синхронизировать имена меток" if self.settings.read_lang() == 'RU' else "Fill label names from AI model",
+            "Загрузить имена меток от модели НС" if self.settings.read_lang() == 'RU' else "Load label names from AI model",
             self, enabled=False,
             triggered=self.sync_labels)
 
