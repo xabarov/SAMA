@@ -6,6 +6,7 @@ import shutil
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
+from yolo_converter import create_yaml
 
 Label = namedtuple('Label', ['name', 'points'])
 
@@ -117,22 +118,6 @@ def get_labels_and_points(file_name):
     return res
 
 
-def create_yaml(yaml_short_name, save_folder, label_names, dataset_name='Dataset'):
-    yaml_full_name = os.path.join(save_folder, yaml_short_name)
-    with open(yaml_full_name, 'w') as f:
-        f.write(f"# {dataset_name}\n")
-        # Paths:
-        path_str = f"path: {save_folder}\n"
-        path_str += "train: images/train  # train images (relative to 'path') \n"
-        path_str += "val: images/val  # val images (relative to 'path')\n"
-        path_str += "test:  # test images (optional)\n"
-        f.write(path_str)
-        # Classes:
-        f.write("#Classes\n")
-        f.write(f"nc: {len(label_names)} # number of classes\n")
-        f.write(f"names: {label_names}\n")
-
-
 def create_yolo_dataset(fair1m_folder, yolo_folder, dataset_name='FAIR1M', fair1m_label_names=None):
     if not fair1m_label_names:
         fair1m_label_names = list(classes.keys())
@@ -232,4 +217,5 @@ if __name__ == '__main__':
     # create_yaml('yaml_test.yaml', os.getcwd(), ["Boeing737", "Boeing747", "Boeing777", "Boeing787", "ARJ21",
     #                                             "C919", "A220", "A321", "A330", "A350", "other-airplane"],
     #             dataset_name='AirplanesFAIR1M')
-    create_yolo_dataset("D:\python\datasets\FAIR1M", "D:\python\datasets\FAIR1M\\FAIR1M_yolo_box", dataset_name='FAIR1M_yolo_box')
+    create_yolo_dataset("D:\python\datasets\FAIR1M", "D:\python\datasets\FAIR1M\\FAIR1M_yolo_box",
+                        dataset_name='FAIR1M_yolo_box')

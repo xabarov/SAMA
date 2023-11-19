@@ -2,7 +2,6 @@ import ast
 import os
 
 import cv2
-import matplotlib.pyplot as plt
 import torch
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtGui import QIcon, QCursor, QKeySequence
@@ -15,11 +14,11 @@ from ultralytics import YOLO
 import utils.help_functions as hf
 from gd.gd_sam import load_model as gd_load_model
 from gd.gd_worker import GroundingSAMWorker
+from ui.balance_table_widget import BalanceTable
 from ui.base_window import MainWindow
 from ui.import_dialogs import ImportFromYOLODialog
 from ui.input_dialog import PromptInputDialog
 from ui.settings_window import SettingsWindow
-from ui.show_image_widget import ShowImgWindow
 from utils import cls_settings
 from utils import config
 from utils.cnn_worker import CNN_worker
@@ -797,33 +796,9 @@ class Annotator(MainWindow):
         """
         Вывод инфо о балансе датасета
         """
-        balance_data = self.project_data.calc_dataset_balance()
-
-        labels = list(balance_data.keys())
-        values = list(balance_data.values())
-
-        dataset_dir = self.project_data.get_image_path()
-        balance_txt_name = os.path.join(os.path.dirname(dataset_dir), 'label_balance.txt')
-        with open(balance_txt_name, 'w') as f:
-            for label, size in balance_data.items():
-                f.write(f"{label}: {size}\n")
-
-        fig, ax = plt.subplots(figsize=(10, 8))
-
-        ax.bar(labels, values,
-               # color=config.THEMES_COLORS[self.theme_str],
-               width=0.8)
-
-        ax.set_xlabel("Label names")
-        ax.set_ylabel("No. of labels")
-        ax.tick_params(axis='x', rotation=70)
-        plt.title('Баланс меток')
-
-        temp_folder = self.handle_temp_folder()
-        fileName = os.path.join(temp_folder, 'balance.jpg')
-        plt.savefig(fileName)
-
-        ShowImgWindow(self, title='Баланс меток', img_file=fileName, icon_folder=self.icon_folder)
+        project_data = self.project_data.get_data()
+        self.balance_table = BalanceTable(project_data=project_data)
+        self.balance_table.show()
 
     def detect_all_images(self):
         """

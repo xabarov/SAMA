@@ -1443,8 +1443,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progress_toolbar.show_progressbar()
 
         # Задать id меткам на изображениях
-        self.view.set_ids_from_project(self.project_data.get_data(), on_set_callback=self.on_view_ids_set,
-                                       percent_max=100)
+        self.view.set_ids_from_project(self.project_data.get_data(), on_set_callback=self.on_view_ids_set)
 
     def on_view_ids_set(self):
         # Заданы id меткам на изображениях

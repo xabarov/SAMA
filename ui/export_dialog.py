@@ -68,7 +68,7 @@ class ExportDialog(QWidget):
         # Buttons layout:
         btnLayout = QHBoxLayout()
 
-        self.okBtn = QPushButton('Экспортировать' if self.lang == 'RU' else "Import", self)
+        self.okBtn = QPushButton('Экспортировать' if self.lang == 'RU' else "Export", self)
         self.on_ok_clicked = on_ok_clicked
         if on_ok_clicked:
             self.okBtn.clicked.connect(self.on_ok)

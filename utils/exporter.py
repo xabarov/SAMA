@@ -11,11 +11,12 @@ from shapely import Polygon
 from ui.signals_and_slots import LoadPercentConnection, ErrorConnection, InfoConnection
 from utils import help_functions as hf
 from utils.blur_image import blur_image_by_mask, get_mask_from_yolo_txt
+from utils.datasets_converter.yolo_converter import create_yaml
 
 
 class Exporter(QtCore.QThread):
 
-    def __init__(self, project_data, export_dir, format='yolo_seg', export_map=None):
+    def __init__(self, project_data, export_dir, format='yolo_seg', export_map=None, dataset_name='dataset'):
         super(Exporter, self).__init__()
 
         # SIGNALS
@@ -26,6 +27,7 @@ class Exporter(QtCore.QThread):
         self.export_dir = export_dir
         self.format = format
         self.export_map = export_map
+        self.dataset_name = dataset_name
 
         self.data = project_data
 
@@ -106,6 +108,9 @@ class Exporter(QtCore.QThread):
             f"{cls_num} {x_center / im_shape[1]} {y_center / im_shape[0]} {w / im_shape[1]} {h / im_shape[0]}\n")
 
     def exportToYOLOSeg(self, export_dir, export_map=None):
+        """
+        export_map - {label_name: cls_num или 'del' или 'blur' , ... } Экспортируемых меток может быть меньше
+        """
 
         if not os.path.isdir(export_dir):
             return
@@ -121,6 +126,12 @@ class Exporter(QtCore.QThread):
 
         if not export_map:
             export_map = self.get_export_map(labels_names)
+
+        export_label_names = sorted(
+            list(set([cls_num for cls_num in export_map.values() if cls_num != 'del' and cls_num != 'blur'])))
+        export_label_names = {labels_names[k]: k for k in export_label_names}
+        create_yaml(f"{self.dataset_name}.yaml", export_dir, list(export_label_names.keys()),
+                    dataset_name=self.dataset_name)
 
         im_num = 0
         for filename, image in self.data["images"].items():
@@ -146,7 +157,7 @@ class Exporter(QtCore.QThread):
                 for shape in image["shapes"]:
                     cls_num = shape["cls_num"]
 
-                    if cls_num == -1:
+                    if cls_num == -1 or cls_num > len(labels_names) - 1:
                         continue
 
                     label_name = labels_names[cls_num]
@@ -186,6 +197,12 @@ class Exporter(QtCore.QThread):
         if not export_map:
             export_map = self.get_export_map(labels_names)
 
+        export_label_names = sorted(
+            list(set([cls_num for cls_num in export_map.values() if cls_num != 'del' and cls_num != 'blur'])))
+        export_label_names = {labels_names[k]: k for k in export_label_names}
+        create_yaml(f"{self.dataset_name}.yaml", export_dir, list(export_label_names.keys()),
+                    dataset_name=self.dataset_name)
+
         im_num = 0
         for filename, image in self.data["images"].items():
             if len(image["shapes"]):  # чтобы не создавать пустых файлов
@@ -203,7 +220,7 @@ class Exporter(QtCore.QThread):
                     for shape in image["shapes"]:
                         cls_num = shape["cls_num"]
 
-                        if cls_num == -1:
+                        if cls_num == -1 or cls_num > len(labels_names) - 1:
                             continue
 
                         label_name = labels_names[cls_num]
@@ -228,15 +245,15 @@ class Exporter(QtCore.QThread):
             im_num += 1
             self.export_percent_conn.percent.emit(int(100 * im_num / (len(self.data['images']))))
 
-    def exportToCOCO(self, export_сoco_name, export_map=None):
+    def exportToCOCO(self, export_coco_name, export_map=None):
 
-        if not os.path.isdir(os.path.dirname(export_сoco_name)):
+        if not os.path.isdir(os.path.dirname(export_coco_name)):
             return
 
         self.clear_not_existing_images()
         labels_names = self.get_labels()
 
-        export_dir = os.path.dirname(export_сoco_name)
+        export_dir = os.path.dirname(export_coco_name)
 
         images_dir, labels_dir = self.create_images_labels_subdirs(export_dir)
         is_blur = self.is_blurred_classes(export_map)
@@ -294,7 +311,7 @@ class Exporter(QtCore.QThread):
 
                 cls_num = shape["cls_num"]
 
-                if cls_num == -1:
+                if cls_num == -1 or cls_num > len(labels_names) - 1:
                     continue
 
                 label_name = labels_names[cls_num]
@@ -356,7 +373,7 @@ class Exporter(QtCore.QThread):
                 category = {"supercategory": "type", "id": export_map[label] + 1, "name": label}
                 export_json["categories"].append(category)
 
-        with open(export_сoco_name, 'w') as f:
+        with open(export_coco_name, 'w') as f:
             ujson.dump(export_json, f)
 
     def get_image_path(self):

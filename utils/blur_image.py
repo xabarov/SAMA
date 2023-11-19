@@ -18,7 +18,6 @@ def blur_image_by_mask(image_path, mask, save=False):
     return out
 
 
-
 def get_mask_from_yolo_txt(image_path, yolo_label_path, cls_nums, mask_save=False):
     img = Image.open(image_path)
 
@@ -34,11 +33,13 @@ def get_mask_from_yolo_txt(image_path, yolo_label_path, cls_nums, mask_save=Fals
         if cls in cls_nums:
 
             x_mass = seg['seg']['x']
+            if len(x_mass) == 0:
+                continue
             y_mass = seg['seg']['y']
 
             pol = []
             for x, y in zip(x_mass, y_mass):
-                pol.append((x, y))
+                pol.append([x, y])
 
             pol = Polygon(pol)
 
@@ -50,7 +51,7 @@ def get_mask_from_yolo_txt(image_path, yolo_label_path, cls_nums, mask_save=Fals
 
     if mask_save:
         im_suffix = os.path.basename(image_path).split('.')[-1]
-        mask_save_path = image_path.split('.'+im_suffix)[0] + f"_mask.png"
+        mask_save_path = image_path.split('.' + im_suffix)[0] + f"_mask.png"
         cv2.imwrite(mask_save_path, final_mask)
 
     return final_mask
