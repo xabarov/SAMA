@@ -1,15 +1,14 @@
-from PyQt5.QtWidgets import QLabel, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QPushButton, QLineEdit, QCheckBox, \
-    QProgressBar, \
-    QComboBox
-from PyQt5.QtCore import Qt
-
-from utils import config
-from ui.edit_with_button import EditWithButton
+import os
 
 import numpy as np
-import yaml
 import ujson
-import os
+import yaml
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QLabel, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QPushButton, QCheckBox, \
+    QProgressBar, \
+    QComboBox
+
+from ui.edit_with_button import EditWithButton
 from utils.settings_handler import AppSettings
 
 
@@ -77,16 +76,16 @@ class ImportFromYOLODialog(QWidget):
         Импорт разметки из YOLO
         """
         super().__init__(parent)
-        self.setWindowTitle(f"Импорт разметки в формате YOLO")
-        self.setWindowFlag(Qt.Tool)
 
         self.settings = AppSettings()
         self.lang = self.settings.read_lang()
 
+        self.setWindowTitle("Импорт разметки в формате YOLO" if self.lang == 'RU' else "Import labeling in YOLO format")
+        self.setWindowFlag(Qt.Tool)
+
         # Yaml file layout:
         placeholder = "Путь к YAML файлу" if self.lang == 'RU' else 'Path to YAML file'
         dialog_text = 'Открытие файла в формате YAML' if self.lang == 'RU' else 'Open file in YAML format'
-
 
         self.yaml_edit_with_button = EditWithButton(None, theme=theme,
                                                     on_button_clicked_callback=self.on_yaml_button_clicked,
@@ -120,7 +119,7 @@ class ImportFromYOLODialog(QWidget):
         self.save_images_checkbox.clicked.connect(self.on_checkbox_clicked)
 
         save_images_layout = QHBoxLayout()
-        save_images_layout.addWidget(QLabel('Копировать изображения'))
+        save_images_layout.addWidget(QLabel('Копировать изображения' if self.lang == 'RU' else 'Copy images'))
         save_images_layout.addWidget(self.save_images_checkbox)
 
         # save images edit + button
@@ -137,7 +136,8 @@ class ImportFromYOLODialog(QWidget):
             self.convert_to_mask_checkbox = QCheckBox()
             self.convert_to_mask_checkbox.setChecked(False)
             convert_to_mask_layout = QHBoxLayout()
-            convert_to_mask_layout.addWidget(QLabel('Использовать SAM для конвертации боксов в сегменты'))
+            convert_to_mask_layout.addWidget(QLabel(
+                'Использовать SAM для конвертации боксов в сегменты' if self.lang == 'RU' else 'Use SAM to convert boxes to segments'))
             convert_to_mask_layout.addWidget(self.convert_to_mask_checkbox)
 
         # Buttons layout:

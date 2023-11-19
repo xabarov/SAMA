@@ -7,7 +7,7 @@ class ImagesWidget(QListWidget):
 
     def __init__(self, parent, icon_folder):
         super(ImagesWidget, self).__init__(parent)
-        icon_folder = icon_folder
+
         self.icon_folder = os.path.join(icon_folder, '..', 'image_status')
         # self.setMouseTracking(True)
 

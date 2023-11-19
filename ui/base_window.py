@@ -109,12 +109,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # self.splash.finish(self)
         self.statusBar().showMessage(
-            "Загрузите проект или набор изображений" if self.settings.read_lang() == 'RU' else "Load dataset or project")
+            "Загрузите проект или набор изображений" if self.lang == 'RU' else "Load dataset or project")
 
     def init_global_values(self):
         """
         Set some app global values
         """
+        self.lang = self.settings.read_lang()
 
         self.scaleFactor = 1.0
         self.ann_type = "Polygon"
@@ -210,163 +211,163 @@ class MainWindow(QtWidgets.QMainWindow):
     def createActions(self):
 
         self.copyAct = QAction(
-            "Копировать метку" if self.settings.read_lang() == 'RU' else "Copy label",
+            "Копировать метку" if self.lang == 'RU' else "Copy label",
             self, triggered=self.copy_label)
 
         self.pasteAct = QAction(
-            "Вставить метку" if self.settings.read_lang() == 'RU' else "Paste label",
+            "Вставить метку" if self.lang == 'RU' else "Paste label",
             self, triggered=self.paste_label)
 
         self.undoAct = QAction(
-            "Отменить" if self.settings.read_lang() == 'RU' else "Undo",
+            "Отменить" if self.lang == 'RU' else "Undo",
             self, triggered=self.undo)
 
         self.deleteLabelAct = QAction(
-            "Удалить метку" if self.settings.read_lang() == 'RU' else "Delete label",
+            "Удалить метку" if self.lang == 'RU' else "Delete label",
             self, triggered=self.break_drawing)
 
         self.startDrawAct = QAction(
-            "Начать рисовать метку" if self.settings.read_lang() == 'RU' else "Start drawing label",
+            "Начать рисовать метку" if self.lang == 'RU' else "Start drawing label",
             self, triggered=self.start_drawing)
 
         self.stopDrawAct = QAction(
-            "Закончить рисовать метку" if self.settings.read_lang() == 'RU' else "Stop drawing label",
+            "Закончить рисовать метку" if self.lang == 'RU' else "Stop drawing label",
             self, triggered=self.end_drawing)
 
         self.goNextAct = QAction(
-            "Следующее изображение" if self.settings.read_lang() == 'RU' else "Next Image",
+            "Следующее изображение" if self.lang == 'RU' else "Next Image",
             self, triggered=self.go_next)
 
         self.goBeforeAct = QAction(
-            "Предыдущее изображение" if self.settings.read_lang() == 'RU' else "Before Image",
+            "Предыдущее изображение" if self.lang == 'RU' else "Before Image",
             self, triggered=self.go_before)
 
         self.createNewProjectAct = QAction(
-            "Создать новый проект" if self.settings.read_lang() == 'RU' else "Create new project",
+            "Создать новый проект" if self.lang == 'RU' else "Create new project",
             self, triggered=self.createNewProject)
-        self.openProjAct = QAction("Загрузить проект" if self.settings.read_lang() == 'RU' else "Load Project", self,
+        self.openProjAct = QAction("Загрузить проект" if self.lang == 'RU' else "Load Project", self,
                                    triggered=self.open_project)
         self.saveProjAsAct = QAction(
-            "Сохранить проект как..." if self.settings.read_lang() == 'RU' else "Save project as...",
+            "Сохранить проект как..." if self.lang == 'RU' else "Save project as...",
             self, triggered=self.save_project_as, enabled=False)
-        self.saveProjAct = QAction("Сохранить проект" if self.settings.read_lang() == 'RU' else "Save project", self,
+        self.saveProjAct = QAction("Сохранить проект" if self.lang == 'RU' else "Save project", self,
                                    triggered=self.save_project, enabled=False)
 
-        self.printAct = QAction("Печать" if self.settings.read_lang() == 'RU' else "Print", self,
+        self.printAct = QAction("Печать" if self.lang == 'RU' else "Print", self,
                                 enabled=False, triggered=self.print_)
-        self.exitAct = QAction("Выход" if self.settings.read_lang() == 'RU' else "Exit", self,
+        self.exitAct = QAction("Выход" if self.lang == 'RU' else "Exit", self,
                                triggered=self.close)
 
-        self.zoomInAct = QAction("Увеличить" if self.settings.read_lang() == 'RU' else "Zoom In", self,
+        self.zoomInAct = QAction("Увеличить" if self.lang == 'RU' else "Zoom In", self,
                                  enabled=False,
                                  triggered=self.zoomIn)
-        self.zoomOutAct = QAction("Уменьшить" if self.settings.read_lang() == 'RU' else "Zoom Out", self,
+        self.zoomOutAct = QAction("Уменьшить" if self.lang == 'RU' else "Zoom Out", self,
                                   enabled=False,
                                   triggered=self.zoomOut)
         self.fitToWindowAct = QAction(
-            "Подогнать под размер окна" if self.settings.read_lang() == 'RU' else "Fit to window size",
+            "Подогнать под размер окна" if self.lang == 'RU' else "Fit to window size",
             self, enabled=False,
             triggered=self.fitToWindow)
 
-        self.aboutAct = QAction("О модуле" if self.settings.read_lang() == 'RU' else "About", self,
+        self.aboutAct = QAction("О модуле" if self.lang == 'RU' else "About", self,
                                 triggered=self.about)
-        self.shortCutsEditAct = QAction("Горячие клавиши" if self.settings.read_lang() == 'RU' else "Shortcuts", self,
+        self.shortCutsEditAct = QAction("Горячие клавиши" if self.lang == 'RU' else "Shortcuts", self,
                                         triggered=self.show_shortcuts)
 
-        self.settingsAct = QAction("Настройки приложения" if self.settings.read_lang() == 'RU' else "Settings", self,
+        self.settingsAct = QAction("Настройки приложения" if self.lang == 'RU' else "Settings", self,
                                    enabled=True, triggered=self.showSettings)
 
         # Annotators
-        self.polygonAct = QAction("Полигон" if self.settings.read_lang() == 'RU' else "Polygon", self, enabled=False,
+        self.polygonAct = QAction("Полигон" if self.lang == 'RU' else "Polygon", self, enabled=False,
                                   triggered=self.polygon_tool_pressed, checkable=True)
-        self.circleAct = QAction("Эллипс" if self.settings.read_lang() == 'RU' else "Ellips", self, enabled=False,
+        self.circleAct = QAction("Эллипс" if self.lang == 'RU' else "Ellips", self, enabled=False,
                                  triggered=self.circle_pressed, checkable=True)
-        self.squareAct = QAction("Прямоугольник" if self.settings.read_lang() == 'RU' else "Box", self, enabled=False,
+        self.squareAct = QAction("Прямоугольник" if self.lang == 'RU' else "Box", self, enabled=False,
                                  triggered=self.square_pressed,
                                  checkable=True)
 
         # Данные о текущем разметчике
         self.addUserAct = QAction(
-            "Добавить нового пользователя" if self.settings.read_lang() == 'RU' else "Add new user", self,
+            "Добавить нового пользователя" if self.lang == 'RU' else "Add new user", self,
             enabled=True, triggered=self.add_user_clicked)
         self.renameUserAct = QAction(
-            "Изменить имя пользователя" if self.settings.read_lang() == 'RU' else "Change user name", self,
+            "Изменить имя пользователя" if self.lang == 'RU' else "Change user name", self,
             triggered=self.rename_user)
         self.deleteUserAct = QAction(
-            "Удалить имя пользователя" if self.settings.read_lang() == 'RU' else "Delete user name", self,
+            "Удалить имя пользователя" if self.lang == 'RU' else "Delete user name", self,
             triggered=self.delete_user)
 
         # Export
         self.exportAnnToYoloBoxAct = QAction(
-            "YOLO (Box)" if self.settings.read_lang() == 'RU' else "YOLO (Boxes)", self,
+            "YOLO (Box)" if self.lang == 'RU' else "YOLO (Boxes)", self,
             enabled=False,
             triggered=self.exportToYOLOBox)
         self.exportAnnToYoloSegAct = QAction(
-            "YOLO (Seg)" if self.settings.read_lang() == 'RU' else "YOLO (Seg)", self,
+            "YOLO (Seg)" if self.lang == 'RU' else "YOLO (Seg)", self,
             enabled=False,
             triggered=self.exportToYOLOSeg)
         self.exportAnnToCOCOAct = QAction(
-            "COCO" if self.settings.read_lang() == 'RU' else "COCO", self, enabled=False,
+            "COCO" if self.lang == 'RU' else "COCO", self, enabled=False,
             triggered=self.exportToCOCO)
 
         # Import
         self.importAnnFromYoloBoxAct = QAction(
-            "YOLO (Box)" if self.settings.read_lang() == 'RU' else "YOLO (Boxes)", self,
+            "YOLO (Box)" if self.lang == 'RU' else "YOLO (Boxes)", self,
             enabled=True,
             triggered=self.importFromYOLOBox)
         self.importAnnFromYoloSegAct = QAction(
-            "YOLO (Seg)" if self.settings.read_lang() == 'RU' else "YOLO (Seg)", self,
+            "YOLO (Seg)" if self.lang == 'RU' else "YOLO (Seg)", self,
             enabled=True,
             triggered=self.importFromYOLOSeg)
         self.importAnnFromCOCOAct = QAction(
-            "COCO" if self.settings.read_lang() == 'RU' else "COCO", self, enabled=True,
+            "COCO" if self.lang == 'RU' else "COCO", self, enabled=True,
             triggered=self.importFromCOCO)
 
         # Labels
-        self.add_label = QAction("Добавить новый класс" if self.settings.read_lang() == 'RU' else "Add new label", self,
+        self.add_label = QAction("Добавить новый класс" if self.lang == 'RU' else "Add new label", self,
                                  enabled=True, triggered=self.add_label_button_clicked)
         self.del_label = QAction(
-            "Удалить текущий класс" if self.settings.read_lang() == 'RU' else "Delete current label",
+            "Удалить текущий класс" if self.lang == 'RU' else "Delete current label",
             self,
             enabled=True, triggered=self.del_label_button_clicked)
         self.change_label_color = QAction(
-            "Изменить цвет разметки для текущего класса" if self.settings.read_lang() == 'RU' else "Change label color",
+            "Изменить цвет разметки для текущего класса" if self.lang == 'RU' else "Change label color",
             self,
             enabled=True,
             triggered=self.change_label_color_button_clicked)
-        self.rename_label = QAction("Изменить имя класса" if self.settings.read_lang() == 'RU' else "Rename", self,
+        self.rename_label = QAction("Изменить имя класса" if self.lang == 'RU' else "Rename", self,
                                     enabled=True,
                                     triggered=self.rename_label_button_clicked)
         self.changePolygonLabelAct = QAction(
-            "Изменить имя метки" if self.settings.read_lang() == 'RU' else "Rename label", self,
+            "Изменить имя метки" if self.lang == 'RU' else "Rename label", self,
             enabled=True,
             triggered=self.change_polygon_label_clicked)
 
         # Image actions
 
         self.selectAreaAct = QAction(
-            "Выделить область как новое изображение" if self.settings.read_lang() == 'RU' else "Save image crop",
+            "Выделить область как новое изображение" if self.lang == 'RU' else "Save image crop",
             self,
             enabled=False, triggered=self.getArea)
 
         self.saveSelectedPolygonAsImage = QAction(
-            "Сохранить активную область как новое изображение" if self.settings.read_lang() == 'RU' else "Save active as image",
+            "Сохранить активную область как новое изображение" if self.lang == 'RU' else "Save active as image",
             self,
             enabled=False, triggered=self.save_active_item_as_image)
 
         self.load_lrm_data_act = QAction(
-            "Загрузить данные о ЛРМ" if self.settings.read_lang() == 'RU' else "Load linear ground res. data", self,
+            "Загрузить данные о ЛРМ" if self.lang == 'RU' else "Load linear ground res. data", self,
             enabled=False, triggered=self.load_lrm_data_pressed)
 
         self.ruler_act = QAction(
-            "Линейка" if self.settings.read_lang() == 'RU' else "Ruler", self,
+            "Линейка" if self.lang == 'RU' else "Ruler", self,
             enabled=False, triggered=self.ruler_pressed, checkable=True)
 
         self.reset_shortcuts()
 
     def createMenus(self):
 
-        self.fileMenu = QMenu("&Файл" if self.settings.read_lang() == 'RU' else "&File", self)
+        self.fileMenu = QMenu("&Файл" if self.lang == 'RU' else "&File", self)
         self.fileMenu.addAction(self.createNewProjectAct)
         self.fileMenu.addAction(self.openProjAct)
         self.fileMenu.addAction(self.saveProjAct)
@@ -377,7 +378,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.fileMenu.addAction(self.exitAct)
 
         #
-        self.viewMenu = QMenu("&Изображение" if self.settings.read_lang() == 'RU' else "&View", self)
+        self.viewMenu = QMenu("&Изображение" if self.lang == 'RU' else "&View", self)
         self.viewMenu.addAction(self.zoomInAct)
         self.viewMenu.addAction(self.zoomOutAct)
         self.viewMenu.addSeparator()
@@ -387,9 +388,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewMenu.addAction(self.saveSelectedPolygonAsImage)
 
         #
-        self.annotatorMenu = QMenu("&Аннотация" if self.settings.read_lang() == 'RU' else "&Labeling", self)
+        self.annotatorMenu = QMenu("&Аннотация" if self.lang == 'RU' else "&Labeling", self)
 
-        self.AnnotatorMethodMenu = QMenu("Способ выделения" if self.settings.read_lang() == 'RU' else "Method", self)
+        self.AnnotatorMethodMenu = QMenu("Способ выделения" if self.lang == 'RU' else "Method", self)
 
         self.AnnotatorMethodMenu.addAction(self.polygonAct)
         self.AnnotatorMethodMenu.addAction(self.squareAct)
@@ -397,14 +398,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.annotatorMenu.addMenu(self.AnnotatorMethodMenu)
 
-        self.annotatorExportMenu = QMenu("Экспорт" if self.settings.read_lang() == 'RU' else "Export", self)
+        self.annotatorExportMenu = QMenu("Экспорт" if self.lang == 'RU' else "Export", self)
         self.annotatorExportMenu.addAction(self.exportAnnToYoloBoxAct)
         self.annotatorExportMenu.addAction(self.exportAnnToYoloSegAct)
         self.annotatorExportMenu.addAction(self.exportAnnToCOCOAct)
 
         self.annotatorMenu.addMenu(self.annotatorExportMenu)
 
-        self.annotatorImportMenu = QMenu("Импорт" if self.settings.read_lang() == 'RU' else "Import", self)
+        self.annotatorImportMenu = QMenu("Импорт" if self.lang == 'RU' else "Import", self)
         self.annotatorImportMenu.addAction(self.importAnnFromYoloBoxAct)
         self.annotatorImportMenu.addAction(self.importAnnFromYoloSegAct)
         self.annotatorImportMenu.addAction(self.importAnnFromCOCOAct)
@@ -415,11 +416,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.annotatorMenu.addAction(self.changePolygonLabelAct)
 
         #
-        self.settingsMenu = QMenu("Настройки" if self.settings.read_lang() == 'RU' else "Settings", self)
+        self.settingsMenu = QMenu("Настройки" if self.lang == 'RU' else "Settings", self)
         self.settingsMenu.addAction(self.settingsAct)
         self.settingsMenu.addAction(self.shortCutsEditAct)
         #
-        self.helpMenu = QMenu("&Помощь" if self.settings.read_lang() == 'RU' else "Help", self)
+        self.helpMenu = QMenu("&Помощь" if self.lang == 'RU' else "Help", self)
         self.helpMenu.addAction(self.aboutAct)
 
         self.menuBar().addMenu(self.fileMenu)
@@ -432,7 +433,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def create_left_toolbar(self):
         # Left
 
-        toolBar = QToolBar("Панель инструментов" if self.settings.read_lang() == 'RU' else "ToolBar", self)
+        toolBar = QToolBar("Панель инструментов" if self.lang == 'RU' else "ToolBar", self)
         toolBar.addAction(self.openProjAct)
         toolBar.addSeparator()
         toolBar.addAction(self.zoomInAct)
@@ -502,7 +503,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def create_right_toolbar(self):
         # Right toolbar
         self.toolBarRight = QtWidgets.QSplitter(
-            QtCore.Qt.Vertical)  # "Менеджер разметок" if self.settings.read_lang() == 'RU' else "Labeling Bar",
+            QtCore.Qt.Vertical)  # "Менеджер разметок" if self.lang == 'RU' else "Labeling Bar",
 
         # Labels
         label_panel = self.compose_label_panel()
@@ -530,13 +531,13 @@ class MainWindow(QtWidgets.QMainWindow):
     def create_top_toolbar(self):
 
         self.labelSettingsToolBar = QToolBar(
-            "Настройки разметки" if self.settings.read_lang() == 'RU' else "Current Label Bar",
+            "Настройки разметки" if self.lang == 'RU' else "Current Label Bar",
             self)
 
         # имена классов
         self.cls_combo = StyledComboBox()
 
-        label = QLabel("  Текущий класс:   " if self.settings.read_lang() == 'RU' else "  Current label:   ")
+        label = QLabel("  Текущий класс:   " if self.lang == 'RU' else "  Current label:   ")
         cls_names = np.array(['no name'])
         self.cls_combo.addItems(cls_names)
         self.cls_combo.setMinimumWidth(150)
@@ -560,7 +561,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # имя пользователя
         self.user_names_combo = StyledComboBox()
-        user_label = QLabel("  Текущий пользователь:   " if self.settings.read_lang() == 'RU' else "  Current user:   ")
+        user_label = QLabel("  Текущий пользователь:   " if self.lang == 'RU' else "  Current user:   ")
         user_name_variants = np.array(self.settings.read_username_variants())
         cur_user = self.settings.read_username()
         self.user_names_combo.addItems(user_name_variants)
@@ -640,7 +641,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         else:
             self.statusBar().showMessage(
-                "Пожалуйста, выделите полигон на изображении" if self.settings.read_lang() == 'RU' else "Please select some polygon on image as active")
+                "Пожалуйста, выделите полигон на изображении" if self.lang == 'RU' else "Please select some polygon on image as active")
 
     def change_polygon_label_clicked(self):
         """
@@ -655,8 +656,8 @@ class MainWindow(QtWidgets.QMainWindow):
         labels = self.project_data.get_labels()
         theme = self.settings.read_theme()
         self.combo_dialog = CustomComboDialog(self, theme=theme,
-                                              title_name="Изменение имени метки" if self.settings.read_lang() == 'RU' else "Label name change",
-                                              question_name="Введите имя класса:" if self.settings.read_lang() == 'RU' else "Enter label name:",
+                                              title_name="Изменение имени метки" if self.lang == 'RU' else "Label name change",
+                                              question_name="Введите имя класса:" if self.lang == 'RU' else "Enter label name:",
                                               variants=[labels[i] for i in range(len(labels)) if i != cls_num])
 
         self.combo_dialog.okBtn.clicked.connect(self.change_cls_num_ok_clicked)
@@ -689,7 +690,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.dataset_dir:
             last_opened_path = self.settings.read_last_opened_path()
             images, _ = QFileDialog.getOpenFileNames(self,
-                                                     'Загрузка изображений в проект' if self.settings.read_lang() == 'RU' else "Loading dataset",
+                                                     'Загрузка изображений в проект' if self.lang == 'RU' else "Loading dataset",
                                                      last_opened_path,
                                                      'Images Files (*.jpeg *.png *.jpg *.tiff)')
             if images and len(images) > 0:
@@ -751,10 +752,10 @@ class MainWindow(QtWidgets.QMainWindow):
             if not last_user:
                 last_user = ""
             else:
-                last_user = f"Последние правки сделаны {last_user}" if self.settings.read_lang() == 'RU' else f"Last edit user {last_user}"
+                last_user = f"Последние правки сделаны {last_user}" if self.lang == 'RU' else f"Last edit user {last_user}"
 
-            title = f'Изменение статуса изображения {tek_im_name}' if self.settings.read_lang() == 'RU' else f'Change image {tek_im_name} status'
-            text = f'Выберите новый\nстатус изображения: ' if self.settings.read_lang() == 'RU' else f'Choose new image status: '
+            title = f'Изменение статуса изображения {tek_im_name}' if self.lang == 'RU' else f'Change image {tek_im_name} status'
+            text = f'Выберите новый\nстатус изображения: ' if self.lang == 'RU' else f'Choose new image status: '
             variants = ['empty', 'in_work', 'approve']
 
             theme = self.settings.read_theme()
@@ -944,7 +945,7 @@ class MainWindow(QtWidgets.QMainWindow):
         msgbox = QMessageBox()
         msgbox.setIcon(QMessageBox.Information)
         msgbox.setText(
-            f"Экспорт в формат {self.export_format} завершен успешно" if self.settings.read_lang() == 'RU' else f"Export to {self.export_format} was successful")
+            f"Экспорт в формат {self.export_format} завершен успешно" if self.lang == 'RU' else f"Export to {self.export_format} was successful")
         msgbox.setWindowTitle("Экспорт завершен")
         msgbox.exec()
 
@@ -963,8 +964,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def add_label_button_clicked(self):
 
         self.input_dialog = CustomInputDialog(self,
-                                              title_name="Добавление нового класса" if self.settings.read_lang() == 'RU' else "New label",
-                                              question_name="Введите имя класса:" if self.settings.read_lang() == 'RU' else "Enter label name:")
+                                              title_name="Добавление нового класса" if self.lang == 'RU' else "New label",
+                                              question_name="Введите имя класса:" if self.lang == 'RU' else "Enter label name:")
         self.input_dialog.okBtn.clicked.connect(self.add_label_ok_clicked)
         self.input_dialog.show()
         self.input_dialog.edit.setFocus()
@@ -980,10 +981,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 msgbox = QMessageBox()
                 msgbox.setIcon(QMessageBox.Information)
                 msgbox.setText(
-                    f"Ошибка добавления класса" if self.settings.read_lang() == 'RU' else "Error in setting new label")
-                msgbox.setWindowTitle("Ошибка добавления класса" if self.settings.read_lang() == 'RU' else "Error")
+                    f"Ошибка добавления класса" if self.lang == 'RU' else "Error in setting new label")
+                msgbox.setWindowTitle("Ошибка добавления класса" if self.lang == 'RU' else "Error")
                 msgbox.setInformativeText(
-                    f"Класс с именем {new_name} уже существует" if self.settings.read_lang() == 'RU' else f"Label with name {new_name} is already exist. Try again")
+                    f"Класс с именем {new_name} уже существует" if self.lang == 'RU' else f"Label with name {new_name} is already exist. Try again")
                 msgbox.exec()
                 return
 
@@ -1009,10 +1010,10 @@ class MainWindow(QtWidgets.QMainWindow):
             msgbox = QMessageBox()
             msgbox.setIcon(QMessageBox.Information)
             msgbox.setText(
-                f"Ошибка удаления класса" if self.settings.read_lang() == 'RU' else "Error in deleting label")
-            msgbox.setWindowTitle(f"Ошибка удаления класса" if self.settings.read_lang() == 'RU' else "Error")
+                f"Ошибка удаления класса" if self.lang == 'RU' else "Error in deleting label")
+            msgbox.setWindowTitle(f"Ошибка удаления класса" if self.lang == 'RU' else "Error")
             msgbox.setInformativeText(
-                "Количество классов должно быть хотя бы 2 для удаления текущего" if self.settings.read_lang() == 'RU' else "The last label left. If you don't like the name - just rename it")
+                "Количество классов должно быть хотя бы 2 для удаления текущего" if self.lang == 'RU' else "The last label left. If you don't like the name - just rename it")
             msgbox.exec()
             return
 
@@ -1107,7 +1108,7 @@ class MainWindow(QtWidgets.QMainWindow):
         color_dialog = QColorDialog()
         cls_txt = self.cls_combo.currentText()
         color_dialog.setWindowTitle(
-            f"Выберите цвет для класса {cls_txt}" if self.settings.read_lang() == 'RU' else f"Enter color to label {cls_txt}")
+            f"Выберите цвет для класса {cls_txt}" if self.lang == 'RU' else f"Enter color to label {cls_txt}")
         current_color = self.project_data.get_label_color(cls_txt)
         if not current_color:
             current_color = config.COLORS[self.cls_combo.currentIndex()]
@@ -1130,8 +1131,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         cls_name = self.cls_combo.currentText()
         self.input_dialog = CustomInputDialog(self,
-                                              title_name=f"Редактирование имени класса {cls_name}" if self.settings.read_lang() == 'RU' else f"Rename label {cls_name}",
-                                              question_name="Введите новое имя класса:" if self.settings.read_lang() == 'RU' else "Enter new label name:")
+                                              title_name=f"Редактирование имени класса {cls_name}" if self.lang == 'RU' else f"Rename label {cls_name}",
+                                              question_name="Введите новое имя класса:" if self.lang == 'RU' else "Enter new label name:")
 
         self.input_dialog.okBtn.clicked.connect(self.rename_label_ok_clicked)
         self.input_dialog.show()
@@ -1265,7 +1266,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if lrm:
             self.project_data.set_image_lrm(self.tek_image_name, lrm)
-            if self.settings.read_lang() == 'RU':
+            if self.lang == 'RU':
                 self.statusBar().showMessage(
                     f"Установлено ЛРМ для снимка {lrm:0.3f} м",
                     3000)
@@ -1330,7 +1331,7 @@ class MainWindow(QtWidgets.QMainWindow):
         QMessageBox.about(self, "Annotator Light",
                           "<p><b>Annotator Light</b></p>"
                           "<p>Программа для разметки изображений</p>" if
-                          self.settings.read_lang() == 'RU' else "<p>Labeling Data for Object Detection and Instance Segmentation</p>")
+                          self.lang == 'RU' else "<p>Labeling Data for Object Detection and Instance Segmentation</p>")
 
     def filter_images_names(self, images_dir):
         im_names_valid = []
@@ -1368,14 +1369,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if not dataset_images:
             self.statusBar().showMessage(
-                f"В указанной папке изображений не обнаружено" if self.settings.read_lang() == 'RU' else "Folder is empty",
+                f"В указанной папке изображений не обнаружено" if self.lang == 'RU' else "Folder is empty",
                 3000)
             return
 
         self.dataset_images = dataset_images
 
         self.statusBar().showMessage(
-            f"Число загруженны в проект изображений: {len(self.dataset_images)}" if self.settings.read_lang() == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
+            f"Число загруженны в проект изображений: {len(self.dataset_images)}" if self.lang == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
             3000)
         self.loaded_proj_name = self.create_new_proj_dialog.get_project_name()
         self.create_new_proj_dialog.hide()
@@ -1385,13 +1386,20 @@ class MainWindow(QtWidgets.QMainWindow):
     def fill_images_label(self, image_names):
 
         self.images_list_widget.clear()
+        self.progress_toolbar.show_progressbar()
+        self.statusBar().showMessage(
+            f"Загружаю информацию о разметке..." if self.lang == 'RU' else f"Loading labels...",
+            3000)
         images_info = self.project_data.get_all_images_info()
-        for name in image_names:
+        for i, name in enumerate(image_names):
             if name in images_info:
                 status = images_info[name].get('status', None)
             else:
                 status = None
+            percent = int(100 * (i + 1) / len(image_names))
+            self.progress_toolbar.set_percent(percent)
             self.images_list_widget.addItem(name, status)
+        self.progress_toolbar.hide_progressbar()
 
     def progress_bar_changed(self, percent):
         # print(percent)
@@ -1410,8 +1418,8 @@ class MainWindow(QtWidgets.QMainWindow):
             msgbox = QMessageBox()
             msgbox.setIcon(QMessageBox.Information)
             msgbox.setText(
-                f"Ошибка загрузки проекта. " if self.settings.read_lang() == 'RU' else f"Error in loading project")
-            if self.settings.read_lang() == 'RU':
+                f"Ошибка загрузки проекта. " if self.lang == 'RU' else f"Error in loading project")
+            if self.lang == 'RU':
                 msgbox.setInformativeText(
                     f"Директория {dataset_dir} не существует"
                 )
@@ -1419,7 +1427,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 msgbox.setInformativeText(
                     f"Directory {dataset_dir} doesn't exist")
             msgbox.setWindowTitle(
-                f"Ошибка загрузки проекта {self.loaded_proj_name}" if self.settings.read_lang() == 'RU' else "Error")
+                f"Ошибка загрузки проекта {self.loaded_proj_name}" if self.lang == 'RU' else "Error")
             msgbox.exec()
 
             return
@@ -1435,7 +1443,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progress_toolbar.show_progressbar()
 
         # Задать id меткам на изображениях
-        self.view.set_ids_from_project(self.project_data.get_data(), on_set_callback=self.on_view_ids_set)
+        self.view.set_ids_from_project(self.project_data.get_data(), on_set_callback=self.on_view_ids_set,
+                                       percent_max=100)
 
     def on_view_ids_set(self):
         # Заданы id меткам на изображениях
@@ -1466,7 +1475,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.reset_image_panel_progress_bar()
 
         self.statusBar().showMessage(
-            f"Число загруженных в проект изображений: {len(self.dataset_images)}" if self.settings.read_lang() == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
+            f"Число загруженных в проект изображений: {len(self.dataset_images)}" if self.lang == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
             3000)
 
     def reload_project(self):
@@ -1509,7 +1518,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         last_opened_path = self.settings.read_last_opened_path()
         loaded_proj_name, _ = QFileDialog.getOpenFileName(self,
-                                                          'Загрузка проекта' if self.settings.read_lang() == 'RU' else "Loading project",
+                                                          'Загрузка проекта' if self.lang == 'RU' else "Loading project",
                                                           last_opened_path,
                                                           'JSON Proj File (*.json)')
 
@@ -1558,7 +1567,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.view.stop_circle_progress()
 
             self.statusBar().showMessage(
-                f"Проект успешно сохранен" if self.settings.read_lang() == 'RU' else "Project is saved", 3000)
+                f"Проект успешно сохранен" if self.lang == 'RU' else "Project is saved", 3000)
 
         else:
             self.save_project_as()
@@ -1587,7 +1596,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def on_project_saved(self):
 
         self.statusBar().showMessage(
-            f"Проект успешно сохранен" if self.settings.read_lang() == 'RU' else "Project is saved", 3000)
+            f"Проект успешно сохранен" if self.lang == 'RU' else "Project is saved", 3000)
 
     def zoomIn(self):
         """
@@ -1666,7 +1675,7 @@ class MainWindow(QtWidgets.QMainWindow):
         При закрытии окна настроек приложения
 
         """
-        lang = self.settings.read_lang()
+        lang = self.lang
 
         theme = self.settings.read_theme()
         density = self.settings.read_density()
@@ -1961,8 +1970,8 @@ class MainWindow(QtWidgets.QMainWindow):
             event.accept()
         else:
             event.ignore()
-            title = 'Выйти' if self.settings.read_lang() == 'RU' else 'Quit'
-            text = 'Вы точно хотите выйти?' if self.settings.read_lang() == 'RU' else 'Are you really want to quit?'
+            title = 'Выйти' if self.lang == 'RU' else 'Quit'
+            text = 'Вы точно хотите выйти?' if self.lang == 'RU' else 'Are you really want to quit?'
             self.exit_box = OkCancelDialog(self, title=title, text=text, on_ok=self.on_quit)
             self.exit_box.setMinimumWidth(300)
 
@@ -1988,7 +1997,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.ruler_act.setEnabled(False)
 
-        if self.settings.read_lang() == 'RU':
+        if self.lang == 'RU':
             message = f"Задан ЛРМ для {set_num} изображений из {img_num}"
         else:
             message = f"Linear ground resolution is set for {set_num} images from {img_num}"
@@ -2005,8 +2014,8 @@ class MainWindow(QtWidgets.QMainWindow):
         user_name = self.user_names_combo.currentText()
 
         self.user_dialog = CustomInputDialog(self,
-                                             title_name=f"Добавление нового пользователя {user_name}" if self.settings.read_lang() == 'RU' else f"Add new user {user_name}",
-                                             question_name="Введите имя нового пользователя:" if self.settings.read_lang() == 'RU' else "Enter new user name:")
+                                             title_name=f"Добавление нового пользователя {user_name}" if self.lang == 'RU' else f"Add new user {user_name}",
+                                             question_name="Введите имя нового пользователя:" if self.lang == 'RU' else "Enter new user name:")
         self.user_dialog.setMinimumWidth(500)
 
         self.user_dialog.okBtn.clicked.connect(self.add_user_ok_clicked)
@@ -2023,14 +2032,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.user_names_combo.setCurrentIndex(idx)
             else:
                 self.statusBar().showMessage(
-                    f"Не могу добавить пользователя {new_name}. Такой пользователь уже существует" if self.settings.read_lang() == 'RU' else f"Can't add {new_name}. User already exists")
+                    f"Не могу добавить пользователя {new_name}. Такой пользователь уже существует" if self.lang == 'RU' else f"Can't add {new_name}. User already exists")
 
     def rename_user(self):
         user_name = self.user_names_combo.currentText()
 
         self.user_dialog = CustomInputDialog(self,
-                                             title_name=f"Редактирование имени пользователя {user_name}" if self.settings.read_lang() == 'RU' else f"Rename user {user_name}",
-                                             question_name="Введите новое имя пользователя:" if self.settings.read_lang() == 'RU' else "Enter new user name:")
+                                             title_name=f"Редактирование имени пользователя {user_name}" if self.lang == 'RU' else f"Rename user {user_name}",
+                                             question_name="Введите новое имя пользователя:" if self.lang == 'RU' else "Enter new user name:")
         self.user_dialog.setMinimumWidth(500)
 
         self.user_dialog.okBtn.clicked.connect(self.rename_user_ok_clicked)
@@ -2052,8 +2061,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def delete_user(self):
         self.del_user_name = self.user_names_combo.currentText()
 
-        title = f'Удаление пользователя' if self.settings.read_lang() == 'RU' else 'User delete'
-        text = f'Вы точно хотите удалить пользователя {self.del_user_name}?' if self.settings.read_lang() == 'RU' else f'Are you really want to delete {self.del_user_name}?'
+        title = f'Удаление пользователя' if self.lang == 'RU' else 'User delete'
+        text = f'Вы точно хотите удалить пользователя {self.del_user_name}?' if self.lang == 'RU' else f'Are you really want to delete {self.del_user_name}?'
         self.delete_box = OkCancelDialog(self, title=title, text=text, on_ok=self.on_delete_user_ok)
         self.delete_box.setMinimumWidth(300)
 
@@ -2080,7 +2089,7 @@ class MainWindow(QtWidgets.QMainWindow):
         percent = int(approved_count * 100.0 / len(self.dataset_images))
         self.image_panel_progress_bar.setValue(percent)
 
-        message = f"Число изображений со статусом approved: " if self.settings.read_lang() == 'RU' else f"Approved images count: "
+        message = f"Число изображений со статусом approved: " if self.lang == 'RU' else f"Approved images count: "
         message += f"{approved_count} из {len(self.dataset_images)}"
         self.statusBar().showMessage(message,
                                      3000)

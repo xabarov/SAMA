@@ -2,9 +2,8 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 
 from PyQt5.QtCore import Qt
 
-from utils import config
 from ui.edit_with_button import EditWithButton
-
+from utils.settings_handler import AppSettings
 
 class CreateProjectDialog(QWidget):
     def __init__(self, parent, width=480, height=200, on_ok_clicked=None,
@@ -13,11 +12,14 @@ class CreateProjectDialog(QWidget):
         Создание нового проекта
         """
         super().__init__(parent)
-        self.setWindowTitle(f"Создание нового проекта" if config.LANGUAGE == 'RU' else 'Create new project')
+        self.settings = AppSettings()
+        self.lang = self.settings.read_lang()
+        
+        self.setWindowTitle("Создание нового проекта" if self.lang == 'RU' else 'Create new project')
         self.setWindowFlag(Qt.Tool)
 
         # Images layout:
-        placeholder = "Путь к изображениям" if config.LANGUAGE == 'RU' else 'Path to images'
+        placeholder = "Путь к изображениям" if self.lang == 'RU' else 'Path to images'
 
         self.images_edit_with_button = EditWithButton(None, theme=theme,
                                                       dialog_text=placeholder, is_dir=True,
@@ -25,7 +27,7 @@ class CreateProjectDialog(QWidget):
 
         # Project Name
 
-        placeholder = 'Введите имя нового проекта...' if config.LANGUAGE == 'RU' else "Set new project name..."
+        placeholder = 'Введите имя нового проекта...' if self.lang == 'RU' else "Set new project name..."
         self.project_name_edit_with_button = EditWithButton(None, theme=theme,
                                                             file_type='json',
                                                             dialog_text=placeholder,
@@ -34,11 +36,11 @@ class CreateProjectDialog(QWidget):
         # Buttons layout:
         btnLayout = QHBoxLayout()
 
-        self.okBtn = QPushButton('Создать' if config.LANGUAGE == 'RU' else "Create", self)
+        self.okBtn = QPushButton('Создать' if self.lang == 'RU' else "Create", self)
         if on_ok_clicked:
             self.okBtn.clicked.connect(on_ok_clicked)
 
-        self.cancelBtn = QPushButton('Отменить' if config.LANGUAGE == 'RU' else 'Cancel', self)
+        self.cancelBtn = QPushButton('Отменить' if self.lang == 'RU' else 'Cancel', self)
 
         self.cancelBtn.clicked.connect(self.on_cancel_clicked)
 

@@ -1,0 +1,8 @@
+# AirplanesFAIR1M
+path: D:\python\aia_git\ai_annotator\utils\datasets_converter
+train: images/train  # train images (relative to 'path') 
+val: images/val  # val images (relative to 'path')
+test:  # test images (optional)
+#Classes
+nc: 11 # number of classes
+names: ['Boeing737', 'Boeing747', 'Boeing777', 'Boeing787', 'ARJ21', 'C919', 'A220', 'A321', 'A330', 'A350', 'other-airplane']

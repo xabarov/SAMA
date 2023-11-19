@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QChe
 
 from ui.edit_with_button import EditWithButton
 from ui.export_labels_list_view import ExportLabelsList
-from utils import config
+from utils.settings_handler import AppSettings
 
 
 class ExportDialog(QWidget):
@@ -16,14 +16,16 @@ class ExportDialog(QWidget):
         Экспорт разметки
         """
         super().__init__(parent)
-        self.setWindowTitle(f"Экспорт разметки")
+        self.settings = AppSettings()
+        self.lang = self.settings.read_lang()
+        self.setWindowTitle("Экспорт разметки" if self.lang == 'RU' else "Export labeling")
         self.setWindowFlag(Qt.Tool)
         self.set_width = width
         self.set_height = height
 
         # Export dir layout:
         if export_format == 'yolo':
-            placeholder = "Директория экспорта YOLO" if config.LANGUAGE == 'RU' else 'Path to export YOLO'
+            placeholder = "Директория экспорта YOLO" if self.lang == 'RU' else 'Path to export YOLO'
 
             self.export_edit_with_button = EditWithButton(None, theme=theme,
                                                           on_button_clicked_callback=self.on_export_button_clicked,
@@ -31,7 +33,7 @@ class ExportDialog(QWidget):
                                                           dialog_text=placeholder,
                                                           placeholder=placeholder)
         elif export_format == 'coco':
-            placeholder = "Имя экспортируемого файла COCO" if config.LANGUAGE == 'RU' else 'Export filename'
+            placeholder = "Имя экспортируемого файла COCO" if self.lang == 'RU' else 'Export filename'
 
             self.export_edit_with_button = EditWithButton(None, theme=theme,
                                                           on_button_clicked_callback=self.on_export_button_clicked,
@@ -41,11 +43,16 @@ class ExportDialog(QWidget):
         # Выбор меток
         # Чекбокс
         self.choose_labels_layout = QVBoxLayout()
-        self.choose_labels_checkbox = QCheckBox(text='Выбрать имена классов для экспорта')
+        checkbox_text = 'Выбрать имена классов для экспорта' if self.lang == 'RU' else 'Choose labels for export'
+        self.choose_labels_checkbox = QCheckBox(text=checkbox_text)
         self.choose_labels_checkbox.clicked.connect(self.on_choose_labels_checkbox_clicked)
         self.choose_labels_layout.addWidget(self.choose_labels_checkbox)
 
-        self.export_labels_list = ExportLabelsList(labels=label_names, theme=theme)
+        del_name = 'Удалить' if self.lang == 'RU' else 'Delete'
+        blur_name = 'Размыть' if self.lang == 'RU' else 'Blur'
+        headers = ('Метка', 'Заменить на') if self.lang == 'RU' else ('Label', 'Replace to')
+        self.export_labels_list = ExportLabelsList(labels=label_names, theme=theme, del_name=del_name,
+                                                   blur_name=blur_name, headers=headers)
         self.export_labels_list.setVisible(False)
         self.choose_labels_layout.addWidget(self.export_labels_list)
         self.message = QLabel()
@@ -61,12 +68,12 @@ class ExportDialog(QWidget):
         # Buttons layout:
         btnLayout = QHBoxLayout()
 
-        self.okBtn = QPushButton('Экспортировать' if config.LANGUAGE == 'RU' else "Import", self)
+        self.okBtn = QPushButton('Экспортировать' if self.lang == 'RU' else "Import", self)
         self.on_ok_clicked = on_ok_clicked
         if on_ok_clicked:
             self.okBtn.clicked.connect(self.on_ok)
 
-        self.cancelBtn = QPushButton('Отменить' if config.LANGUAGE == 'RU' else 'Cancel', self)
+        self.cancelBtn = QPushButton('Отменить' if self.lang == 'RU' else 'Cancel', self)
 
         self.cancelBtn.clicked.connect(self.on_cancel_clicked)
 
@@ -125,8 +132,8 @@ class ExportDialog(QWidget):
 
             self.on_ok_clicked()
         else:
-            self.message.setText("Укажите имя директории для экспорта")
-
+            self.message.setText(
+                "Укажите имя директории для экспорта" if self.lang == 'RU' else "Please set export folder name")
 
     def on_cancel_clicked(self):
         self.progress_bar.setVisible(False)
@@ -135,7 +142,8 @@ class ExportDialog(QWidget):
 
     def on_export_button_clicked(self):
         if self.get_export_path() == "":
-            self.message.setText("Укажите имя директории для экспорта")
+            self.message.setText(
+                "Укажите имя директории для экспорта" if self.lang == 'RU' else "Please set export folder name")
         else:
             self.message.setText("")
 
@@ -148,9 +156,9 @@ class ExportDialog(QWidget):
 
 
 if __name__ == '__main__':
-
     def on_ok():
         print("Ok!")
+
 
     app = QApplication(sys.argv)
     labels = ['F-16', 'F-35', 'C-130', 'C-17']

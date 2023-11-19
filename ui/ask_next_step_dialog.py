@@ -1,6 +1,5 @@
-from PyQt5.QtWidgets import QLabel, QWidget, QVBoxLayout, QPushButton
 from PyQt5.QtCore import Qt
-from utils import config
+from PyQt5.QtWidgets import QLabel, QWidget, QVBoxLayout, QPushButton
 
 from utils.settings_handler import AppSettings
 

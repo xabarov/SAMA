@@ -502,8 +502,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         return None
 
-    def set_ids_from_project(self, project_data, on_set_callback=None):
-        self.ids_worker = IdsSetterWorker(images_data=project_data['images'])
+    def set_ids_from_project(self, project_data, on_set_callback=None, percent_max=100):
+        self.ids_worker = IdsSetterWorker(images_data=project_data['images'], percent_max=percent_max)
         self.on_set_callback = on_set_callback
         self.ids_worker.load_ids_conn.percent.connect(self.on_load_percent_change)
 

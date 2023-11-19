@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QLabel, QWidget, QHBoxLayout, QPushButton
 from PyQt5.QtGui import QIcon
 
-from utils import config
+from utils.settings_handler import AppSettings
 
 
 class ImagesPanel(QWidget):
@@ -10,9 +10,12 @@ class ImagesPanel(QWidget):
                  on_color_change_signal=None, on_images_list_change=None):
         super().__init__(parent)
 
+        self.settings = AppSettings()
+        self.lang = self.settings.read_lang()
+
         # Панель изображений - заголовок
         images_header = QHBoxLayout()
-        images_header.addWidget(QLabel("Список изображений" if config.LANGUAGE == 'RU' else "Images list"))
+        images_header.addWidget(QLabel("Список изображений" if self.lang == 'RU' else "Images list"))
 
         self.add_im_button = QPushButton()
         self.add_im_button.clicked.connect(add_image_to_projectAct)
@@ -75,9 +78,12 @@ class LabelsPanel(QWidget):
                  on_labels_count_change=None):
         super().__init__(parent)
 
+        self.settings = AppSettings()
+        self.lang = self.settings.read_lang()
+
         # Панель изображений - заголовок
         self.header = QHBoxLayout()
-        self.header.addWidget(QLabel("Список меток" if config.LANGUAGE == 'RU' else "Labels list"))
+        self.header.addWidget(QLabel("Список меток" if self.lang == 'RU' else "Labels list"))
         self.del_label_from_image_act = del_label_from_image_act
         self.on_color_change_signal = on_color_change_signal
         self.on_labels_count_change = on_labels_count_change

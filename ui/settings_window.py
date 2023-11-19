@@ -11,8 +11,8 @@ from qt_material import apply_stylesheet
 
 
 class SettingsWindow(SettingsWindowBase):
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self, parent, test_mode=False):
+        super().__init__(parent, test_mode=test_mode)
         self.create_cnn_layout()
 
         self.tabs.addTab(self.classifierGroupBox, "Обнаружение" if self.lang == 'RU' else 'Detection')

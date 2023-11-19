@@ -5,6 +5,7 @@ import os
 import shutil
 import numpy as np
 from PIL import Image
+from tqdm import tqdm
 
 Label = namedtuple('Label', ['name', 'points'])
 
@@ -116,9 +117,41 @@ def get_labels_and_points(file_name):
     return res
 
 
-def create_airplanes_dataset(fair1m_folder, airplanes_folder):
-    airplane_names = ["Boeing737", "Boeing747", "Boeing777", "Boeing787", "ARJ21",
-                      "C919", "A220", "A321", "A330", "A350", "other-airplane"]
+def create_yaml(yaml_short_name, save_folder, label_names, dataset_name='Dataset'):
+    yaml_full_name = os.path.join(save_folder, yaml_short_name)
+    with open(yaml_full_name, 'w') as f:
+        f.write(f"# {dataset_name}\n")
+        # Paths:
+        path_str = f"path: {save_folder}\n"
+        path_str += "train: images/train  # train images (relative to 'path') \n"
+        path_str += "val: images/val  # val images (relative to 'path')\n"
+        path_str += "test:  # test images (optional)\n"
+        f.write(path_str)
+        # Classes:
+        f.write("#Classes\n")
+        f.write(f"nc: {len(label_names)} # number of classes\n")
+        f.write(f"names: {label_names}\n")
+
+
+def create_yolo_dataset(fair1m_folder, yolo_folder, dataset_name='FAIR1M', fair1m_label_names=None):
+    if not fair1m_label_names:
+        fair1m_label_names = list(classes.keys())
+    if not os.path.exists(yolo_folder):
+        os.makedirs(yolo_folder)
+    create_yaml(f'{dataset_name}.yaml', yolo_folder, fair1m_label_names, dataset_name=dataset_name)
+
+    # create labels folder
+    labels_folder = os.path.join(yolo_folder, 'labels')
+    if not os.path.exists(labels_folder):
+        os.makedirs(labels_folder)
+
+    # create images folder
+    images_folder = os.path.join(yolo_folder, 'images')
+    if not os.path.exists(images_folder):
+        os.makedirs(images_folder)
+
+    # copy images
+
     for folder in ['train', 'val']:
         print(f'Start {folder} converting...')
 
@@ -126,23 +159,14 @@ def create_airplanes_dataset(fair1m_folder, airplanes_folder):
         fair_labels_folder = os.path.join(fair_sub_folder, 'labels')
         fair_images_folder = os.path.join(fair_sub_folder, 'images')
 
-        air_sub_folder = os.path.join(airplanes_folder, folder)
-
-        airplanels_labels_folder = os.path.join(air_sub_folder, 'labels')
-        if not os.path.exists(airplanels_labels_folder):
-            os.makedirs(airplanels_labels_folder)
-
-        airplanels_images_folder = os.path.join(air_sub_folder, 'images')
-        if not os.path.exists(airplanels_images_folder):
-            os.makedirs(airplanels_images_folder)
-
         labels = [lbl for lbl in os.listdir(fair_labels_folder) if '.xml' in lbl]
-        for f_name in labels:
+        for i in tqdm(range(len(labels))):
+            f_name = labels[i]
             full_path = os.path.join(fair_labels_folder, f_name)
             labels_and_points = get_labels_and_points(full_path)
             airplanes_labels = []
             for lbl in labels_and_points:
-                if lbl.name in airplane_names:
+                if lbl.name in fair1m_label_names:
                     airplanes_labels.append(lbl)
 
             if len(airplanes_labels) > 0:
@@ -150,13 +174,19 @@ def create_airplanes_dataset(fair1m_folder, airplanes_folder):
                 img = Image.open(image_full_path)
                 img_width, img_height = img.size
 
-                shutil.copy(image_full_path, os.path.join(airplanels_images_folder, f_name.split('.xml')[0] + '.tif'))
+                shutil.copy(image_full_path, os.path.join(images_folder, folder, f_name.split('.xml')[0] + '.tif'))
 
-                with open(os.path.join(airplanels_labels_folder, f_name.split('.xml')[0] + '.txt'), 'w') as txt_file:
+                with open(os.path.join(labels_folder, folder, f_name.split('.xml')[0] + '.txt'), 'w') as txt_file:
                     for lbl in airplanes_labels:
                         points = convert_oriented_to_box(lbl.points)
                         x, y, w, h = convert_box_to_xywh(points, img_width, img_height)
-                        txt_file.write(f"{airplane_names.index(lbl.name)} {x:0.6f} {y:0.6f} {w:0.6f} {h:0.6f}\n")
+                        txt_file.write(f"{fair1m_label_names.index(lbl.name)} {x:0.6f} {y:0.6f} {w:0.6f} {h:0.6f}\n")
+
+
+def create_airplanes_dataset(fair1m_folder, airplanes_folder, dataset_name='AirplanesFAIR1M'):
+    airplane_names = ["Boeing737", "Boeing747", "Boeing777", "Boeing787", "ARJ21",
+                      "C919", "A220", "A321", "A330", "A350", "other-airplane"]
+    create_yolo_dataset(fair1m_folder, airplanes_folder, dataset_name=dataset_name, fair1m_label_names=airplane_names)
 
 
 def test_lable(image_path, points):
@@ -198,4 +228,8 @@ if __name__ == '__main__':
     #
     # test_lable(tif_name, points)
 
-    create_airplanes_dataset("D:\python\datasets\FAIR1M", "D:\python\datasets\FAIR1M\\airplanes")
+    # create_airplanes_dataset("D:\python\datasets\FAIR1M", "D:\python\datasets\FAIR1M\\airplanes")
+    # create_yaml('yaml_test.yaml', os.getcwd(), ["Boeing737", "Boeing747", "Boeing777", "Boeing787", "ARJ21",
+    #                                             "C919", "A220", "A321", "A330", "A350", "other-airplane"],
+    #             dataset_name='AirplanesFAIR1M')
+    create_yolo_dataset("D:\python\datasets\FAIR1M", "D:\python\datasets\FAIR1M\\FAIR1M_yolo_box", dataset_name='FAIR1M_yolo_box')

@@ -69,7 +69,7 @@ class Annotator(MainWindow):
         """
         Ищет CUDA устройство. Если не находит - используем CPU
         """
-        lang = self.settings.read_lang()
+        lang = self.lang
 
         if platform in ['cuda', 'Auto'] and torch.cuda.is_available():
             self.last_platform = 'cuda'
@@ -107,41 +107,40 @@ class Annotator(MainWindow):
         Добавляем новые действия к базовой модели
         """
 
-
-        self.balanceAct = QAction("Информация о датасете" if self.settings.read_lang() == 'RU' else "Dataset info",
+        self.balanceAct = QAction("Информация о датасете" if self.lang == 'RU' else "Dataset info",
                                   self,
                                   enabled=False, triggered=self.on_dataset_balance_clicked)
 
         self.syncLabelsAct = QAction(
-            "Загрузить имена меток от модели НС" if self.settings.read_lang() == 'RU' else "Load label names from AI model",
+            "Загрузить имена меток от модели НС" if self.lang == 'RU' else "Load label names from AI model",
             self, enabled=False,
             triggered=self.sync_labels)
 
         # Object detector
         self.detectAct = QAction(
-            "Обнаружить объекты за один проход" if self.settings.read_lang() == 'RU' else "Detect objects", self,
+            "Обнаружить объекты за один проход" if self.lang == 'RU' else "Detect objects", self,
             enabled=False,
             triggered=self.detect)
 
         self.detectAllImagesAct = QAction(
-            "Обнаружить объекты на всех изображениях" if self.settings.read_lang() == 'RU' else "Detect objects at all image",
+            "Обнаружить объекты на всех изображениях" if self.lang == 'RU' else "Detect objects at all image",
             self, enabled=False,
             triggered=self.detect_all_images)
 
         # AI Annotators
         self.aiAnnotatorPointsAct = QAction(
-            "Сегментация по точкам" if self.settings.read_lang() == 'RU' else "SAM by points",
+            "Сегментация по точкам" if self.lang == 'RU' else "SAM by points",
             self, enabled=False,
             triggered=self.ai_points_pressed,
             checkable=True)
         self.aiAnnotatorMaskAct = QAction(
-            "Сегментация внутри бокса" if self.settings.read_lang() == 'RU' else "SAM by box", self,
+            "Сегментация внутри бокса" if self.lang == 'RU' else "SAM by box", self,
             enabled=False,
             triggered=self.ai_mask_pressed,
             checkable=True)
 
         self.GroundingDINOSamAct = QAction(
-            "GroundingDINO + SAM" if self.settings.read_lang() == 'RU' else "GroundingDINO + SAM", self,
+            "GroundingDINO + SAM" if self.lang == 'RU' else "GroundingDINO + SAM", self,
             enabled=False,
             triggered=self.grounding_sam_pressed,
             checkable=True)
@@ -177,7 +176,7 @@ class Annotator(MainWindow):
         if self.yolo:
             names = self.read_detection_model_names()
             if not names:
-                if self.settings.read_lang() == 'RU':
+                if self.lang == 'RU':
                     self.statusBar().showMessage(
                         f"Неизвестное имя модели {self.settings.read_cnn_model()}",
                         3000)
@@ -218,7 +217,7 @@ class Annotator(MainWindow):
     def createMenus(self):
         super(Annotator, self).createMenus()
 
-        self.aiAnnotatorMethodMenu = QMenu("С помощью ИИ" if self.settings.read_lang() == 'RU' else "AI", self)
+        self.aiAnnotatorMethodMenu = QMenu("С помощью ИИ" if self.lang == 'RU' else "AI", self)
 
         self.aiAnnotatorMethodMenu.addAction(self.aiAnnotatorPointsAct)
         self.aiAnnotatorMethodMenu.addAction(self.aiAnnotatorMaskAct)
@@ -226,7 +225,7 @@ class Annotator(MainWindow):
 
         self.AnnotatorMethodMenu.addMenu(self.aiAnnotatorMethodMenu)
 
-        self.classifierMenu = QMenu("Классификатор" if self.settings.read_lang() == 'RU' else "Classifier", self)
+        self.classifierMenu = QMenu("Классификатор" if self.lang == 'RU' else "Classifier", self)
         self.classifierMenu.addAction(self.detectAct)
         self.classifierMenu.addAction(self.detectAllImagesAct)
         self.classifierMenu.addAction(self.syncLabelsAct)
@@ -282,7 +281,7 @@ class Annotator(MainWindow):
         self.image_setter.set_image(self.cv2_image)
         self.queue_to_image_setter = []
         self.statusBar().showMessage(
-            "Нейросеть SAM еще не готова. Подождите секунду..." if self.settings.read_lang() == 'RU' else "SAM is loading. Please wait...",
+            "Нейросеть SAM еще не готова. Подождите секунду..." if self.lang == 'RU' else "SAM is loading. Please wait...",
             3000)
         self.image_setter.start()
 
@@ -304,7 +303,7 @@ class Annotator(MainWindow):
 
         else:
             self.statusBar().showMessage(
-                "Нейросеть SAM готова к сегментации" if self.settings.read_lang() == 'RU' else "SAM ready to work",
+                "Нейросеть SAM готова к сегментации" if self.lang == 'RU' else "SAM ready to work",
                 3000)
             self.image_set = True
 
@@ -327,8 +326,8 @@ class Annotator(MainWindow):
         QMessageBox.about(self, "AI Annotator",
                           "<p><b>AI Annotator</b></p>"
                           "<p>Программа для разметки изображений с поддержкой автоматической сегментации</p>" if
-                          self.settings.read_lang() == 'RU' else "<p>Labeling Data for Object Detection and Instance Segmentation "
-                                                                 "with Segment Anything Model (SAM) and GroundingDINO.</p>")
+                          self.lang == 'RU' else "<p>Labeling Data for Object Detection and Instance Segmentation "
+                                                 "with Segment Anything Model (SAM) and GroundingDINO.</p>")
 
     def handle_sam_model(self):
         """
@@ -378,7 +377,7 @@ class Annotator(MainWindow):
 
         else:
             print("Unknown detection model")
-            if self.settings.read_lang() == 'RU':
+            if self.lang == 'RU':
                 self.statusBar().showMessage(
                     f"Неизвестное имя модели {cnn_model}",
                     3000)
@@ -476,7 +475,7 @@ class Annotator(MainWindow):
                     filtered_points_mass.append(points)
 
                 else:
-                    if self.settings.read_lang() == 'RU':
+                    if self.lang == 'RU':
                         self.statusBar().showMessage(
                             f"Метку сделать не удалось. Площадь маски слишком мала {area:0.3f}",
                             3000)
@@ -611,14 +610,14 @@ class Annotator(MainWindow):
         if not self.image_setter.isRunning():
             self.image_setter.set_image(self.cv2_image)
             self.statusBar().showMessage(
-                "Начинаю загружать изображение в нейросеть SAM..." if self.settings.read_lang() == 'RU' else "Start loading image to SAM...",
+                "Начинаю загружать изображение в нейросеть SAM..." if self.lang == 'RU' else "Start loading image to SAM...",
                 3000)
             self.image_setter.start()
         else:
             self.queue_to_image_setter.append(image_name)
 
             self.statusBar().showMessage(
-                f"Изображение {os.path.split(image_name)[-1]} добавлено в очередь на обработку." if self.settings.read_lang() == 'RU' else f"Image {os.path.split(image_name)[-1]} is added to queue...",
+                f"Изображение {os.path.split(image_name)[-1]} добавлено в очередь на обработку." if self.lang == 'RU' else f"Image {os.path.split(image_name)[-1]} is added to queue...",
                 3000)
 
     def detect(self):
@@ -676,7 +675,7 @@ class Annotator(MainWindow):
         """
         self.progress_toolbar.show_progressbar()
         self.statusBar().showMessage(
-            f"Начинаю поиск объектов на изображении..." if self.settings.read_lang() == 'RU' else f"Start searching object on image...",
+            f"Начинаю поиск объектов на изображении..." if self.lang == 'RU' else f"Start searching object on image...",
             3000)
 
     def on_cnn_finished(self):
@@ -719,7 +718,7 @@ class Annotator(MainWindow):
         self.save_view_to_project()
 
         self.statusBar().showMessage(
-            f"Найдено {len(self.CNN_worker.mask_results)} объектов" if self.settings.read_lang() == 'RU' else f"{len(self.CNN_worker.mask_results)} objects has been detected",
+            f"Найдено {len(self.CNN_worker.mask_results)} объектов" if self.lang == 'RU' else f"{len(self.CNN_worker.mask_results)} objects has been detected",
             3000)
 
     def grounding_sam_pressed(self):
@@ -764,7 +763,7 @@ class Annotator(MainWindow):
 
         if not self.gd_worker.isRunning():
             self.statusBar().showMessage(
-                f"Начинаю поиск {self.prompt_cls_name} на изображении..." if self.settings.read_lang() == 'RU' else f"Start searching {self.prompt_cls_name} on image...",
+                f"Начинаю поиск {self.prompt_cls_name} на изображении..." if self.lang == 'RU' else f"Start searching {self.prompt_cls_name} on image...",
                 3000)
             self.gd_worker.start()
 

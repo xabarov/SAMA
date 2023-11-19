@@ -68,7 +68,6 @@ class AppSettings:
         if not app_name:
             app_name = config.QT_SETTINGS_APP
         self.qt_settings = QSettings(config.QT_SETTINGS_COMPANY, app_name)
-        self.write_lang(config.LANGUAGE)
 
     def write_sam_hq(self, use_hq):
         self.qt_settings.setValue("cnn/sam_hq", use_hq)

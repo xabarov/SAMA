@@ -40,6 +40,7 @@ class MultiSpectralViewer(QtWidgets.QMainWindow):
 
         # Settings
         self.settings = AppSettings()
+        self.lang = self.settings.read_lang()
         self.icon_folder = os.path.join(basedir, self.settings.get_icon_folder())
         # last_ for not recreate if not change
         self.last_theme = self.settings.read_theme()
@@ -68,7 +69,7 @@ class MultiSpectralViewer(QtWidgets.QMainWindow):
 
         # self.splash.finish(self)
         self.statusBar().showMessage(
-            "Загрузите проект или набор изображений" if self.settings.read_lang() == 'RU' else "Load dataset or project")
+            "Загрузите проект или набор изображений" if self.lang == 'RU' else "Load dataset or project")
 
     def init_global_values(self):
         """
@@ -131,36 +132,36 @@ class MultiSpectralViewer(QtWidgets.QMainWindow):
 
     def createActions(self):
 
-        self.openImageAct = QAction("Загрузить изображение" if self.settings.read_lang() == 'RU' else "Load Image",
+        self.openImageAct = QAction("Загрузить изображение" if self.lang == 'RU' else "Load Image",
                                     self,
                                     shortcut='Ctrl+O',
                                     triggered=self.open_image)
 
-        self.exitAct = QAction("Выход" if self.settings.read_lang() == 'RU' else "Exit", self, shortcut="Ctrl+Q",
+        self.exitAct = QAction("Выход" if self.lang == 'RU' else "Exit", self, shortcut="Ctrl+Q",
                                triggered=self.close)
-        self.zoomInAct = QAction("Увеличить" if self.settings.read_lang() == 'RU' else "Zoom In", self,
+        self.zoomInAct = QAction("Увеличить" if self.lang == 'RU' else "Zoom In", self,
                                  shortcut="Ctrl++",
                                  enabled=False,
                                  triggered=self.zoomIn)
-        self.zoomOutAct = QAction("Уменьшить" if self.settings.read_lang() == 'RU' else "Zoom Out", self,
+        self.zoomOutAct = QAction("Уменьшить" if self.lang == 'RU' else "Zoom Out", self,
                                   shortcut="Ctrl+-",
                                   enabled=False,
                                   triggered=self.zoomOut)
 
         self.fitToWindowAct = QAction(
-            "Подогнать под размер окна" if self.settings.read_lang() == 'RU' else "Fit to window size",
+            "Подогнать под размер окна" if self.lang == 'RU' else "Fit to window size",
             self, enabled=False,
             shortcut="Ctrl+F",
             triggered=self.fitToWindow)
 
     def createMenus(self):
 
-        self.fileMenu = QMenu("&Файл" if self.settings.read_lang() == 'RU' else "&File", self)
+        self.fileMenu = QMenu("&Файл" if self.lang == 'RU' else "&File", self)
         self.fileMenu.addAction(self.openImageAct)
         self.fileMenu.addSeparator()
         self.fileMenu.addAction(self.exitAct)
         #
-        self.viewMenu = QMenu("&Изображение" if self.settings.read_lang() == 'RU' else "&View", self)
+        self.viewMenu = QMenu("&Изображение" if self.lang == 'RU' else "&View", self)
         self.viewMenu.addAction(self.zoomInAct)
         self.viewMenu.addAction(self.zoomOutAct)
         self.viewMenu.addSeparator()
@@ -172,7 +173,7 @@ class MultiSpectralViewer(QtWidgets.QMainWindow):
     def create_left_toolbar(self):
         # Left
 
-        toolBar = QToolBar("Панель инструментов" if self.settings.read_lang() == 'RU' else "ToolBar", self)
+        toolBar = QToolBar("Панель инструментов" if self.lang == 'RU' else "ToolBar", self)
         toolBar.addAction(self.openImageAct)
         toolBar.addSeparator()
         toolBar.addAction(self.zoomInAct)
@@ -185,7 +186,7 @@ class MultiSpectralViewer(QtWidgets.QMainWindow):
 
     def create_right_toolbar(self):
         # Right toolbar
-        self.toolBarRight = QToolBar("Менеджер разметок" if self.settings.read_lang() == 'RU' else "Labeling Bar", self)
+        self.toolBarRight = QToolBar("Менеджер разметок" if self.lang == 'RU' else "Labeling Bar", self)
 
         # Labels
         self.bands_list_widget = QListWidget()
@@ -199,7 +200,7 @@ class MultiSpectralViewer(QtWidgets.QMainWindow):
     def create_top_toolbar(self):
 
         self.labelSettingsToolBar = QToolBar(
-            "Настройки разметки" if self.settings.read_lang() == 'RU' else "Current Label Bar",
+            "Настройки разметки" if self.lang == 'RU' else "Current Label Bar",
             self)
 
         self.progress_toolbar = ProgressBarToolbar(self,
@@ -239,7 +240,7 @@ class MultiSpectralViewer(QtWidgets.QMainWindow):
     def open_image(self):
 
         image_name, _ = QFileDialog.getOpenFileName(self,
-                                                    'Загрузка изображения' if self.settings.read_lang() == 'RU' else "Load image",
+                                                    'Загрузка изображения' if self.lang == 'RU' else "Load image",
                                                     'projects',
                                                     'Tiff File (*.tiff, *.tif)')
 
@@ -267,7 +268,7 @@ class MultiSpectralViewer(QtWidgets.QMainWindow):
         """
         self.progress_toolbar.show_progressbar()
         self.statusBar().showMessage(
-            f"Начинаю преобрзование каналов изображения..." if self.settings.read_lang() == 'RU' else f"Start opening bands...",
+            f"Начинаю преобрзование каналов изображения..." if self.lang == 'RU' else f"Start opening bands...",
             3000)
 
     def on_gdal_finished(self):
@@ -284,7 +285,7 @@ class MultiSpectralViewer(QtWidgets.QMainWindow):
         self.progress_toolbar.hide_progressbar()
 
         self.statusBar().showMessage(
-            f"Найдено {len(self.gdal_worker.bands_names)} каналов" if self.settings.read_lang() == 'RU' else f"{len(self.gdal_worker.bands_names)} bands has been found",
+            f"Найдено {len(self.gdal_worker.bands_names)} каналов" if self.lang == 'RU' else f"{len(self.gdal_worker.bands_names)} bands has been found",
             3000)
 
     def open_band(self, band_name):
@@ -408,8 +409,8 @@ class MultiSpectralViewer(QtWidgets.QMainWindow):
             event.accept()
         else:
             event.ignore()
-            title = 'Выйти' if self.settings.read_lang() == 'RU' else 'Quit'
-            text = 'Вы точно хотите выйти?' if self.settings.read_lang() == 'RU' else 'Are you really want to quit?'
+            title = 'Выйти' if self.lang == 'RU' else 'Quit'
+            text = 'Вы точно хотите выйти?' if self.lang == 'RU' else 'Are you really want to quit?'
             self.exit_box = OkCancelDialog(self, title=title, text=text, on_ok=self.on_quit)
             self.exit_box.setMinimumWidth(300)
 
