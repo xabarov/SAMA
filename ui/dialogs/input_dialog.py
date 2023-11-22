@@ -90,6 +90,7 @@ class CustomComboDialog(QWidget):
         self.setMinimumWidth(int(size.width() * width_percent))
         self.setMinimumHeight(int(size.height() * height_percent))
 
+
     def getText(self):
         return self.combo.currentText()
 

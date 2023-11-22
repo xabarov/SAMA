@@ -7,7 +7,7 @@ class PolygonPressedConnection(Ps2Core.QObject):
 
 
 class PolygonDeleteConnection(Ps2Core.QObject):
-    id_delete = Signal(int)
+    id_delete = Signal(list)
 
 
 class PolygonEndDrawing(Ps2Core.QObject):
@@ -43,7 +43,7 @@ class InfoConnection(Ps2Core.QObject):
 
 
 class PolygonChangeClsNumConnection(Ps2Core.QObject):
-    pol_cls_num_and_id = Signal(int, int)
+    pol_cls_num_and_id = Signal(int, list)
 
 
 class LoadIdProgress(Ps2Core.QObject):

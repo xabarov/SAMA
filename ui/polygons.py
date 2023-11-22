@@ -10,6 +10,8 @@ from utils.settings_handler import AppSettings
 
 settings = AppSettings()
 
+from shapely import Polygon
+
 
 def make_label(text, text_pos, color):
     label_text_params = settings.read_label_text_params()
@@ -79,9 +81,20 @@ class GrEllipsLabel(QtWidgets.QGraphicsEllipseItem):
         return self.label
 
     def set_label(self, text, text_pos, color=None):
+        if color:
+            self.color = color
+        self.label = make_label(text, text_pos, self.color)
+        self.text = text
+        self.text_pos = text_pos
+
+    def set_color(self, color=None, cls_num=None, alpha_percent=None):
         if not color:
-            color = self.color
-        self.label = make_label(text, text_pos, color)
+            return
+        if not cls_num:
+            cls_num = self.cls_num
+        if not alpha_percent:
+            alpha_percent = self.alpha_percent
+        self.color = get_color(color, cls_num, alpha_percent)
 
     def reset_label_pos(self, x, y):
         if self.label:
@@ -97,6 +110,13 @@ class GrEllipsLabel(QtWidgets.QGraphicsEllipseItem):
         if width > min_width and height > min_height:
             return True
 
+        return False
+
+    def is_self_intersected(self):
+        pol = self.convert_to_polygon()
+        pol = hf.convert_item_polygon_to_shapely(pol)
+        if pol.is_valid:
+            return True
         return False
 
     def convert_to_polygon(self, points_count=30):
@@ -147,28 +167,34 @@ class GrPolygonLabel(QtWidgets.QGraphicsPolygonItem):
         if text and text_pos:
             self.label = make_label(text, text_pos, self.color)
 
-    def check_polygon(self, min_height=10, min_width=10):
-        # Проверка на мин кол-во пикселей. Можно посмотреть width, height. Если меньше порога - удалить
-        rect = self.boundingRect()
-        tl = rect.topLeft()
-        br = rect.bottomRight()
-        width = abs(br.x() - tl.x())
-        height = abs(br.y() - tl.y())
-        if width > min_width and height > min_height:
-            return True
-
-        return False
+    def is_self_intersected(self):
+        pol = self.polygon()
+        pol = hf.convert_item_polygon_to_shapely(pol)
+        if pol.is_valid:
+            return False
+        return True
 
     def get_label(self):
         return self.label
+
+    def set_color(self, color=None, cls_num=None, alpha_percent=None):
+        if not color:
+            return
+        if not cls_num:
+            cls_num = self.cls_num
+        if not alpha_percent:
+            alpha_percent = self.alpha_percent
+        self.color = get_color(color, cls_num, alpha_percent)
 
     def set_cls_num(self, cls_num):
         self.cls_num = cls_num
 
     def set_label(self, text, text_pos, color=None):
-        if not color:
-            color = self.color
-        self.label = make_label(text, text_pos, color)
+        if color:
+            self.color = color
+        self.label = make_label(text, text_pos, self.color)
+        self.text = text
+        self.text_pos = text_pos
 
     def __str__(self):
         pol = self.polygon()
@@ -176,3 +202,60 @@ class GrPolygonLabel(QtWidgets.QGraphicsPolygonItem):
         for p in pol:
             txt += f"({p.x()}, {p.y()}) "
         return txt
+
+
+class ActiveHandler(list):
+    def __init__(self, iterable):
+        super().__init__(iterable)
+        self.active_brush = None
+        self.active_pen = None
+        self.line_width = None
+
+    def set_brush_pen_line_width(self, active_brush, active_pen, line_width=5):
+        self.active_brush = active_brush
+        self.active_pen = active_pen
+        self.line_width = line_width
+
+    def append(self, item):
+        item.setBrush(self.active_brush)
+        item.setPen(self.active_pen)
+        super().append(item)
+
+    def remove(self, item):
+        item.setBrush(QtGui.QBrush(QColor(*item.color), QtCore.Qt.SolidPattern))
+        item.setPen(QPen(QColor(*hf.set_alpha_to_max(item.color)), self.line_width, QtCore.Qt.SolidLine))
+        super().remove(item)
+
+    def clear(self):
+        for item in self:
+            item.setBrush(QtGui.QBrush(QColor(*item.color), QtCore.Qt.SolidPattern))
+            item.setPen(QPen(QColor(*hf.set_alpha_to_max(item.color)), self.line_width, QtCore.Qt.SolidLine))
+        super().clear()
+
+    def reset_clicked_item(self, item_clicked, is_shift):
+        if item_clicked in self:
+            self.remove(item_clicked)
+        else:
+            if is_shift:
+                self.append(item_clicked)
+            else:
+                self.clear()
+                self.append(item_clicked)
+
+    def merge_polygons_to_shapely_union(self):
+        shapely_polygons = []
+        if len(self) < 2:
+            return shapely_polygons
+
+        for item in self:
+            pol = item.polygon()
+            shapely_pol = Polygon([(p.x(), p.y()) for p in pol])
+            shapely_polygons.append(shapely_pol)
+
+        shapely_union = hf.merge_polygons(shapely_polygons)
+
+        return shapely_union
+
+    def is_all_actives_same_class(self):
+        cls_nums = [item.cls_num for item in self]
+        return len(set(cls_nums)) == 1

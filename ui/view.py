@@ -8,9 +8,9 @@ from PyQt5.QtWidgets import QApplication
 from shapely import Polygon, Point, unary_union
 
 from ui.grapic_group import GrGroup
-from ui.polygons import GrPolygonLabel, GrEllipsLabel
+from ui.polygons import GrPolygonLabel, GrEllipsLabel, ActiveHandler
 from ui.signals_and_slots import PolygonDeleteConnection, ViewMouseCoordsConnection, PolygonPressedConnection, \
-    PolygonEndDrawing, MaskEndDrawing, PolygonChangeClsNumConnection, LoadIdProgress
+    PolygonEndDrawing, MaskEndDrawing, PolygonChangeClsNumConnection, LoadIdProgress, InfoConnection
 from utils import config
 from utils import help_functions as hf
 from utils.ids_worker import IdsSetterWorker
@@ -34,12 +34,16 @@ class GraphicsView(QtWidgets.QGraphicsView):
         super().__init__(parent)
         scene = QtWidgets.QGraphicsScene(self)
 
+        self.settings = AppSettings()
+        self.lang = self.settings.read_lang()
+
         # SIGNALS
         self.polygon_clicked = PolygonPressedConnection()
         self.polygon_delete = PolygonDeleteConnection()
         self.polygon_cls_num_change = PolygonChangeClsNumConnection()
         self.load_ids_conn = LoadIdProgress()
         self.mouse_move_conn = ViewMouseCoordsConnection()
+        self.info_conn = InfoConnection()
 
         if on_rubber_band_mode:
             # connect SIGNAL on_rubber_band_mode TO SLOT
@@ -52,6 +56,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self._pixmap_item = QtWidgets.QGraphicsPixmapItem()
         scene.addItem(self._pixmap_item)
 
+        self.buffer = None
         self.init_objects_and_params()
 
         if not active_color:
@@ -76,6 +81,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         # Кисти
         self.set_brushes()
+        self.active_group = ActiveHandler([])
 
         # self.setMouseTracking(False)
         self.min_ellipse_size = 10
@@ -84,8 +90,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.create_actions()
 
         self.setRenderHint(QPainter.Antialiasing)
-
-        self.settings = AppSettings()
 
     def init_objects_and_params(self):
         """
@@ -96,8 +100,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.is_ruler_mode = False
 
         self.drawing_type = "Polygon"
-        self.active_item = None
-        self.active_group = []
+
         self.labels_ids = []
         self.last_label_id = -1
 
@@ -114,7 +117,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.dragged_vertex = None
         self.ellipse_start_point = None
         self.box_start_point = None
-        self.buffer = None
+
         self.pressed_polygon = None
 
         self._zoom = 0
@@ -171,80 +174,46 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def on_merge_polygons(self):
 
-        if len(self.active_group) < 2:
-            return
-        shapely_polygons = []
-        for item in self.active_group:
-            pol = item.polygon()
-            shapely_pol = Polygon([(p.x(), p.y()) for p in pol])
-            shapely_polygons.append(shapely_pol)
-
-        # shapely_union = unary_union([shapely_polygons[0], shapely_polygons[1]])
-        # for i in range(len(shapely_polygons) - 2):
-        #     shapely_union = unary_union([shapely_union, shapely_polygons[i + 2]])
-        shapely_union = hf.merge_polygons(shapely_polygons)
-
-        # if shapely_union and shapely_union.geom_type != 'MultiPolygon':
+        shapely_union = self.active_group.merge_polygons_to_shapely_union()
 
         for shape in shapely_union:
             point_mass = list(shape.exterior.coords)
+            # text_pos = hf.calc_label_pos(point_mass)
+
             cls_num = self.active_group[0].cls_num
             color = self.active_group[0].color
             alpha = self.active_group[0].alpha_percent
+            text = self.active_group[0].text
 
-            self.add_polygon_to_scene(cls_num, point_mass, color, alpha)
+            self.add_polygon_to_scene(cls_num, point_mass, color, alpha, text=text)
 
         for item in self.active_group:
             self.remove_item(item, is_delete_id=True)
-        self.active_group = []
-        self.active_item = None
-        self.switch_all_polygons_to_default_except_active()
+        self.active_group.clear()
 
         self.polygon_end_drawing.on_end_drawing.emit(True)
 
     def on_change_cls_num(self):
-        if self.active_item:
-            self.pressed_polygon = self.active_item
-        if self.pressed_polygon:
-            change_id = self.pressed_polygon.id
-            cls_num = self.pressed_polygon.cls_num
-            self.polygon_cls_num_change.pol_cls_num_and_id.emit(cls_num, change_id)
+        if len(self.active_group) == 0:
+            return
+
+        change_ids = []
+        if not self.active_group.is_all_actives_same_class():
+            return
+
+        for item in self.active_group:
+            change_ids.append(item.id)
+            cls_num = item.cls_num
+
+        self.polygon_cls_num_change.pol_cls_num_and_id.emit(cls_num, change_ids)
 
     def on_del_polygon(self):
-        if self.pressed_polygon:
-            deleted_id = self.pressed_polygon.id
-            self.remove_item(self.pressed_polygon, is_delete_id=True)
-            # self.pressed_polygon = None
-            self.polygon_delete.id_delete.emit(deleted_id)
-
-    def set_pressed_polygon(self, cls_num, pol_id, color, text=None):
-        if self.pressed_polygon:
-            self.pressed_polygon.id = pol_id
-            self.pressed_polygon.cls_num = cls_num
-
-            active_alpha = self.pressed_polygon.alpha_percent
-
-            text_pos = self.pressed_polygon.text_pos
-
-            polygon_new = GrPolygonLabel(None, color=color, cls_num=cls_num,
-                                         alpha_percent=active_alpha, id=pol_id, text=text, text_pos=text_pos)
-            polygon_new.setPen(self.active_pen)
-            polygon_new.setBrush(self.active_brush)
-            poly = QPolygonF()
-            for point in self.pressed_polygon.polygon():
-                poly.append(point)
-
-            polygon_new.setPolygon(poly)
-
-            self.remove_item(self.pressed_polygon, is_delete_id=True)
-            self.pressed_polygon = None
-
-            self.active_item = polygon_new
-            self.switch_all_polygons_to_default_except_active()
-
-            self.scene().addItem(polygon_new)
-            if text:
-                self.scene().addItem(polygon_new.get_label())
+        delete_ids = []
+        for item in self.active_group:
+            delete_ids.append(item.id)
+            self.remove_item(item, is_delete_id=True)
+        self.polygon_delete.id_delete.emit(delete_ids)
+        self.active_group.clear()
 
     def del_pressed_polygon(self):
         if self.pressed_polygon:
@@ -270,6 +239,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.set_pens()
         self.remove_fat_point_from_scene()
         self.clear_ai_points()
+
+        self.active_group = ActiveHandler([])
+        self.active_group.set_brush_pen_line_width(self.active_brush, self.active_pen, self.line_width)
 
         # Ruler items clear:
         self.on_ruler_mode_off()
@@ -302,7 +274,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
     def activate_item_by_id(self, id_to_found):
         found_item = None
         for item in self.scene().items():
-            # ищем плигон с заданным id
+            # ищем полигон с заданным id
             try:
                 if item.id == id_to_found:
                     found_item = item
@@ -310,14 +282,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
             except:
                 pass
 
-        if found_item:
-            found_item.setBrush(self.active_brush)
-            found_item.setPen(self.active_pen)
-            self.active_item = found_item
-            self.active_group = []
-            self.switch_all_polygons_to_default_except_active()
-
-        self.setFocus()
+        self.active_group.reset_clicked_item(found_item, False)
 
     def set_fat_width(self, fat_width_percent_new=None):
         """
@@ -346,14 +311,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.positive_point_pen = QPen(QColor(*config.POSITIVE_POINT_COLOR), self.line_width, QtCore.Qt.SolidLine)
         self.negative_point_pen = QPen(QColor(*config.NEGATIVE_POINT_COLOR), self.line_width, QtCore.Qt.SolidLine)
 
-    def toggle(self, item):
-        if item.brush().color().getRgb() == self.active_brush.color().getRgb():
-            item.setBrush(QtGui.QBrush(QColor(*item.color), QtCore.Qt.SolidPattern))
-            item.setPen(QPen(QColor(*hf.set_alpha_to_max(item.color)), self.line_width, QtCore.Qt.SolidLine))
-        else:
-            item.setBrush(self.active_brush)
-            item.setPen(self.active_pen)
-
     def is_close_to_fat_point(self, lp):
         """
         fat_point - Эллипс - узел полигона
@@ -371,38 +328,31 @@ class GraphicsView(QtWidgets.QGraphicsView):
         return False
 
     def check_near_by_active_pressed(self, lp):
-        if self.active_item:
+        for active_item in self.active_group:
             scale = self._zoom / 3.0 + 1
-            try:
-                pol = self.active_item.polygon()
+            pol = active_item.polygon()
 
-                size = len(pol)
-                for i in range(size - 1):
-                    p1 = pol[i]
-                    p2 = pol[i + 1]
+            size = len(pol)
+            for i in range(size - 1):
+                p1 = pol[i]
+                p2 = pol[i + 1]
 
-                    d = hf.distance_from_point_to_segment(lp, p1, p2)  # hf.distance_from_point_to_line(lp, p1, p2)
-                    # print(f"Check near {d} over {self.fat_width/scale}, where fat_width = {self.fat_width}")
-                    if d < self.fat_width / scale:
-                        self.polygon_clicked.id_pressed.emit(self.active_item.id)
-                        return True
-            except:
-                return False
+                d = hf.distance_from_point_to_segment(lp, p1, p2)
+
+                if d < self.fat_width / scale:
+                    self.polygon_clicked.id_pressed.emit(active_item.id)
+                    return True
 
         return False
 
     def check_active_pressed(self, pressed_point):
-        if self.active_item:
-            try:
-                pol = self.active_item.polygon()
-                shapely_pol = Polygon([(p.x(), p.y()) for p in pol])
+        for active_item in self.active_group:
+            pol = active_item.polygon()
+            shapely_pol = Polygon([(p.x(), p.y()) for p in pol])
 
-                if shapely_pol.contains(Point(pressed_point.x(), pressed_point.y())):
-                    self.polygon_clicked.id_pressed.emit(self.active_item.id)
-                    return True
-
-            except:
-                return False
+            if shapely_pol.contains(Point(pressed_point.x(), pressed_point.y())):
+                self.polygon_clicked.id_pressed.emit(active_item.id)
+                return True
 
         return False
 
@@ -427,63 +377,18 @@ class GraphicsView(QtWidgets.QGraphicsView):
         """
         # Активный полигон
         pol = item.polygon()
-        pol = hf.convert_item_polygon_to_shapely(pol)
-
         # Полигон рабочей области
         pixmap_width = self.pixmap_item.pixmap().width()
         pixmap_height = self.pixmap_item.pixmap().height()
-        pixmap_box = hf.make_shapely_box(pixmap_width, pixmap_height)
 
-        cropped_polygon = pixmap_box.intersection(pol)
-        pol = hf.convert_shapely_to_item_polygon(cropped_polygon)
+        if not hf.check_polygon_out_of_screen(pol, pixmap_width, pixmap_height):
+            pol = hf.convert_item_polygon_to_shapely(pol)
+            pixmap_box = hf.make_shapely_box(pixmap_width, pixmap_height)
 
-        item.setPolygon(pol)
+            cropped_polygon = pixmap_box.intersection(pol)
+            pol = hf.convert_shapely_to_item_polygon(cropped_polygon)
 
-    def switch_all_polygons_to_default_except_active(self):
-        for item in self.scene().items():
-            # ищем, не попали ли уже в нарисованный полигон
-            try:
-                if item != self.active_item and item not in self.active_group:
-                    item.setBrush(QtGui.QBrush(QColor(*item.color), QtCore.Qt.SolidPattern))
-                    item.setPen(QPen(QColor(*hf.set_alpha_to_max(item.color)), self.line_width, QtCore.Qt.SolidLine))
-                else:
-                    item.setBrush(self.active_brush)
-                    item.setPen(self.active_pen)
-            except:
-                pass
-
-    def reset_all_polygons(self, item_clicked, is_shift=False):
-        """
-        Меняем цвета и назначение полигонов на сцене в зависимости от того, по чему кликнули
-        Если item_clicked был активным - снимаем активное состояние,
-        еслм нет - делаем активным его, остальные - неактивными
-        """
-        self.toggle(item_clicked)
-        self.polygon_clicked.id_pressed.emit(item_clicked.id)
-
-        if is_shift:
-            if item_clicked in self.active_group:
-                active_group_new = []
-                for item in self.active_group:
-                    if item != item_clicked:
-                        active_group_new.append(item)
-                self.active_group = active_group_new
-            else:
-                self.active_group.append(item_clicked)
-
-        else:
-
-            self.active_group = []
-
-            if item_clicked == self.active_item:
-                self.active_item = None
-            else:
-
-                self.active_item = item_clicked
-                self.active_group.append(item_clicked)
-                # Остальные - в неативное состояние
-
-        self.switch_all_polygons_to_default_except_active()
+            item.setPolygon(pol)
 
     def get_pressed_polygon(self, pressed_point):
         """
@@ -543,7 +448,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if id in self.labels_ids:
             self.labels_ids.remove(id)
             if id == self.last_label_id:
-                self.last_label_id = self.labels_ids - 1
+                self.last_label_id = len(self.labels_ids) - 1
 
     def remove_last_changes(self):
         for item_id in self.last_added:
@@ -594,10 +499,11 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if text:
             self.scene().addItem(polygon_new.get_label())
 
-    def addPointToActivePolygon(self, lp):
+    def add_point_to_active(self, lp):
 
-        if self.active_item:
-            poly = self.active_item.polygon()
+        if len(self.active_group) == 1:
+            active_item = self.active_group[0]
+            poly = active_item.polygon()
             closest_pair = hf.find_nearest_edge_of_polygon(poly, lp)
             poly_new = QPolygonF()
 
@@ -618,89 +524,74 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 else:
                     poly_new.append(p1)
 
-            self.active_item.setPolygon(poly_new)
+            active_item.setPolygon(poly_new)
 
     def remove_polygon_vertext(self, lp):
 
-        if self.active_item:
+        if len(self.active_group) == 1:
+            active_item = self.active_group[0]
             point_closed = self.get_point_near_by_active_polygon_vertex(lp)
 
             if point_closed:
 
                 poly_new = QPolygonF()
 
-                pol = self.active_item.polygon()
+                pol = active_item.polygon()
                 for p in pol:
                     if p != point_closed:
                         poly_new.append(p)
 
-                self.active_item.setPolygon(poly_new)
+                active_item.setPolygon(poly_new)
 
-    def get_active_shape(self, is_filter=True):
-        if self.active_item:
-            pol = self.active_item.polygon()
 
-            if pol:
-                if is_filter and len(pol) < 3:
-                    self.remove_active()
-
-                shape = {"cls_num": self.active_item.cls_num, "id": self.active_item.id}
-                points = []
-                for p in pol:
-                    points.append([p.x(), p.y()])
-                shape["points"] = points
-                return shape
-
-        return None
 
     def copy_active_item_to_buffer(self):
-        if self.active_item:
+        self.buffer = []
+        for active_item in self.active_group:
 
-            active_cls_num = self.active_item.cls_num
-            active_alpha = self.active_item.alpha_percent
-            active_color = self.active_item.color
+            active_cls_num = active_item.cls_num
+            active_alpha = active_item.alpha_percent
+            active_color = active_item.color
+            text = active_item.text
+            text_pos = active_item.text_pos
 
             copy_id = self.get_unique_label_id()
 
             polygon_new = GrPolygonLabel(None, color=active_color, cls_num=active_cls_num,
-                                         alpha_percent=active_alpha, id=copy_id)
+                                         alpha_percent=active_alpha, id=copy_id, text=text, text_pos=text_pos)
             polygon_new.setPen(self.active_pen)
             polygon_new.setBrush(self.active_brush)
             poly = QPolygonF()
-            for point in self.active_item.polygon():
+            for point in active_item.polygon():
                 poly.append(point)
 
             polygon_new.setPolygon(poly)
 
-            self.buffer = polygon_new
+            self.buffer.append(polygon_new)
 
     def paste_buffer(self):
         if self.buffer:
-            pol = self.buffer.polygon()
-            xs = []
-            ys = []
-            for point in pol:
-                xs.append(point.x())
-                ys.append(point.y())
-            min_x = min(xs)
-            max_x = max(xs)
-            min_y = min(ys)
-            max_y = max(ys)
-            w = abs(max_x - min_x)
-            h = abs(max_y - min_y)
+            for active_item in self.buffer:
+                pol = active_item.polygon()
+                xs = []
+                ys = []
+                for point in pol:
+                    xs.append(point.x())
+                    ys.append(point.y())
+                min_x = min(xs)
+                max_x = max(xs)
+                min_y = min(ys)
+                max_y = max(ys)
+                w = abs(max_x - min_x)
+                h = abs(max_y - min_y)
 
-            pol_new = QPolygonF()
-            for point in pol:
-                pol_new.append(QtCore.QPointF(point.x() + w / 2, point.y() + h / 2))
+                pol_new = QPolygonF()
+                for point in pol:
+                    pol_new.append(QtCore.QPointF(point.x() + w / 2, point.y() + h / 2))
 
-            self.buffer.setPolygon(pol_new)
+                active_item.setPolygon(pol_new)
 
-            if self.active_item:
-                self.toggle(self.active_item)
-
-            self.scene().addItem(self.buffer)
-            self.active_item = self.buffer
-            self.clear_ai_points()
+                self.scene().addItem(active_item)
 
     def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
 
@@ -772,10 +663,11 @@ class GraphicsView(QtWidgets.QGraphicsView):
             if self.drawing_type == "Polygon":
 
                 # Режим рисования, добавляем точки к текущему полигону
-                if self.active_item:
-                    poly = self.active_item.polygon()
+                if len(self.active_group) == 1:
+                    active_item = self.active_group[0]
+                    poly = active_item.polygon()
                     poly.append(lp)
-                    self.active_item.setPolygon(poly)
+                    active_item.setPolygon(poly)
 
             elif self.drawing_type == "Ellips":
 
@@ -784,14 +676,12 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 if not self.ellipse_start_point:
                     self.drag_mode = "EllipsStartDrawMode"
                     self.ellipse_start_point = lp
-                    # self.setMouseTracking(True)
 
             elif self.drawing_type == "Box":
 
                 if not self.box_start_point:
                     self.drag_mode = "BoxStartDrawMode"
                     self.box_start_point = lp
-                    # self.setMouseTracking(True)
 
             elif self.drawing_type == "AiPoints":
                 if 'Left Click' in modifierName:
@@ -807,7 +697,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 if not self.box_start_point:
                     self.drag_mode = "BoxStartDrawMode"
                     self.box_start_point = lp
-                    # self.setMouseTracking(True)
 
         else:
 
@@ -827,21 +716,15 @@ class GraphicsView(QtWidgets.QGraphicsView):
                         # Начинаем тянуть
                         self.drag_mode = "PolygonVertexMove"
                         self.dragged_vertex = lp
-                        # self.setMouseTracking(False)
+
                 else:
                     # Нажали по грани
                     if 'Ctrl' in modifierName:
                         # Добавляем узел
-                        self.addPointToActivePolygon(lp)
+                        self.add_point_to_active(lp)
 
                     else:
-                        pressed_polygon = self.get_pressed_polygon(lp)
-                        if pressed_polygon:
-                            self.reset_all_polygons(pressed_polygon, is_shift=is_shift)
-                        else:
-                            if self.active_item:
-                                self.toggle(self.active_item)
-                                self.active_item = None
+                        self.active_group.clear()
 
             else:
 
@@ -853,30 +736,25 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     # Начать перемещение
                     self.drag_mode = "PolygonMoveMode"
                     self.start_point = lp
-                    self.switch_all_polygons_to_default_except_active()  # на всякий случай зажечь активным светом
-                    # self.setMouseTracking(True)
 
                 else:
                     # кликнули не по активной. Если по какой-то другой - изменить активную
                     pressed_polygon = self.get_pressed_polygon(lp)
                     if pressed_polygon:
-                        self.reset_all_polygons(pressed_polygon, is_shift=is_shift)
+                        self.active_group.reset_clicked_item(pressed_polygon, is_shift)
+                        self.polygon_clicked.id_pressed.emit(pressed_polygon.id)
                     else:
-                        if self.active_item:
-                            self.active_item = None
-                        if len(self.active_group) != 0:
-                            self.active_group = []
-                        self.switch_all_polygons_to_default_except_active()
+                        self.active_group.clear()
 
     def get_point_near_by_active_polygon_vertex(self, point):
-        scale = self._zoom / 3.0 + 1
-        try:
-            pol = self.active_item.polygon()
+
+        if len(self.active_group) == 1:
+            active_item = self.active_group[0]
+            scale = self._zoom / 3.0 + 1
+            pol = active_item.polygon()
             for p in pol:
                 if hf.distance(p, point) < self.fat_width / scale:
                     return p
-        except:
-            return None
 
         return None
 
@@ -982,21 +860,23 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 polygon.append(QtCore.QPointF(self.box_start_point.x() + width, self.box_start_point.y()))
                 polygon.append(lp)
                 polygon.append(QtCore.QPointF(self.box_start_point.x(), self.box_start_point.y() + height))
-
-                self.active_item.setPolygon(polygon)
+                if len(self.active_group) == 1:
+                    active_item = self.active_group[0]
+                    active_item.setPolygon(polygon)
 
                 self.drag_mode = "RubberBandContinueDrawMode"
 
             return
 
-        if self.active_item:
+        if len(self.active_group) != 0:
+            active_item = self.active_group[0]
 
             if self.drag_mode == "EllipsStartDrawMode" or self.drag_mode == "EllipseContinueDrawMode":
 
                 width = abs(lp.x() - self.ellipse_start_point.x())
                 height = abs(lp.y() - self.ellipse_start_point.y())
-
-                self.active_item.setRect(self.ellipse_start_point.x(), self.ellipse_start_point.y(), width, height)
+                if len(self.active_group) == 1:
+                    active_item.setRect(self.ellipse_start_point.x(), self.ellipse_start_point.y(), width, height)
 
                 self.drag_mode = "EllipseContinueDrawMode"
 
@@ -1010,8 +890,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 polygon.append(QtCore.QPointF(self.box_start_point.x() + width, self.box_start_point.y()))
                 polygon.append(lp)
                 polygon.append(QtCore.QPointF(self.box_start_point.x(), self.box_start_point.y() + height))
-
-                self.active_item.setPolygon(polygon)
+                if len(self.active_group) == 1:
+                    active_item = self.active_group[0]
+                    active_item.setPolygon(polygon)
 
                 self.drag_mode = "BoxContinueDrawMode"
 
@@ -1019,20 +900,22 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
                 delta_x = lp.x() - self.start_point.x()
                 delta_y = lp.y() - self.start_point.y()
+
+                for active_item in self.active_group:
+
+                    poly = QPolygonF()
+                    for point in active_item.polygon():
+                        point_moved = QtCore.QPointF(point.x() + delta_x, point.y() + delta_y)
+                        poly.append(point_moved)
+
+                    label = active_item.get_label()
+                    if label:
+                        pos = label.pos()
+                        label.setPos(pos.x() + delta_x, pos.y() + delta_y)
+
+                    active_item.setPolygon(poly)
+
                 self.start_point = lp
-
-                poly = QPolygonF()
-                for point in self.active_item.polygon():
-                    point_moved = QtCore.QPointF(point.x() + delta_x, point.y() + delta_y)
-                    poly.append(point_moved)
-
-                label = self.active_item.get_label()
-                if label:
-                    pos = label.pos()
-                    label.setPos(pos.x() + delta_x, pos.y() + delta_y)
-
-                self.active_item.setPolygon(poly)
-
             else:
                 # Если активная - отслеживаем ее узлы
                 self.remove_fat_point_from_scene()  # сперва убираем предыдущую точку
@@ -1047,28 +930,40 @@ class GraphicsView(QtWidgets.QGraphicsView):
     def change_dragged_polygon_vertex_to_point(self, new_point):
         scale = self._zoom / 3.0 + 1
 
-        poly = QPolygonF()
-        for point in self.active_item.polygon():
-            if hf.distance(point, self.dragged_vertex) < self.fat_width / scale:
-                poly.append(new_point)
-            else:
-                poly.append(point)
+        if len(self.active_group) == 1:
+            active_item = self.active_group[0]
 
-        self.active_item.setPolygon(poly)
+            poly = QPolygonF()
+            for point in active_item.polygon():
+                if hf.distance(point, self.dragged_vertex) < self.fat_width / scale:
+                    poly.append(new_point)
+                else:
+                    poly.append(point)
+
+            active_item.setPolygon(poly)
 
     def get_rubber_band_polygon(self):
-        if self.is_rubber_mode and self.active_item and self.active_item.cls_num == -1:
+        if len(self.active_group) == 1:
+            active_item = self.active_group[0]
+            if self.is_rubber_mode and active_item.cls_num == -1:
+                points = []
+                for p in active_item.polygon():
+                    points.append([int(p.x()), int(p.y())])
+                return points
+
+    def get_active_item_polygon(self):
+        if len(self.active_group) == 1:
+            active_item = self.active_group[0]
             points = []
-            for p in self.active_item.polygon():
+            for p in active_item.polygon():
                 points.append([int(p.x()), int(p.y())])
             return points
 
-    def get_active_item_polygon(self):
-        if self.active_item:
-            points = []
-            for p in self.active_item.polygon():
-                points.append([int(p.x()), int(p.y())])
-            return points
+    def is_self_intersection(self, item):
+        pol = hf.convert_item_polygon_to_shapely(item.polygon())
+        if not pol.is_valid:
+            return True
+        return False
 
     def mouseReleaseEvent(self, event: QtGui.QMouseEvent):
 
@@ -1080,10 +975,15 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 self.box_start_point = None
                 self.drag_mode = "No"
 
-                if self.active_item:
-                    if self.active_item.check_polygon(min_width=self.min_ellipse_size,
-                                                      min_height=self.min_ellipse_size):
-                        self.crop_by_pixmap_size(self.active_item)
+                if len(self.active_group) == 1:
+                    active_item = self.active_group[0]
+                    if active_item.is_self_intersected():
+                        self.info_conn.info_message.emit(
+                            "Polygon self-intersected" if self.lang == 'ENG' else "Полигон не должен содержать самопересечений. Удален")
+                        self.remove_item(active_item, is_delete_id=True)
+                    else:
+                        self.crop_by_pixmap_size(active_item)
+
             return
 
         if self.drag_mode == "PolygonVertexMove":
@@ -1093,28 +993,41 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 lp = self.pixmap_item.mapFromScene(sp)
 
                 self.change_dragged_polygon_vertex_to_point(lp)
+                if len(self.active_group) == 1:
+                    active_item = self.active_group[0]
+                    if active_item.is_self_intersected():
+                        self.info_conn.info_message.emit(
+                            "Polygon self-intersected" if self.lang == 'ENG' else "Полигон не должен содержать самопересечений. Удален")
+                        self.remove_item(active_item, is_delete_id=True)
 
             self.drag_mode = "No"
             # self.setMouseTracking(True)
 
         elif self.drag_mode == "PolygonMoveMode":
-            sp = self.mapToScene(event.pos())
-            lp = self.pixmap_item.mapFromScene(sp)
 
-            delta_x = lp.x() - self.start_point.x()
-            delta_y = lp.y() - self.start_point.y()
+            for active_item in self.active_group:
+                sp = self.mapToScene(event.pos())
+                lp = self.pixmap_item.mapFromScene(sp)
 
-            poly = QPolygonF()
-            for point in self.active_item.polygon():
-                point_moved = QtCore.QPointF(point.x() + delta_x, point.y() + delta_y)
-                poly.append(point_moved)
+                delta_x = lp.x() - self.start_point.x()
+                delta_y = lp.y() - self.start_point.y()
 
-            self.active_item.setPolygon(poly)
+                poly = QPolygonF()
 
-            self.crop_by_pixmap_size(self.active_item)
+                for point in active_item.polygon():
+                    point_moved = QtCore.QPointF(point.x() + delta_x, point.y() + delta_y)
+                    poly.append(point_moved)
+
+                active_item.setPolygon(poly)
+
+                if active_item.is_self_intersected():
+                    self.info_conn.info_message.emit(
+                        "Polygon self-intersected" if self.lang == 'ENG' else "Полигон не должен содержать самопересечений. Удален")
+                    self.remove_item(active_item, is_delete_id=True)
+                else:
+                    self.crop_by_pixmap_size(active_item)
 
             self.drag_mode = "No"
-            # self.setMouseTracking(True)
 
         elif self.drag_mode == "EllipseContinueDrawMode":
             # self.setMouseTracking(True)
@@ -1122,18 +1035,24 @@ class GraphicsView(QtWidgets.QGraphicsView):
             self.ellipse_start_point = None
             self.drag_mode = "No"
 
-            if self.active_item:
-                if self.active_item.check_ellips(min_width=self.min_ellipse_size, min_height=self.min_ellipse_size):
-                    polygon_new = self.active_item.convert_to_polygon(points_count=30)
-                    self.crop_by_pixmap_size(polygon_new)
-
-                    self.remove_item(self.active_item, is_delete_id=False)
+            if len(self.active_group) == 1:
+                active_item = self.active_group[0]
+                polygon_new = active_item.convert_to_polygon(points_count=30)
+                if active_item.is_self_intersected():
+                    self.info_conn.info_message.emit(
+                        "Polygon self-intersected" if self.lang == 'ENG' else "Полигон не должен содержать самопересечений. Удален")
+                    self.remove_item(active_item, is_delete_id=True)
+                else:
+                    self.remove_item(active_item, is_delete_id=False)
                     self.scene().addItem(polygon_new)
                     self.toggle(polygon_new)
-                    self.active_item = polygon_new
+                    active_item = polygon_new
+
+                    self.crop_by_pixmap_size(active_item)
+
                     self.polygon_end_drawing.on_end_drawing.emit(True)
-                else:
-                    self.remove_active()
+
+
 
         elif self.drag_mode == "BoxContinueDrawMode":
 
@@ -1142,19 +1061,18 @@ class GraphicsView(QtWidgets.QGraphicsView):
             self.box_start_point = None
             self.drag_mode = "No"
 
-            if self.active_item:
-                # if self.active_item.check_polygon(min_width=self.min_ellipse_size,
-                #                                   min_height=self.min_ellipse_size):
+            if len(self.active_group) == 1:
+                active_item = self.active_group[0]
+
                 if self.drawing_type != "AiMask":
-                    self.crop_by_pixmap_size(self.active_item)
+                    self.crop_by_pixmap_size(active_item)
                     self.polygon_end_drawing.on_end_drawing.emit(True)
                 else:
                     self.mask_end_drawing.on_mask_end_drawing.emit(True)
 
     def remove_active(self, is_delete_id=True):
-        if self.active_item:
-            self.remove_item(self.active_item, is_delete_id)
-            self.active_item = None
+        for item in self.active_group:
+            self.remove_item(item, is_delete_id)
 
     def remove_item(self, item, is_delete_id=False):
 
@@ -1286,11 +1204,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
         return shapes
 
     def add_item_to_scene_as_active(self, item):
-        self.active_item = item
-        self.active_item.setPen(self.active_pen)
-        self.active_item.setBrush(self.active_brush)
+        self.active_group.append(item)
         self.scene().addItem(item)
-        self.switch_all_polygons_to_default_except_active()
 
     def start_drawing(self, type="Polygon", cls_num=0, color=None, alpha=50, id=None):
         """
@@ -1304,6 +1219,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         # self.setMouseTracking(False)
         is_drawing_old = self.is_drawing
+        self.active_group.clear()
         self.is_drawing = True
 
         self.drawing_type = type
@@ -1312,41 +1228,40 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
             if id == None:
                 if is_drawing_old:
-                    if self.active_item:
-                        id = self.active_item.id
-                        self.remove_active()
+                    if len(self.active_group) != 0:
+                        active_item = self.active_group[0]
+                        id = active_item.id
+                        self.remove_item(active_item)
                 else:
                     id = self.get_unique_label_id()
 
             if type == "Polygon" or type == "Box":
-                self.active_item = GrPolygonLabel(self._pixmap_item, color=color, cls_num=cls_num, alpha_percent=alpha,
-                                                  id=id)
+                active_item = GrPolygonLabel(self._pixmap_item, color=color, cls_num=cls_num, alpha_percent=alpha,
+                                             id=id)
             elif type == "Ellips":
-                self.active_item = GrEllipsLabel(self._pixmap_item, color=color, cls_num=cls_num, alpha_percent=alpha,
-                                                 id=id)
+                active_item = GrEllipsLabel(self._pixmap_item, color=color, cls_num=cls_num, alpha_percent=alpha,
+                                            id=id)
 
-            self.add_item_to_scene_as_active(self.active_item)
+            self.add_item_to_scene_as_active(active_item)
 
 
         elif type == "AiPoints":
             self.left_clicked_points = QPolygonF()
             self.right_clicked_points = QPolygonF()
 
-            if self.active_item:
-                self.toggle(self.active_item)
-                self.active_item = None
+            self.active_group.clear()
 
         elif type == "AiMask":
 
-            self.active_item = GrPolygonLabel(None, color=color, cls_num=cls_num, alpha_percent=alpha,
-                                              id=-1)
+            active_item = GrPolygonLabel(None, color=color, cls_num=cls_num, alpha_percent=alpha,
+                                         id=-1)
 
-            self.add_item_to_scene_as_active(self.active_item)
+            self.add_item_to_scene_as_active(active_item)
 
         elif type == "RubberBand":
-            self.active_item = GrPolygonLabel(None, color=color, cls_num=-1, alpha_percent=alpha,
-                                              id=-1)
-            self.add_item_to_scene_as_active(self.active_item)
+            active_item = GrPolygonLabel(None, color=color, cls_num=-1, alpha_percent=alpha,
+                                         id=-1)
+            self.add_item_to_scene_as_active(active_item)
 
     def get_sam_input_points_and_labels(self):
         if self.drawing_type == "AiPoints":
@@ -1368,8 +1283,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
     def get_sam_mask_input(self):
         if self.drawing_type == "AiMask":
 
-            if self.active_item:
-                pol = self.active_item.polygon()
+            if len(self.active_group) != 0:
+                active_item = self.active_group[0]
+                pol = active_item.polygon()
                 if len(pol) == 4:
                     # только если бокс
                     left_top_point = pol[0]
@@ -1379,7 +1295,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
                     return input_box
                 else:
-                    self.remove_active()
+                    self.remove_item(active_item)
 
         return []
 
@@ -1392,34 +1308,38 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if self.drawing_type == "AiPoints":
             self.clear_ai_points()
 
-    def end_drawing(self, text=None, cls_num=-1):
+    def end_drawing(self, text=None, cls_num=-1, color=None):
         self.is_drawing = False
-        # self.setMouseTracking(True)
+
         self.remove_fat_point_from_scene()
 
         if self.drawing_type == "AiPoints":
             self.clear_ai_points()
 
-        if self.active_item:
-            self.toggle(self.active_item)
-            self.crop_by_pixmap_size(self.active_item)
+        if len(self.active_group) != 0:
+            active_item = self.active_group[0]
+            if not active_item:
+                return
+
+            if active_item.is_self_intersected():
+                self.info_conn.info_message.emit(
+                    "Polygon self-intersected" if self.lang == 'ENG' else "Полигон не должен содержать самопересечений. Удален")
+                self.remove_item(active_item, is_delete_id=True)
+                return
+
+            self.crop_by_pixmap_size(active_item)
 
             if text and cls_num != -1:
                 # post settings
-                point_mass = hf.convert_item_polygon_to_point_mass(self.active_item.polygon())
+                point_mass = hf.convert_item_polygon_to_point_mass(active_item.polygon())
                 text_pos = hf.calc_label_pos(point_mass)
-                self.active_item.set_label(text, text_pos)
-                self.active_item.set_cls_num(cls_num)
-                self.scene().addItem(self.active_item.get_label())
+                active_item.set_label(text, text_pos)
+                active_item.set_color(color)
+                active_item.set_cls_num(cls_num)
 
-    def is_all_actives_same_class(self):
-        if len(self.active_group) == 0:
-            return
-        cls = self.active_group[0].cls_num
-        for i in range(1, len(self.active_group)):
-            if self.active_group[i].cls_num != cls:
-                return False
-        return True
+                self.scene().addItem(active_item.get_label())
+
+            self.active_group.clear()
 
     def contextMenuEvent(self, event: QtGui.QContextMenuEvent) -> None:
 
@@ -1430,16 +1350,31 @@ class GraphicsView(QtWidgets.QGraphicsView):
             sp = self.mapToScene(event.pos())
             lp = self.pixmap_item.mapFromScene(sp)
 
-            self.pressed_polygon = self.get_pressed_polygon(lp)
-            if self.pressed_polygon:
+            pressed_polygon = self.get_pressed_polygon(lp)
+
+            if pressed_polygon:
                 menu = QMenu(self)
 
-                if self.pressed_polygon in self.active_group and self.is_all_actives_same_class() and len(
-                        self.active_group) > 1:
-                    menu.addAction(self.mergeActivePolygons)
+                if pressed_polygon not in self.active_group:
+                    self.active_group.append(pressed_polygon)
 
+                if self.active_group.is_all_actives_same_class():
+                    if len(self.active_group) > 1:
+                        menu.addAction(self.mergeActivePolygons)
+
+                    if len(self.active_group) > 1:
+                        self.changeClsNumAct.setText(
+                            "Изменить имя меток" if self.lang == 'RU' else 'Change labels names')
+                    else:
+                        self.changeClsNumAct.setText("Изменить имя метки" if self.lang == 'RU' else 'Change label name')
+                    menu.addAction(self.changeClsNumAct)
+
+                if len(self.active_group) > 1:
+                    self.delPolyAct.setText("Удалить полигоны" if self.lang == 'RU' else 'Delete polygons')
+                else:
+                    self.delPolyAct.setText("Удалить полигон" if self.lang == 'RU' else 'Delete polygon')
                 menu.addAction(self.delPolyAct)
-                menu.addAction(self.changeClsNumAct)
+
                 menu.exec(event.globalPos())
 
     def on_rb_mode_change(self, is_active):
@@ -1447,8 +1382,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if is_active:
             self.start_drawing(type='RubberBand')
         else:
-            if self.active_item and self.active_item.cls_num == -1:
-                self.remove_active()
+            for item in self.active_group:
+                if item.cls_num == -1:
+                    self.remove_item(item)
 
     def add_group_of_points(self, points, cls_name, color, alpha):
 

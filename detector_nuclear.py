@@ -12,7 +12,7 @@ from utils import config
 from utils.edges_from_mask import mask_results_to_yolo_txt
 from utils.nuclear_post_processing import PostProcessingWorker
 import gc
-from ui.ask_next_step_dialog import AskNextStepDialog
+from ui.dialogs.ask_next_step_dialog import AskNextStepDialog
 
 basedir = os.path.dirname(__file__)
 

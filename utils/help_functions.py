@@ -28,7 +28,6 @@ def save_mask_as_image(mask, save_name):
 
 
 def clean_mask(mask, type='remove', min_size=64, connectivity=2):
-
     mask = np.squeeze(mask)
     imglab = label(mask)  # create labels in segmented image
     if type == 'remove':
@@ -52,6 +51,14 @@ def convert_item_polygon_to_shapely(pol):
     points = convert_item_polygon_to_point_mass(pol)
     return Polygon(points)
 
+
+def check_polygon_out_of_screen(pol, width, height):
+    for p in pol:
+        if p.x() < 0 or p.x() > width:
+            return False
+        if p.y() < 0 or p.y() > height:
+            return False
+    return True
 
 def convert_shapely_to_item_polygon(pol):
     coords = pol.exterior.coords

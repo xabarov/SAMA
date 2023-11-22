@@ -26,14 +26,14 @@ from ui.settings_window import SettingsWindow
 from ui.ask_del_polygon import AskDelWindow
 from ui.splash_screen import MovieSplashScreen
 from ui.view import GraphicsView
-from ui.input_dialog import CustomInputDialog, PromptInputDialog, CustomComboDialog
+from ui.dialogs.input_dialog import CustomInputDialog, PromptInputDialog, CustomComboDialog
 from ui.show_image_widget import ShowImgWindow
 from ui.panels import ImagesPanel, LabelsPanel
 from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection, ThemeChangeConnection, \
     RubberBandModeConnection
-from ui.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog
+from ui.dialogs.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog
 from ui.edit_with_button import EditWithButton
-from ui.ok_cancel_dialog import OkCancelDialog
+from ui.dialogs.ok_cancel_dialog import OkCancelDialog
 from ui.progress import ProgressWindow
 
 from shapely import Polygon

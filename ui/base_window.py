@@ -14,13 +14,13 @@ from qt_material import apply_stylesheet
 
 from ui.ask_del_polygon import AskDelWindow
 from ui.combo_box_styled import StyledComboBox
-from ui.create_project_dialog import CreateProjectDialog
+from ui.dialogs.create_project_dialog import CreateProjectDialog
 from ui.edit_with_button import EditWithButton
-from ui.export_dialog import ExportDialog
+from ui.dialogs.export_dialog import ExportDialog
 from ui.images_widget import ImagesWidget
-from ui.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog, ImportLRMSDialog
-from ui.input_dialog import CustomInputDialog, CustomComboDialog
-from ui.ok_cancel_dialog import OkCancelDialog
+from ui.dialogs.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog, ImportLRMSDialog
+from ui.dialogs.input_dialog import CustomInputDialog, CustomComboDialog
+from ui.dialogs.ok_cancel_dialog import OkCancelDialog
 from ui.panels import ImagesPanel, LabelsPanel
 from ui.settings_window_base import SettingsWindowBase
 from ui.shortcuts_editor import ShortCutsEditor
@@ -80,6 +80,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.polygon_end_drawing.on_end_drawing.connect(self.on_polygon_end_draw)
 
         self.view.polygon_cls_num_change.pol_cls_num_and_id.connect(self.change_polygon_cls_num)
+        self.view.info_conn.info_message.connect(self.info_message)
 
         # Signals with Right Panels
         self.im_panel_count_conn = ImagesPanelCountConnection()
@@ -162,6 +163,10 @@ class MainWindow(QtWidgets.QMainWindow):
         if size and pos:
             self.resize(size)
             self.move(pos)
+
+    def info_message(self, message):
+        time = 3000
+        self.statusBar().showMessage(message, time)
 
     def set_movie_gif(self):
         self.movie_gif = "ui/icons/15.gif"
@@ -525,7 +530,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.tek_image_name:
             cls_txt = self.cls_combo.currentText()
             cls_num = self.cls_combo.currentIndex()
-            self.view.end_drawing(cls_num=cls_num, text=cls_txt)
+            label_color = self.project_data.get_label_color(cls_txt)
+            self.view.end_drawing(cls_num=cls_num, text=cls_txt, color=label_color)  #
             self.save_view_to_project()
 
     def create_top_toolbar(self):
@@ -640,7 +646,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.images_list_widget.move_last()
 
         else:
-            self.statusBar().showMessage(
+            self.info_message(
                 "Пожалуйста, выделите полигон на изображении" if self.lang == 'RU' else "Please select some polygon on image as active")
 
     def change_polygon_label_clicked(self):
@@ -649,7 +655,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         self.view.on_change_cls_num()
 
-    def change_polygon_cls_num(self, cls_num, cls_id):
+    def change_polygon_cls_num(self, cls_num, cls_ids):
         """
         Изменение имени нажатого полигона по правой кнопке мыши. Сигнал от view
         """
@@ -661,17 +667,21 @@ class MainWindow(QtWidgets.QMainWindow):
                                               variants=[labels[i] for i in range(len(labels)) if i != cls_num])
 
         self.combo_dialog.okBtn.clicked.connect(self.change_cls_num_ok_clicked)
-        self.combo_dialog.cancelBtn.clicked.connect(self.view.del_pressed_polygon)
+        self.combo_dialog.cancelBtn.clicked.connect(self.combo_dialog.hide)
         self.combo_dialog.show()
         self.changed_cls_num = cls_num
-        self.changed_cls_id = cls_id
+        self.changed_cls_ids = cls_ids
+
+    def change_cls_num_cancel_clicked(self):
+        self.combo_dialog.close()
+        self.view.active_group.clear()
 
     def change_cls_num_ok_clicked(self):
         """
         При нажатии OK в окне изменения имени полигона
         """
         new_cls_name = self.combo_dialog.getText()
-        self.combo_dialog.close()
+        self.combo_dialog.hide()
 
         labels = self.project_data.get_labels()
         new_cls_num = 0
@@ -679,11 +689,9 @@ class MainWindow(QtWidgets.QMainWindow):
             new_cls_num = i
             if lbl == new_cls_name:
                 break
-        color = self.project_data.get_label_color(new_cls_name)
-        self.project_data.change_cls_num_by_id(self.tek_image_name, self.changed_cls_id, new_cls_num)
+        self.project_data.change_cls_num_by_ids(self.tek_image_name, self.changed_cls_ids, new_cls_num)
 
-        self.view.set_pressed_polygon(new_cls_num, self.changed_cls_id, color, new_cls_name)
-        self.save_view_to_project()
+        self.reload_image(is_tek_image_changed=False)
 
     def add_im_to_proj_clicked(self):
 
@@ -890,7 +898,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.importer.start()
 
     def on_importer_message(self, message):
-        self.statusBar().showMessage(message, 3000)
+        self.info_message(message)
 
     def on_import_percent_change(self, persent):
         self.import_dialog.set_progress(persent)
@@ -1267,13 +1275,11 @@ class MainWindow(QtWidgets.QMainWindow):
         if lrm:
             self.project_data.set_image_lrm(self.tek_image_name, lrm)
             if self.lang == 'RU':
-                self.statusBar().showMessage(
-                    f"Установлено ЛРМ для снимка {lrm:0.3f} м",
-                    3000)
+                self.info_message(
+                    f"Установлено ЛРМ для снимка {lrm:0.3f} м")
             else:
-                self.statusBar().showMessage(
-                    f"Linear ground resoxlutions is set to {lrm:0.3f} m",
-                    3000)
+                self.info_message(
+                    f"Linear ground resoxlutions is set to {lrm:0.3f} m")
             self.ruler_act.setEnabled(True)
 
         else:
@@ -1368,16 +1374,14 @@ class MainWindow(QtWidgets.QMainWindow):
         dataset_images = self.filter_images_names(dataset_dir)
 
         if not dataset_images:
-            self.statusBar().showMessage(
-                f"В указанной папке изображений не обнаружено" if self.lang == 'RU' else "Folder is empty",
-                3000)
+            self.info_message(
+                f"В указанной папке изображений не обнаружено" if self.lang == 'RU' else "Folder is empty")
             return
 
         self.dataset_images = dataset_images
 
-        self.statusBar().showMessage(
-            f"Число загруженны в проект изображений: {len(self.dataset_images)}" if self.lang == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
-            3000)
+        self.info_message(
+            f"Число загруженны в проект изображений: {len(self.dataset_images)}" if self.lang == 'RU' else f"Loaded images count: {len(self.dataset_images)}")
         self.loaded_proj_name = self.create_new_proj_dialog.get_project_name()
         self.create_new_proj_dialog.hide()
         self.save_project_as(proj_name=self.loaded_proj_name)
@@ -1387,9 +1391,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.images_list_widget.clear()
         self.progress_toolbar.show_progressbar()
-        self.statusBar().showMessage(
-            f"Загружаю информацию о разметке..." if self.lang == 'RU' else f"Loading labels...",
-            3000)
+        self.info_message(
+            f"Загружаю информацию о разметке..." if self.lang == 'RU' else f"Loading labels...")
         images_info = self.project_data.get_all_images_info()
         for i, name in enumerate(image_names):
             if name in images_info:
@@ -1399,6 +1402,7 @@ class MainWindow(QtWidgets.QMainWindow):
             percent = int(100 * (i + 1) / len(image_names))
             self.progress_toolbar.set_percent(percent)
             self.images_list_widget.addItem(name, status)
+        self.images_list_widget.sortItems()
         self.progress_toolbar.hide_progressbar()
 
     def progress_bar_changed(self, percent):
@@ -1473,9 +1477,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.reset_image_panel_progress_bar()
 
-        self.statusBar().showMessage(
-            f"Число загруженных в проект изображений: {len(self.dataset_images)}" if self.lang == 'RU' else f"Loaded images count: {len(self.dataset_images)}",
-            3000)
+        self.info_message(
+            f"Число загруженных в проект изображений: {len(self.dataset_images)}" if self.lang == 'RU' else f"Loaded images count: {len(self.dataset_images)}")
 
     def reload_project(self):
         self.load_project(self.loaded_proj_name)
@@ -1565,8 +1568,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.view.stop_circle_progress()
 
-            self.statusBar().showMessage(
-                f"Проект успешно сохранен" if self.lang == 'RU' else "Project is saved", 3000)
+            self.info_message(
+                f"Проект успешно сохранен" if self.lang == 'RU' else "Project is saved")
 
         else:
             self.save_project_as()
@@ -1594,8 +1597,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def on_project_saved(self):
 
-        self.statusBar().showMessage(
-            f"Проект успешно сохранен" if self.lang == 'RU' else "Project is saved", 3000)
+        self.info_message(
+            f"Проект успешно сохранен" if self.lang == 'RU' else "Project is saved")
 
     def zoomIn(self):
         """
@@ -1691,9 +1694,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.last_fat_width = fat_width
             self.view.set_fat_width(self.settings.read_fat_width())
 
+        self.save_view_to_project()
         self.reload_image(is_tek_image_changed=False)
-        self.statusBar().showMessage(
-            f"Настройки проекта изменены" if lang == 'RU' else "Settings is saved", 3000)
+        self.info_message(
+            f"Настройки проекта изменены" if lang == 'RU' else "Settings is saved")
 
     def polygon_tool_pressed(self):
 
@@ -1717,7 +1721,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.labels_on_tek_image.setCurrentItem(item)
                 break
 
-    def on_polygon_delete(self, delete_id):
+    def on_polygon_delete(self, delete_ids):
         self.mode = Mode.normal
         self.save_view_to_project()
 
@@ -1819,7 +1823,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.ann_type in ["Polygon", "Box", "Ellips"]:
             cls_txt = self.cls_combo.currentText()
             cls_num = self.cls_combo.currentIndex()
-            self.view.end_drawing(cls_num=cls_num, text=cls_txt)  # save it to
+            label_color = self.project_data.get_label_color(cls_txt)
+            self.view.end_drawing(cls_num=cls_num, text=cls_txt, color=label_color)  # save it to
 
         if self.mode != Mode.normal:
             self.mode = Mode.normal
@@ -1952,6 +1957,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.view.paste_buffer()
         self.save_view_to_project()
+        self.reload_image(is_tek_image_changed=False)
 
     def on_quit(self):
         self.exit_box.hide()
@@ -2001,7 +2007,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             message = f"Linear ground resolution is set for {set_num} images from {img_num}"
 
-        self.statusBar().showMessage(message, 3000)
+        self.info_message(message)
 
     def ruler_pressed(self):
         if self.ruler_act.isChecked():
@@ -2030,7 +2036,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 idx = self.user_names_combo.getPos(new_name)
                 self.user_names_combo.setCurrentIndex(idx)
             else:
-                self.statusBar().showMessage(
+                self.info_message(
                     f"Не могу добавить пользователя {new_name}. Такой пользователь уже существует" if self.lang == 'RU' else f"Can't add {new_name}. User already exists")
 
     def rename_user(self):
@@ -2090,8 +2096,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         message = f"Число изображений со статусом approved: " if self.lang == 'RU' else f"Approved images count: "
         message += f"{approved_count} из {len(self.dataset_images)}"
-        self.statusBar().showMessage(message,
-                                     3000)
+        self.info_message(message)
 
 
 if __name__ == '__main__':

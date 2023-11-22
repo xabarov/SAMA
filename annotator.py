@@ -16,8 +16,8 @@ from gd.gd_sam import load_model as gd_load_model
 from gd.gd_worker import GroundingSAMWorker
 from ui.balance_table_widget import BalanceTable
 from ui.base_window import MainWindow
-from ui.import_dialogs import ImportFromYOLODialog
-from ui.input_dialog import PromptInputDialog
+from ui.dialogs.import_dialogs import ImportFromYOLODialog
+from ui.dialogs.input_dialog import PromptInputDialog
 from ui.settings_window import SettingsWindow
 from utils import cls_settings
 from utils import config
@@ -74,19 +74,19 @@ class Annotator(MainWindow):
             self.last_platform = 'cuda'
             print("CUDA is available")
             if lang == 'RU':
-                self.statusBar().showMessage(
-                    "Найдено устройство NVIDIA CUDA. Нейросеть будет использовать ее для ускорения", 3000)
+                self.info_message(
+                    "Найдено устройство NVIDIA CUDA. Нейросеть будет использовать ее для ускорения")
             else:
-                self.statusBar().showMessage(
-                    "NVIDIA CUDA is found. Neural networks will use it for acceleration", 3000)
+                self.info_message(
+                    "NVIDIA CUDA is found. Neural networks will use it for acceleration")
         else:
             self.last_platform = 'cpu'
             if lang == 'RU':
-                self.statusBar().showMessage(
-                    "Нейросеть будет использовать ресурсы процессора", 3000)
+                self.info_message(
+                    "Нейросеть будет использовать ресурсы процессора")
             else:
-                self.statusBar().showMessage(
-                    "Neural networks will use CPU", 3000)
+                self.info_message(
+                    "Neural networks will use CPU")
 
     def reset_shortcuts(self):
 
@@ -176,12 +176,11 @@ class Annotator(MainWindow):
             names = self.read_detection_model_names()
             if not names:
                 if self.lang == 'RU':
-                    self.statusBar().showMessage(
-                        f"Неизвестное имя модели {self.settings.read_cnn_model()}",
-                        3000)
+                    self.info_message(
+                        f"Неизвестное имя модели {self.settings.read_cnn_model()}")
                 else:
-                    self.statusBar().showMessage(
-                        f"Unknown detection model {self.settings.read_cnn_model()}", 3000)
+                    self.info_message(
+                        f"Unknown detection model {self.settings.read_cnn_model()}")
                 return
 
             self.cls_combo.clear()
@@ -279,9 +278,8 @@ class Annotator(MainWindow):
         self.image_set = False
         self.image_setter.set_image(self.cv2_image)
         self.queue_to_image_setter = []
-        self.statusBar().showMessage(
-            "Нейросеть SAM еще не готова. Подождите секунду..." if self.lang == 'RU' else "SAM is loading. Please wait...",
-            3000)
+        self.info_message(
+            "Нейросеть SAM еще не готова. Подождите секунду..." if self.lang == 'RU' else "SAM is loading. Please wait...")
         self.image_setter.start()
 
     def get_jpg_path(self, image_name):
@@ -301,9 +299,8 @@ class Annotator(MainWindow):
             self.set_image(jpg_path)
 
         else:
-            self.statusBar().showMessage(
-                "Нейросеть SAM готова к сегментации" if self.lang == 'RU' else "SAM ready to work",
-                3000)
+            self.info_message(
+                "Нейросеть SAM готова к сегментации" if self.lang == 'RU' else "SAM ready to work")
             self.image_set = True
 
     def showSettings(self):
@@ -377,12 +374,11 @@ class Annotator(MainWindow):
         else:
             print("Unknown detection model")
             if self.lang == 'RU':
-                self.statusBar().showMessage(
-                    f"Неизвестное имя модели {cnn_model}",
-                    3000)
+                self.info_message(
+                    f"Неизвестное имя модели {cnn_model}")
             else:
-                self.statusBar().showMessage(
-                    f"Unknown detection model {cnn_model}", 3000)
+                self.info_message(
+                    f"Unknown detection model {cnn_model}")
 
     def handle_cuda_models(self):
         """
@@ -475,12 +471,11 @@ class Annotator(MainWindow):
 
                 else:
                     if self.lang == 'RU':
-                        self.statusBar().showMessage(
-                            f"Метку сделать не удалось. Площадь маски слишком мала {area:0.3f}",
-                            3000)
+                        self.info_message(
+                            f"Метку сделать не удалось. Площадь маски слишком мала {area:0.3f}")
                     else:
-                        self.statusBar().showMessage(
-                            f"Can't create label. Area of label is too small {area:0.3f}", 3000)
+                        self.info_message(
+                            f"Can't create label. Area of label is too small {area:0.3f}")
                     continue
 
             if not cls_num:
@@ -608,16 +603,14 @@ class Annotator(MainWindow):
         """
         if not self.image_setter.isRunning():
             self.image_setter.set_image(self.cv2_image)
-            self.statusBar().showMessage(
-                "Начинаю загружать изображение в нейросеть SAM..." if self.lang == 'RU' else "Start loading image to SAM...",
-                3000)
+            self.info_message(
+                "Начинаю загружать изображение в нейросеть SAM..." if self.lang == 'RU' else "Start loading image to SAM...")
             self.image_setter.start()
         else:
             self.queue_to_image_setter.append(image_name)
 
-            self.statusBar().showMessage(
-                f"Изображение {os.path.split(image_name)[-1]} добавлено в очередь на обработку." if self.lang == 'RU' else f"Image {os.path.split(image_name)[-1]} is added to queue...",
-                3000)
+            self.info_message(
+                f"Изображение {os.path.split(image_name)[-1]} добавлено в очередь на обработку." if self.lang == 'RU' else f"Image {os.path.split(image_name)[-1]} is added to queue...")
 
     def detect(self):
         """
@@ -650,7 +643,7 @@ class Annotator(MainWindow):
         else:
             str_text = "Начинаю классифкацию СНС {0:s}".format(self.started_cnn)
 
-        self.statusBar().showMessage(str_text, 3000)
+        self.info_message(str_text)
 
         names = self.read_detection_model_names()
 
@@ -673,9 +666,8 @@ class Annotator(MainWindow):
         При начале классификации
         """
         self.progress_toolbar.show_progressbar()
-        self.statusBar().showMessage(
-            f"Начинаю поиск объектов на изображении..." if self.lang == 'RU' else f"Start searching object on image...",
-            3000)
+        self.info_message(
+            f"Начинаю поиск объектов на изображении..." if self.lang == 'RU' else f"Start searching object on image...")
 
     def on_cnn_finished(self):
         """
@@ -716,9 +708,8 @@ class Annotator(MainWindow):
         self.progress_toolbar.hide_progressbar()
         self.save_view_to_project()
 
-        self.statusBar().showMessage(
-            f"Найдено {len(self.CNN_worker.mask_results)} объектов" if self.lang == 'RU' else f"{len(self.CNN_worker.mask_results)} objects has been detected",
-            3000)
+        self.info_message(
+            f"Найдено {len(self.CNN_worker.mask_results)} объектов" if self.lang == 'RU' else f"{len(self.CNN_worker.mask_results)} objects has been detected")
 
     def grounding_sam_pressed(self):
         """
@@ -761,9 +752,8 @@ class Annotator(MainWindow):
         self.gd_worker.finished.connect(self.on_gd_worker_finished)
 
         if not self.gd_worker.isRunning():
-            self.statusBar().showMessage(
-                f"Начинаю поиск {self.prompt_cls_name} на изображении..." if self.lang == 'RU' else f"Start searching {self.prompt_cls_name} on image...",
-                3000)
+            self.info_message(
+                f"Начинаю поиск {self.prompt_cls_name} на изображении..." if self.lang == 'RU' else f"Start searching {self.prompt_cls_name} on image...")
             self.gd_worker.start()
 
     def start_grounddino(self):
@@ -812,7 +802,7 @@ class Annotator(MainWindow):
 
         str_text = "Начинаю классифкацию СНС {0:s}".format(self.started_cnn)
 
-        self.statusBar().showMessage(str_text, 3000)
+        self.info_message(str_text)
 
         images_list = [os.path.join(self.dataset_dir, im_name) for im_name in self.dataset_images]
 

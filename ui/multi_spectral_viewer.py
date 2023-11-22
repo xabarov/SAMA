@@ -4,15 +4,14 @@ import sys
 
 import cv2
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, QToolButton, QLabel, \
-    QColorDialog, QListWidget
+from PyQt5.QtWidgets import QFileDialog, QListWidget
 from PyQt5.QtGui import QMovie, QIcon
 from PyQt5.QtPrintSupport import QPrinter
 from PyQt5.QtWidgets import QAction, QMenu, QToolBar
 from PyQt5.QtWidgets import QApplication
 from qt_material import apply_stylesheet
 
-from ui.ok_cancel_dialog import OkCancelDialog
+from ui.dialogs.ok_cancel_dialog import OkCancelDialog
 from ui.signals_and_slots import ThemeChangeConnection
 from ui.simple_view import SimpleView
 from ui.splash_screen import MovieSplashScreen

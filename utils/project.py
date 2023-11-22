@@ -294,11 +294,12 @@ class ProjectHandler(QWidget):
 
         return export_map
 
-    def change_cls_num_by_id(self, image_name, lbl_id, new_cls_num):
+    def change_cls_num_by_ids(self, image_name, lbl_ids, new_cls_num):
         im = self.get_image_data(image_name)  # im = {shapes:[], lrm:float, status:str}
         new_shapes = []
+
         for shape in im['shapes']:
-            if lbl_id == shape['id']:
+            if shape['id'] in lbl_ids:
                 new_shape = shape
                 new_shape["cls_num"] = new_cls_num
                 new_shapes.append(new_shape)
