@@ -495,6 +495,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         polygon_new.setPolygon(poly)
 
+        self.crop_by_pixmap_size(polygon_new)
+
         self.scene().addItem(polygon_new)
         if text:
             self.scene().addItem(polygon_new.get_label())
@@ -999,6 +1001,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
                         self.info_conn.info_message.emit(
                             "Polygon self-intersected" if self.lang == 'ENG' else "Полигон не должен содержать самопересечений. Удален")
                         self.remove_item(active_item, is_delete_id=True)
+                    else:
+                        self.crop_by_pixmap_size(active_item)
 
             self.drag_mode = "No"
             # self.setMouseTracking(True)

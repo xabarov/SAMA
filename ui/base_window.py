@@ -17,7 +17,8 @@ from ui.combo_box_styled import StyledComboBox
 from ui.dialogs.create_project_dialog import CreateProjectDialog
 from ui.edit_with_button import EditWithButton
 from ui.dialogs.export_dialog import ExportDialog
-from ui.images_widget import ImagesWidget
+from ui.list_widgets.images_widget import ImagesWidget
+from ui.list_widgets.labels_widget import LabelsWidget
 from ui.dialogs.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog, ImportLRMSDialog
 from ui.dialogs.input_dialog import CustomInputDialog, CustomComboDialog
 from ui.dialogs.ok_cancel_dialog import OkCancelDialog
@@ -474,7 +475,7 @@ class MainWindow(QtWidgets.QMainWindow):
         label_panel.setMaximumHeight(300)
         lay.addWidget(label_panel)
 
-        self.labels_on_tek_image = QListWidget()
+        self.labels_on_tek_image = LabelsWidget(None)
         self.labels_on_tek_image.itemClicked.connect(self.labels_on_tek_image_clicked)
         lay.addWidget(self.labels_on_tek_image)
 
@@ -808,6 +809,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 cls_name = self.cls_combo.itemText(cls_num)
 
                 self.labels_on_tek_image.addItem(f"{cls_name} id {shape_id}")
+            self.labels_on_tek_image.sortItems()
 
     def images_list_widget_clicked(self, item):
 
@@ -1959,7 +1961,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.save_view_to_project()
         self.reload_image(is_tek_image_changed=False)
 
-    def on_quit(self):
+    def on_cancel_quit(self):
         self.exit_box.hide()
         self.hide()  # Скрываем окно
 
@@ -1969,6 +1971,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.close()
 
+    def on_ok_quit(self):
+        self.save_project()
+        self.on_cancel_quit()
+
     def closeEvent(self, event):
         if self.is_asked_before_close:
             self.clear_temp_folder()
@@ -1976,8 +1982,9 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             event.ignore()
             title = 'Выйти' if self.lang == 'RU' else 'Quit'
-            text = 'Вы точно хотите выйти?' if self.lang == 'RU' else 'Are you really want to quit?'
-            self.exit_box = OkCancelDialog(self, title=title, text=text, on_ok=self.on_quit)
+            text = 'Сохранить проект перед выходом?' if self.lang == 'RU' else 'Save project before exit?'
+            self.exit_box = OkCancelDialog(self, title=title, text=text, on_cancel=self.on_cancel_quit,
+                                           on_ok=self.on_ok_quit)
             self.exit_box.setMinimumWidth(300)
 
     def load_lrm_data_pressed(self):
