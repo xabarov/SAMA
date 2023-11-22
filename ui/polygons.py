@@ -1,7 +1,7 @@
 import math
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtGui import QFont, QColor
+from PyQt5.QtGui import QColor
 from PyQt5.QtGui import QPolygonF, QPen
 
 from utils import config
@@ -132,13 +132,31 @@ class GrEllipsLabel(QtWidgets.QGraphicsEllipseItem):
             polygon.append(hf.calc_ellips_point_coords(rect, tek_angle))
             tek_angle += delta_angle_rad
 
+        text = self.text
+        point_mass = hf.convert_item_polygon_to_point_mass(polygon)
+        text_pos = hf.calc_label_pos(point_mass)
+
         grpol = GrPolygonLabel(parent, color=self.color, cls_num=self.cls_num, alpha_percent=self.alpha_percent,
-                               id=self.id)
+                               id=self.id, text=text, text_pos=text_pos)
+
         grpol.setBrush(QtGui.QBrush(QColor(*self.color), QtCore.Qt.SolidPattern))
         grpol.setPen(QPen(QColor(*hf.set_alpha_to_max(self.color)), 5, QtCore.Qt.SolidLine))
         grpol.setPolygon(polygon)
 
         return grpol
+
+    def polygon(self, points_count=30):
+        rect = self.boundingRect()
+
+        # взять кол-во точек. Определить делта-угол. Определить центр.
+        # Посчитать точки и накопить полигон.
+        polygon = QPolygonF()
+        delta_angle_rad = 2 * math.pi / points_count
+        tek_angle = 0
+        for i in range(points_count):
+            polygon.append(hf.calc_ellips_point_coords(rect, tek_angle))
+            tek_angle += delta_angle_rad
+        return polygon
 
     def __str__(self):
         rect = self.rect()

@@ -9,19 +9,19 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QMovie, QIcon, QKeySequence, QColor, QPainter
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, QToolButton, QLabel, \
-    QColorDialog, QListWidget, QProgressBar, QApplication
+    QColorDialog, QProgressBar, QApplication
 from qt_material import apply_stylesheet
 
 from ui.ask_del_polygon import AskDelWindow
 from ui.combo_box_styled import StyledComboBox
 from ui.dialogs.create_project_dialog import CreateProjectDialog
-from ui.edit_with_button import EditWithButton
 from ui.dialogs.export_dialog import ExportDialog
-from ui.list_widgets.images_widget import ImagesWidget
-from ui.list_widgets.labels_widget import LabelsWidget
 from ui.dialogs.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog, ImportLRMSDialog
 from ui.dialogs.input_dialog import CustomInputDialog, CustomComboDialog
 from ui.dialogs.ok_cancel_dialog import OkCancelDialog
+from ui.edit_with_button import EditWithButton
+from ui.list_widgets.images_widget import ImagesWidget
+from ui.list_widgets.labels_widget import LabelsWidget
 from ui.panels import ImagesPanel, LabelsPanel
 from ui.settings_window_base import SettingsWindowBase
 from ui.shortcuts_editor import ShortCutsEditor
@@ -1712,7 +1712,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         alpha_tek = self.settings.read_alpha()
         self.ann_type = "Polygon"
-        self.view.start_drawing(self.ann_type, cls_num, color=label_color, alpha=alpha_tek)
+
+        label_text_params = self.settings.read_label_text_params()
+        if label_text_params['hide']:
+            text = None
+        else:
+            text = cls_txt
+        self.view.start_drawing(self.ann_type, cls_num, color=label_color, alpha=alpha_tek, text=text)
 
     def polygon_pressed(self, pressed_id):
         self.mode = Mode.normal
@@ -1737,7 +1743,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         alpha_tek = self.settings.read_alpha()
         self.ann_type = "Box"
-        self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
+        label_text_params = self.settings.read_label_text_params()
+        if label_text_params['hide']:
+            text = None
+        else:
+            text = cls_txt
+        self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek, text=text)
 
     def circle_pressed(self):
         self.mode = Mode.drawing
@@ -1749,7 +1760,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         alpha_tek = self.settings.read_alpha()
         self.ann_type = "Ellips"
-        self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
+        label_text_params = self.settings.read_label_text_params()
+        if label_text_params['hide']:
+            text = None
+        else:
+            text = cls_txt
+        self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek, text=text)
 
     def ann_triggered(self, ann):
         self.annotatorToolButton.setDefaultAction(ann)
@@ -1850,7 +1866,13 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.mode == Mode.rubber_band:
             self.rubber_band_change_conn.on_rubber_mode_change.emit(False)
         self.mode = Mode.drawing
-        self.view.start_drawing(self.ann_type, cls_num=cls_num, color=label_color, alpha=alpha_tek)
+
+        label_text_params = self.settings.read_label_text_params()
+        if label_text_params['hide']:
+            text = None
+        else:
+            text = cls_txt
+        self.view.start_drawing(self.ann_type, cls_num=cls_num, color=label_color, alpha=alpha_tek, text=text)
 
     def break_drawing(self):
 

@@ -5,7 +5,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QPolygonF, QColor, QPen, QPainter, QPixmap, QFont
 from PyQt5.QtWidgets import QAction, QMenu, QGraphicsItem, QGraphicsLineItem, QGraphicsSimpleTextItem
 from PyQt5.QtWidgets import QApplication
-from shapely import Polygon, Point, unary_union
+from shapely import Polygon, Point
 
 from ui.grapic_group import GrGroup
 from ui.polygons import GrPolygonLabel, GrEllipsLabel, ActiveHandler
@@ -15,8 +15,6 @@ from utils import config
 from utils import help_functions as hf
 from utils.ids_worker import IdsSetterWorker
 from utils.settings_handler import AppSettings
-
-import shapely
 
 
 class GraphicsView(QtWidgets.QGraphicsView):
@@ -545,8 +543,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
                 active_item.setPolygon(poly_new)
 
-
-
     def copy_active_item_to_buffer(self):
         self.buffer = []
         for active_item in self.active_group:
@@ -947,6 +943,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
     def get_rubber_band_polygon(self):
         if len(self.active_group) == 1:
             active_item = self.active_group[0]
+            self.active_group.clear()
             if self.is_rubber_mode and active_item.cls_num == -1:
                 points = []
                 for p in active_item.polygon():
@@ -956,6 +953,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
     def get_active_item_polygon(self):
         if len(self.active_group) == 1:
             active_item = self.active_group[0]
+            self.active_group.clear()
             points = []
             for p in active_item.polygon():
                 points.append([int(p.x()), int(p.y())])
@@ -979,6 +977,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
                 if len(self.active_group) == 1:
                     active_item = self.active_group[0]
+                    self.active_group.clear()
                     if active_item.is_self_intersected():
                         self.info_conn.info_message.emit(
                             "Polygon self-intersected" if self.lang == 'ENG' else "Полигон не должен содержать самопересечений. Удален")
@@ -1041,22 +1040,22 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
             if len(self.active_group) == 1:
                 active_item = self.active_group[0]
+
+                self.active_group.clear()
+                self.remove_item(active_item, is_delete_id=False)
+
                 polygon_new = active_item.convert_to_polygon(points_count=30)
-                if active_item.is_self_intersected():
-                    self.info_conn.info_message.emit(
-                        "Polygon self-intersected" if self.lang == 'ENG' else "Полигон не должен содержать самопересечений. Удален")
-                    self.remove_item(active_item, is_delete_id=True)
-                else:
-                    self.remove_item(active_item, is_delete_id=False)
-                    self.scene().addItem(polygon_new)
-                    self.toggle(polygon_new)
-                    active_item = polygon_new
 
-                    self.crop_by_pixmap_size(active_item)
+                label = polygon_new.get_label()
 
-                    self.polygon_end_drawing.on_end_drawing.emit(True)
+                if label:
+                    self.scene().addItem(label)
 
+                # Self-intersection можно не проверять. Это эллипс
+                self.scene().addItem(polygon_new)
+                self.crop_by_pixmap_size(polygon_new)
 
+                self.polygon_end_drawing.on_end_drawing.emit(True)
 
         elif self.drag_mode == "BoxContinueDrawMode":
 
@@ -1067,8 +1066,20 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
             if len(self.active_group) == 1:
                 active_item = self.active_group[0]
+                self.active_group.clear()
 
                 if self.drawing_type != "AiMask":
+
+                    # Box doesn't have a label
+                    text = active_item.text
+                    if text:
+                        point_mass = hf.convert_item_polygon_to_point_mass(active_item.polygon())
+                        text_pos = hf.calc_label_pos(point_mass)
+                        active_item.set_label(text, text_pos, active_item.color)
+                        label = active_item.get_label()
+                        if label:
+                            self.scene().addItem(label)
+
                     self.crop_by_pixmap_size(active_item)
                     self.polygon_end_drawing.on_end_drawing.emit(True)
                 else:
@@ -1211,7 +1222,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.active_group.append(item)
         self.scene().addItem(item)
 
-    def start_drawing(self, type="Polygon", cls_num=0, color=None, alpha=50, id=None):
+    def start_drawing(self, type="Polygon", cls_num=0, color=None, alpha=50, id=None, text=None):
         """
         Старт отрисовки фигуры, по умолчанию - полигона
 
@@ -1241,10 +1252,10 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
             if type == "Polygon" or type == "Box":
                 active_item = GrPolygonLabel(self._pixmap_item, color=color, cls_num=cls_num, alpha_percent=alpha,
-                                             id=id)
+                                             id=id, text=text)
             elif type == "Ellips":
                 active_item = GrEllipsLabel(self._pixmap_item, color=color, cls_num=cls_num, alpha_percent=alpha,
-                                            id=id)
+                                            id=id, text=text)
 
             self.add_item_to_scene_as_active(active_item)
 
