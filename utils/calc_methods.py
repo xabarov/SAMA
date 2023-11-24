@@ -63,7 +63,7 @@ class DNMathAdd:
                'Per': [],  # Перпендикуляры (координаты)
                'Dist': []  # Длина перпендикуляра
                }
-        # Проверка пересекаются ли отрезик
+        # Проверка пересекаются ли отрезки
         Seg = DNMathAdd.SegmentsPointIntersection(P11, P12, P21, P22)
         Res['IsSegInter'] = Seg['IsSegInter']
         if Seg['IsSegInter']: return Res

@@ -39,6 +39,7 @@ class Annotator(MainWindow):
         self.setWindowTitle("AI Annotator")
 
         # Current CUDA model
+        self.last_platform = None
         self.try_to_set_platform('cuda')
         self.last_sam_use_hq = self.settings.read_sam_hq()
         self.last_cnn = self.settings.read_cnn_model()
@@ -156,11 +157,11 @@ class Annotator(MainWindow):
         detection_model = self.settings.read_cnn_model()
 
         if detection_model == 'YOLOv8_openvino':
-            config, weights = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8_openvino')
-            with open(config, 'r') as f:
+            cfg, weights = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8_openvino')
+            with open(cfg, 'r') as f:
                 data = f.read()
-                Bs_data = BeautifulSoup(data, "xml")
-                names = Bs_data.find('names')  # .find('names')
+                bs_data = BeautifulSoup(data, "xml")
+                names = bs_data.find('names')  # .find('names')
                 return ast.literal_eval(names.get('value'))
         elif detection_model == 'YOLOv8':
             return self.yolo.names  # dict like {0:name1, 1:name2...}
@@ -230,12 +231,9 @@ class Annotator(MainWindow):
         self.annotatorMenu.addAction(self.balanceAct)
 
         self.menuBar().clear()
-        self.menuBar().addMenu(self.fileMenu)
-        self.menuBar().addMenu(self.viewMenu)
-        self.menuBar().addMenu(self.classifierMenu)
-        self.menuBar().addMenu(self.annotatorMenu)
-        self.menuBar().addMenu(self.settingsMenu)
-        self.menuBar().addMenu(self.helpMenu)
+        for menu in [self.fileMenu, self.viewMenu, self.classifierMenu, self.annotatorMenu, self.settingsMenu,
+                     self.helpMenu]:
+            self.menuBar().addMenu(menu)
 
     def set_icons(self):
         super(Annotator, self).set_icons()

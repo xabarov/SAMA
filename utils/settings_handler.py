@@ -2,7 +2,7 @@ import os
 
 import screeninfo
 from PyQt5.QtCore import QSettings, QPoint, QSize
-from PyQt5.QtGui import QPolygonF, QColor, QPen, QPainter, QPixmap, QFont, QIcon
+from PyQt5.QtGui import QFont
 
 from utils import config
 from utils.config import DOMEN_NAME
@@ -223,8 +223,7 @@ class AppSettings:
                                    'default_color': default_color})
 
     def read_label_text_params(self):
-        size, pos = self.read_size_pos_settings()
-        pixel_size = max(10, int(size.height() / 128.0))
+        pixel_size = 14
         font = QFont("Arial", pixel_size, QFont.Normal)
         return self.qt_settings.value("general/label_text", {'font': font, 'auto_color': False,
                                                              'default_color': (255, 255, 255, 255), 'hide': False})

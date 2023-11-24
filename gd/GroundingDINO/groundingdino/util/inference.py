@@ -247,7 +247,7 @@ class Model:
     @staticmethod
     def find_index(string, lst):
         # if meet string like "lake river" will only keep "lake"
-        # this is an hack implementation for visualization which will be updated in the future
+        # this is a hack implementation for visualization which will be updated in the future
         string = string.lower().split()[0]
         for i, s in enumerate(lst):
             if string in s.lower():
