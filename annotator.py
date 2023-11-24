@@ -501,7 +501,7 @@ class Annotator(MainWindow):
         self.view.setCursor(QCursor(QtCore.Qt.BusyCursor))
         input_box = self.view.get_sam_mask_input()
 
-        self.view.remove_active()
+        self.view.remove_items_from_active_group()
 
         if len(input_box):
             if self.image_set and not self.image_setter.isRunning():
@@ -525,7 +525,7 @@ class Annotator(MainWindow):
         super(Annotator, self).break_drawing()
         if self.ann_type == "AiPoints":
             self.view.clear_ai_points()
-            self.view.remove_active()
+            self.view.remove_items_from_active_group()
 
     def end_drawing(self):
         """
@@ -546,7 +546,7 @@ class Annotator(MainWindow):
                         self.add_sam_polygon_to_scene(mask)
 
             else:
-                self.view.remove_active()
+                self.view.remove_items_from_active_group()
 
             self.view.end_drawing()  # clear points inside view
 

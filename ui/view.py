@@ -84,6 +84,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         # self.setMouseTracking(False)
         self.min_ellipse_size = 10
         self.fat_width_default_percent = 50
+        self._zoom = 0
 
         self.create_actions()
 
@@ -117,8 +118,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.box_start_point = None
 
         self.pressed_polygon = None
-
-        self._zoom = 0
 
         self.negative_points = []
         self.positive_points = []
@@ -185,8 +184,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
             self.add_polygon_to_scene(cls_num, point_mass, color, alpha, text=text)
 
-        for item in self.active_group:
-            self.remove_item(item, is_delete_id=True)
+        self.remove_items_from_active_group()
         self.active_group.clear()
 
         self.polygon_end_drawing.on_end_drawing.emit(True)
@@ -209,9 +207,11 @@ class GraphicsView(QtWidgets.QGraphicsView):
         delete_ids = []
         for item in self.active_group:
             delete_ids.append(item.id)
-            self.remove_item(item, is_delete_id=True)
-        self.polygon_delete.id_delete.emit(delete_ids)
+
+        self.remove_items_from_active_group()
         self.active_group.clear()
+
+        self.polygon_delete.id_delete.emit(delete_ids)
 
     def del_pressed_polygon(self):
         if self.pressed_polygon:
@@ -225,10 +225,12 @@ class GraphicsView(QtWidgets.QGraphicsView):
         """
         Задать новую картинку
         """
-        scene = QtWidgets.QGraphicsScene(self)
-        self.setScene(scene)
+        # scene = QtWidgets.QGraphicsScene(self)
+        # self.setScene(scene)
+        self.scene().clear()
+
         self._pixmap_item = QtWidgets.QGraphicsPixmapItem()
-        scene.addItem(self._pixmap_item)
+        self.scene().addItem(self._pixmap_item)
         self.pixmap_item.setPixmap(pixmap)
 
         self.init_objects_and_params()
@@ -330,16 +332,11 @@ class GraphicsView(QtWidgets.QGraphicsView):
             scale = self._zoom / 3.0 + 1
             pol = active_item.polygon()
 
-            size = len(pol)
-            for i in range(size - 1):
-                p1 = pol[i]
-                p2 = pol[i + 1]
+            d = hf.calc_distance_to_nearest_edge(pol, lp)
 
-                d = hf.distance_from_point_to_segment(lp, p1, p2)
-
-                if d < self.fat_width / scale:
-                    self.polygon_clicked.id_pressed.emit(active_item.id)
-                    return True
+            if d < self.fat_width / scale:
+                self.polygon_clicked.id_pressed.emit(active_item.id)
+                return True
 
         return False
 
@@ -925,21 +922,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 else:
                     self.remove_fat_point_from_scene()
 
-    def change_dragged_polygon_vertex_to_point(self, new_point):
-        scale = self._zoom / 3.0 + 1
-
-        if len(self.active_group) == 1:
-            active_item = self.active_group[0]
-
-            poly = QPolygonF()
-            for point in active_item.polygon():
-                if hf.distance(point, self.dragged_vertex) < self.fat_width / scale:
-                    poly.append(new_point)
-                else:
-                    poly.append(point)
-
-            active_item.setPolygon(poly)
-
     def get_rubber_band_polygon(self):
         if len(self.active_group) == 1:
             active_item = self.active_group[0]
@@ -959,9 +941,26 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 points.append([int(p.x()), int(p.y())])
             return points
 
-    def is_self_intersection(self, item):
-        pol = hf.convert_item_polygon_to_shapely(item.polygon())
-        if not pol.is_valid:
+    def create_dragged_vertex_polygon(self, new_point):
+        scale = self._zoom / 3.0 + 1
+
+        if len(self.active_group) == 1:
+            active_item = self.active_group[0]
+
+            poly = QPolygonF()
+            for point in active_item.polygon():
+                if hf.distance(point, self.dragged_vertex) < self.fat_width / scale:
+                    poly.append(new_point)
+                else:
+                    poly.append(point)
+
+            return poly
+
+        return None
+
+    def is_polygon_self_intersected(self, pol):
+        pol_shapely = hf.convert_item_polygon_to_shapely(pol)
+        if not pol_shapely.is_valid:
             return True
         return False
 
@@ -978,12 +977,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 if len(self.active_group) == 1:
                     active_item = self.active_group[0]
                     self.active_group.clear()
-                    if active_item.is_self_intersected():
-                        self.info_conn.info_message.emit(
-                            "Polygon self-intersected" if self.lang == 'ENG' else "Полигон не должен содержать самопересечений. Удален")
-                        self.remove_item(active_item, is_delete_id=True)
-                    else:
-                        self.crop_by_pixmap_size(active_item)
+                    self.crop_by_pixmap_size(active_item)
 
             return
 
@@ -993,14 +987,14 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 sp = self.mapToScene(event.pos())
                 lp = self.pixmap_item.mapFromScene(sp)
 
-                self.change_dragged_polygon_vertex_to_point(lp)
-                if len(self.active_group) == 1:
+                dragged_poly = self.create_dragged_vertex_polygon(lp)
+                if dragged_poly and len(self.active_group) == 1:
                     active_item = self.active_group[0]
-                    if active_item.is_self_intersected():
+                    if self.is_polygon_self_intersected(dragged_poly):
                         self.info_conn.info_message.emit(
-                            "Polygon self-intersected" if self.lang == 'ENG' else "Полигон не должен содержать самопересечений. Удален")
-                        self.remove_item(active_item, is_delete_id=True)
+                            "Polygon self-intersected" if self.lang == 'ENG' else "Полигон не должен содержать самопересечений")
                     else:
+                        active_item.setPolygon(dragged_poly)
                         self.crop_by_pixmap_size(active_item)
 
             self.drag_mode = "No"
@@ -1066,10 +1060,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
             if len(self.active_group) == 1:
                 active_item = self.active_group[0]
-                self.active_group.clear()
 
                 if self.drawing_type != "AiMask":
-
+                    self.active_group.clear()  # Только здесь. Иначе AiMask превратится в Бокс !!!
                     # Box doesn't have a label
                     text = active_item.text
                     if text:
@@ -1085,7 +1078,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 else:
                     self.mask_end_drawing.on_mask_end_drawing.emit(True)
 
-    def remove_active(self, is_delete_id=True):
+    def remove_items_from_active_group(self, is_delete_id=True):
         for item in self.active_group:
             self.remove_item(item, is_delete_id)
 
@@ -1318,7 +1311,10 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.is_drawing = False
         self.box_start_point = None
         self.drag_mode = "No"
-        self.remove_active()
+
+        self.remove_items_from_active_group()
+        self.active_group.clear()
+
         self.remove_fat_point_from_scene()
         if self.drawing_type == "AiPoints":
             self.clear_ai_points()
@@ -1348,7 +1344,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 # post settings
                 point_mass = hf.convert_item_polygon_to_point_mass(active_item.polygon())
                 text_pos = hf.calc_label_pos(point_mass)
-                active_item.set_label(text, text_pos)
+                active_item.set_label(text, text_pos, color)
                 active_item.set_color(color)
                 active_item.set_cls_num(cls_num)
 

@@ -681,6 +681,9 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         При нажатии OK в окне изменения имени полигона
         """
+        # Сохранить текущую сцену в проект.
+        self.save_view_to_project()
+
         new_cls_name = self.combo_dialog.getText()
         self.combo_dialog.hide()
 
@@ -1839,10 +1842,13 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         if self.ann_type in ["Polygon", "Box", "Ellips"]:
-            cls_txt = self.cls_combo.currentText()
-            cls_num = self.cls_combo.currentIndex()
-            label_color = self.project_data.get_label_color(cls_txt)
-            self.view.end_drawing(cls_num=cls_num, text=cls_txt, color=label_color)  # save it to
+            if self.mode == Mode.drawing:
+                cls_txt = self.cls_combo.currentText()
+                cls_num = self.cls_combo.currentIndex()
+                label_color = self.project_data.get_label_color(cls_txt)
+                self.view.end_drawing(cls_num=cls_num, text=cls_txt, color=label_color)  # save it to
+                self.mode = Mode.normal
+                self.save_view_to_project()
 
         if self.mode != Mode.normal:
             self.mode = Mode.normal

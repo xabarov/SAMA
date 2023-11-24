@@ -60,6 +60,7 @@ def check_polygon_out_of_screen(pol, width, height):
             return False
     return True
 
+
 def convert_shapely_to_item_polygon(pol):
     coords = pol.exterior.coords
     shapely_pol = QPolygonF()
@@ -410,6 +411,23 @@ def find_nearest_edge_of_polygon(polygon, point):
                 edge = p1, p2
 
     return edge
+
+
+def calc_distance_to_nearest_edge(polygon, point):
+    d_min = 1e12
+    size = len(polygon)
+    for i in range(size):
+        p1 = polygon[i]
+        if i == size - 1:
+            p2 = polygon[0]
+        else:
+            p2 = polygon[i + 1]
+        if p1 != p2:
+            d = distance_from_point_to_segment(point, p1, p2)  # distance_from_point_to_line(point, p1, p2)
+            if d < d_min:
+                d_min = d
+
+    return d_min
 
 
 def density_slider_to_value(value, min_value=config.MIN_DENSITY_VALUE, max_value=config.MAX_DENSITY_VALUE):
