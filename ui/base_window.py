@@ -1643,7 +1643,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings_window = SettingsWindowBase(self)
 
         self.settings_window.okBtn.clicked.connect(self.on_settings_closed)
-        self.settings_window.cancelBtn.clicked.connect(self.on_settings_closed)
 
         self.settings_window.show()
 
@@ -1686,7 +1685,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         theme = self.settings.read_theme()
         density = self.settings.read_density()
-        if theme != self.last_theme and density != self.last_density:
+        if theme != self.last_theme or density != self.last_density:
             self.last_theme = theme
             self.last_density = density
             self.change_theme()
