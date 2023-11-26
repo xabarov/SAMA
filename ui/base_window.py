@@ -1727,7 +1727,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for i in range(self.labels_on_tek_image.count()):
             item = self.labels_on_tek_image.item(i)
             item_id = item.text().split(" ")[-1]
-            if int(item_id) == pressed_id:
+            if item_id and int(item_id) == pressed_id:
                 self.labels_on_tek_image.setCurrentItem(item)
                 break
 

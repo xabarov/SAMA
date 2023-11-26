@@ -891,6 +891,12 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
                 self.drag_mode = "BoxContinueDrawMode"
 
+            elif self.drag_mode == "PolygonVertexMove":
+
+                if self.move_drag_vertex(lp):
+                    self.dragged_vertex = lp
+
+
             elif self.drag_mode == "PolygonMoveMode":
 
                 delta_x = lp.x() - self.start_point.x()
@@ -964,7 +970,42 @@ class GraphicsView(QtWidgets.QGraphicsView):
             return True
         return False
 
+    def move_drag_vertex(self, lp):
+        """
+        Передвигаем узел полигона
+        True - если без самопересечений и передвинуть узел удалось
+        """
+        if self.dragged_vertex:
+            dragged_poly = self.create_dragged_vertex_polygon(lp)
+            if dragged_poly and len(self.active_group) == 1:
+                active_item = self.active_group[0]
+
+                if not self.is_polygon_self_intersected(dragged_poly):
+                    # 1. Задаем новый полигон
+                    active_item.setPolygon(dragged_poly)
+                    # 2. Обрезаем его по сцене, если надо
+                    self.crop_by_pixmap_size(active_item)
+
+                    # 3. Перемещаем имя метки, если она есть
+                    if active_item.label:
+                        point_mass = hf.convert_item_polygon_to_point_mass(active_item.polygon())
+                        text_pos = hf.calc_label_pos(point_mass)
+                        active_item.label.setPos(text_pos[0], text_pos[1])
+
+                    # 4. Перемещаем подсветку узла
+                    if self.fat_point:
+                        scale = self._zoom / 5.0 + 1
+                        self.fat_point.setRect(lp.x() - self.fat_width / (2 * scale),
+                                               lp.y() - self.fat_width / (2 * scale),
+                                               self.fat_width / scale, self.fat_width / scale)
+
+                    return True
+
+        return False
+
     def mouseReleaseEvent(self, event: QtGui.QMouseEvent):
+        sp = self.mapToScene(event.pos())
+        lp = self.pixmap_item.mapFromScene(sp)
 
         if self.is_rubber_mode:
             if self.drag_mode == "RubberBandContinueDrawMode":
@@ -983,28 +1024,13 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         if self.drag_mode == "PolygonVertexMove":
 
-            if self.dragged_vertex:
-                sp = self.mapToScene(event.pos())
-                lp = self.pixmap_item.mapFromScene(sp)
-
-                dragged_poly = self.create_dragged_vertex_polygon(lp)
-                if dragged_poly and len(self.active_group) == 1:
-                    active_item = self.active_group[0]
-                    if self.is_polygon_self_intersected(dragged_poly):
-                        self.info_conn.info_message.emit(
-                            "Polygon self-intersected" if self.lang == 'ENG' else "Полигон не должен содержать самопересечений")
-                    else:
-                        active_item.setPolygon(dragged_poly)
-                        self.crop_by_pixmap_size(active_item)
-
+            self.move_drag_vertex(lp)
             self.drag_mode = "No"
             # self.setMouseTracking(True)
 
         elif self.drag_mode == "PolygonMoveMode":
 
             for active_item in self.active_group:
-                sp = self.mapToScene(event.pos())
-                lp = self.pixmap_item.mapFromScene(sp)
 
                 delta_x = lp.x() - self.start_point.x()
                 delta_y = lp.y() - self.start_point.y()
