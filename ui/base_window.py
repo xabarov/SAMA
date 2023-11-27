@@ -2007,12 +2007,25 @@ class MainWindow(QtWidgets.QMainWindow):
             self.clear_temp_folder()
             event.accept()
         else:
-            event.ignore()
-            title = 'Выйти' if self.lang == 'RU' else 'Quit'
-            text = 'Сохранить проект перед выходом?' if self.lang == 'RU' else 'Save project before exit?'
-            self.exit_box = OkCancelDialog(self, title=title, text=text, on_cancel=self.on_cancel_quit,
-                                           on_ok=self.on_ok_quit)
-            self.exit_box.setMinimumWidth(300)
+            if self.loaded_proj_name:
+                event.ignore()
+
+                title = 'Выйти' if self.lang == 'RU' else 'Quit'
+
+                text = 'Сохранить проект перед выходом?' if self.lang == 'RU' else 'Save project before exit?'
+
+                cancel_text = 'Нет' if self.lang == 'RU' else 'No'
+                ok_text = 'Да' if self.lang == 'RU' else 'Yes'
+
+                self.exit_box = OkCancelDialog(self, title=title, text=text, on_cancel=self.on_cancel_quit,
+                                               on_ok=self.on_ok_quit, ok_text=ok_text, cancel_text=cancel_text)
+                self.exit_box.setMinimumWidth(300)
+            else:
+                self.hide()  # Скрываем окно
+
+                self.write_size_pos()
+
+                self.close()
 
     def load_lrm_data_pressed(self):
         theme = self.settings.read_theme()

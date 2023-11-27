@@ -534,11 +534,18 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 poly_new = QPolygonF()
 
                 pol = active_item.polygon()
-                for p in pol:
-                    if p != point_closed:
-                        poly_new.append(p)
+                if len(pol) > 3:
+                    for p in pol:
+                        if p != point_closed:
+                            poly_new.append(p)
 
-                active_item.setPolygon(poly_new)
+                    active_item.setPolygon(poly_new)
+                else:
+                    if self.lang == 'ENG':
+                        message = "Can't delete point. Polygon must have more then 3 vertices"
+                    else:
+                        message = "Не могу удалить точку. У полигона должно быть более трех вершинт"
+                    self.info_conn.info_message.emit(message)
 
     def copy_active_item_to_buffer(self):
         self.buffer = []
@@ -964,12 +971,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         return None
 
-    def is_polygon_self_intersected(self, pol):
-        pol_shapely = hf.convert_item_polygon_to_shapely(pol)
-        if not pol_shapely.is_valid:
-            return True
-        return False
-
     def move_drag_vertex(self, lp):
         """
         Передвигаем узел полигона
@@ -980,7 +981,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
             if dragged_poly and len(self.active_group) == 1:
                 active_item = self.active_group[0]
 
-                if not self.is_polygon_self_intersected(dragged_poly):
+                if not hf.is_polygon_self_intersected(dragged_poly):
                     # 1. Задаем новый полигон
                     active_item.setPolygon(dragged_poly)
                     # 2. Обрезаем его по сцене, если надо

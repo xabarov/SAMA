@@ -4,7 +4,8 @@ from utils.settings_handler import AppSettings
 
 
 class OkCancelDialog(QWidget):
-    def __init__(self, parent, title, text, on_ok=None, on_cancel=None):
+    def __init__(self, parent, title, text, on_ok=None, on_cancel=None,
+                 ok_text=None, cancel_text=None):
         """
         """
         super().__init__(parent)
@@ -20,8 +21,15 @@ class OkCancelDialog(QWidget):
         self.label = QLabel(text)
 
         buttons_layout = QHBoxLayout()
-        self.ok_button = QPushButton('Ок' if self.lang == 'RU' else "OK", self)
-        self.cancel_button = QPushButton('Отменить' if self.lang == 'RU' else "Cancel", self)
+
+        # Reset text
+        if not ok_text:
+            ok_text = 'Ок' if self.lang == 'RU' else "OK"
+        if not cancel_text:
+            cancel_text = 'Отменить' if self.lang == 'RU' else "Cancel"
+
+        self.ok_button = QPushButton(ok_text, self)
+        self.cancel_button = QPushButton(cancel_text, self)
 
         if not on_ok:
             self.ok_button.clicked.connect(self.on_ok_clicked)

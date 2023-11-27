@@ -97,6 +97,11 @@ def merge_polygons(polygons):
 
     return polygons
 
+def is_polygon_self_intersected(pol):
+    pol_shapely = convert_item_polygon_to_shapely(pol)
+    if not pol_shapely.is_valid:
+        return True
+    return False
 
 def try_read_lrm(image_name, from_crs='epsg:3395', to_crs='epsg:4326'):
     ext = coords_calc.get_ext(image_name)
