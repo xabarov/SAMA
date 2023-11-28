@@ -47,7 +47,7 @@ def analyze_lrm_json(lrm_json_path):
 
 
 if __name__ == '__main__':
-    dataset_dir = "D:\python\datasets\\airplanes_hq"
+    dataset_dir = "F:\python\datasets\\aes_dist\images"
     json_name = "lrms.json"
     write_lrms_to_json(dataset_dir, json_name, img_ext='jpg')
     # analyze_lrm_json(json_name)

@@ -1,16 +1,13 @@
 import json
+import math
 import os
 import pickle
 from typing import Any, Dict, List
 
 import cv2  # type: ignore
 import numpy as np
+from PIL import Image
 from segment_anything import SamAutomaticMaskGenerator
-from segment_anything import build_sam, build_sam_hq
-import gc
-import torch
-from utils.settings_handler import AppSettings
-from segment_anything import SamPredictor
 
 import utils.config as config
 
@@ -115,12 +112,7 @@ def create_masks(generator, input_path, output_path=None, one_image_name=None, p
 
     print(f"Processing '{input_path}'...")
     image = cv2.imread(input_path)
-    # shape = image.shape
-    # h = shape[0]
-    # w = shape[1]
-    # if w > 800:
-    #     factor = w/800.0
-    #     image = cv2.resize(image, (int(w/factor), int(h/factor)), interpolation=cv2.INTER_AREA)
+
     if image is None:
         print(f"Could not load '{input_path}' as an image, skipping...")
         return
@@ -145,16 +137,14 @@ def create_masks(generator, input_path, output_path=None, one_image_name=None, p
 
     print("Done!")
 
-
-
     return [mask['segmentation'] for mask in masks]
 
 
-def create_segments_for_folder(folder_name, is_pickle=False, is_resize=True):
+def create_segments_for_folder(generator, folder_name, is_pickle=False, is_resize=True, scale_width=1200):
     images = [im for im in os.listdir(folder_name) if
               os.path.isfile(os.path.join(folder_name, im)) and im.split('.')[-1] in ['jpg', 'png']]
 
-    res_path = os.path.join(folder_name, 'resuts')
+    res_path = os.path.join(folder_name, 'results')
     if not os.path.exists(res_path):
         os.makedirs(res_path)
     for im in images:
@@ -163,7 +153,7 @@ def create_segments_for_folder(folder_name, is_pickle=False, is_resize=True):
         if is_resize:
             im_cv2 = cv2.imread(im_path)
             shape = im_cv2.shape
-            scale = 1200 / shape[1]
+            scale = scale_width / shape[1]
             width = int(shape[1] * scale)
             height = int(shape[0] * scale)
             dim = (width, height)
@@ -179,24 +169,35 @@ def create_segments_for_folder(folder_name, is_pickle=False, is_resize=True):
             pickle_name = seg_im_path.split('.' + ext)[0]
         else:
             pickle_name = None
-        create_masks(im_path, output_path=None, one_image_name=seg_im_path, pickle_name=pickle_name)
+        create_masks(generator, im_path, output_path=None, one_image_name=seg_im_path, pickle_name=pickle_name)
+
+def calc_points_per_side(self, min_obj_width_meters):
+    image = Image.open(self.tek_image_path)
+    image_width = image.width
+
+    min_obj_width_px = min_obj_width_meters / self.lrm
+    step_px = min_obj_width_px / 2.0
+    return math.floor(image_width / step_px)
 
 
 if __name__ == '__main__':
-    import numpy as np
+    from utils.sam_predictor import load_model as sam_load_model
 
-    input_path = 'F:\python\\aia_git\\ai_annotator\\nuclear_power\crop0.jpg'
-    output_path = 'res_cropped'
-    pickle_name = 'palo_verde'
+    folder_path = "F:\python\datasets\\aes_dist\images"
 
-    # for pred in np.linspace(0.1, 0.88, 10):
-    #     for nms in np.linspace(0.1, 0.7, 5):
-    for crop_nms_thresh in np.linspace(0.1, 0.7, 5):
-        masks = create_masks(input_path, output_path=None,
-                             checkpoint="F:\python\\aia_git\\ai_annotator\sam_models\sam_vit_h_4b8939.pth",
-                             one_image_name=f'F:\python\\aia_git\\ai_annotator\\nuclear_power\\crop_nms_thresh {crop_nms_thresh:0.3f}.jpg',
-                             pickle_name=None,
-                             # pred_iou_thresh=pred, box_nms_thresh=nms,
-                             # points_per_side=points_per_side,
-                             crop_nms_thresh=crop_nms_thresh,
-                             use_sam_hq=False)
+    points_per_side = 32
+
+    use_hq = False
+    if use_hq:
+        sam_model_path = os.path.join(os.getcwd(), "..", config.PATH_TO_SAM_HQ_CHECKPOINT)
+    else:
+        sam_model_path = os.path.join(os.getcwd(), "..", config.PATH_TO_SAM_CHECKPOINT)
+
+    sam = sam_load_model(sam_model_path, device="cuda", use_sam_hq=use_hq)
+
+    generator = create_generator(sam.model, pred_iou_thresh=0.88, box_nms_thresh=0.7,
+                                 points_per_side=points_per_side, crop_n_points_downscale_factor=1,
+                                 crop_nms_thresh=0.7,
+                                 output_mode="binary_mask")
+
+    create_segments_for_folder(generator, folder_path, is_pickle=True)

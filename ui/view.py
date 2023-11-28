@@ -938,7 +938,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
     def get_rubber_band_polygon(self):
         if len(self.active_group) == 1:
             active_item = self.active_group[0]
-            self.active_group.clear()
             if self.is_rubber_mode and active_item.cls_num == -1:
                 points = []
                 for p in active_item.polygon():
@@ -1018,7 +1017,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
                 if len(self.active_group) == 1:
                     active_item = self.active_group[0]
-                    self.active_group.clear()
+                    # self.active_group.clear()
                     self.crop_by_pixmap_size(active_item)
 
             return

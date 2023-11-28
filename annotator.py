@@ -588,7 +588,7 @@ class Annotator(MainWindow):
         Загрузка модели SAM
         """
         use_hq = self.settings.read_sam_hq()
-        if use_hq:
+        if use_hq == 1:
             sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_HQ_CHECKPOINT)
         else:
             sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_CHECKPOINT)
@@ -696,7 +696,7 @@ class Annotator(MainWindow):
             if label_text_params['hide']:
                 text = None
             else:
-                text = cls_name
+                text = f"{cls_name} {res['conf']:0.2f}"
 
             self.view.add_polygon_to_scene(cls_num, points, color=color, id=shape_id, text=text)
 

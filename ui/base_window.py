@@ -42,6 +42,7 @@ class Mode(Enum):
     normal = 1
     drawing = 2
     rubber_band = 3
+    hided_polygons = 4
 
 
 basedir = os.path.dirname(__file__)
@@ -147,6 +148,9 @@ class MainWindow(QtWidgets.QMainWindow):
         # Set window size and pos from last state
         self.read_size_pos()
 
+        # Image hide labels
+        self.saved_image_data = None
+
     def write_size_pos(self):
         """
         Save window pos and size
@@ -200,12 +204,13 @@ class MainWindow(QtWidgets.QMainWindow):
         for sc, act in zip(
                 ['copy', 'crop', 'del', 'end_drawing', 'fit', 'image_after', 'image_before',
                  'open_project', 'paste', 'polygon', 'print', 'quit',
-                 'save_project', 'settings', 'start_drawing', 'undo', 'zoom_in', 'zoom_out', 'change_polygon_label'],
+                 'save_project', 'settings', 'start_drawing', 'undo', 'zoom_in', 'zoom_out', 'change_polygon_label',
+                 'hide_labels'],
                 [self.copyAct, self.selectAreaAct, self.deleteLabelAct, self.stopDrawAct, self.fitToWindowAct,
                  self.goNextAct, self.goBeforeAct, self.openProjAct, self.pasteAct, self.polygonAct, self.printAct,
                  self.exitAct,
                  self.saveProjAct, self.settingsAct, self.startDrawAct, self.undoAct, self.zoomInAct, self.zoomOutAct,
-                 self.changePolygonLabelAct]):
+                 self.changePolygonLabelAct, self.hideLabelsAct]):
             shortcut = shortcuts.get(sc, shortcuts_init[sc])
             appearance = shortcut['appearance']
             if appearance == 'Ctrl+Plus':
@@ -291,6 +296,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.squareAct = QAction("Прямоугольник" if self.lang == 'RU' else "Box", self, enabled=False,
                                  triggered=self.square_pressed,
                                  checkable=True)
+        self.hideLabelsAct = QAction("Скрыть разметку" if self.lang == 'RU' else "Hide labels", self, enabled=False,
+                                     triggered=self.toggle_hide_labels)
 
         # Данные о текущем разметчике
         self.addUserAct = QAction(
@@ -420,6 +427,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.annotatorMenu.addAction(self.load_lrm_data_act)
         self.annotatorMenu.addAction(self.changePolygonLabelAct)
+        self.annotatorMenu.addAction(self.hideLabelsAct)
 
         #
         self.settingsMenu = QMenu("Настройки" if self.lang == 'RU' else "Settings", self)
@@ -682,6 +690,7 @@ class MainWindow(QtWidgets.QMainWindow):
         При нажатии OK в окне изменения имени полигона
         """
         # Сохранить текущую сцену в проект.
+
         self.save_view_to_project()
 
         new_cls_name = self.combo_dialog.getText()
@@ -1218,6 +1227,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.polygonAct.setIcon(QIcon(self.icon_folder + "/polygon.png"))
         self.circleAct.setIcon(QIcon(self.icon_folder + "/circle.png"))
         self.squareAct.setIcon(QIcon(self.icon_folder + "/square.png"))
+        self.hideLabelsAct.setIcon(QIcon(self.icon_folder + "/segment_area.png"))
 
         # labeling
         self.add_label.setIcon((QIcon(self.icon_folder + "/add.png")))
@@ -1257,6 +1267,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.polygonAct.setEnabled(is_active)
         self.circleAct.setEnabled(is_active)
         self.squareAct.setEnabled(is_active)
+        self.hideLabelsAct.setEnabled(is_active)
 
         self.exportAnnToYoloBoxAct.setEnabled(is_active)
         self.exportAnnToYoloSegAct.setEnabled(is_active)
@@ -1735,6 +1746,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.mode = Mode.normal
         self.save_view_to_project()
 
+    def hide_labels(self):
+        print("Labels will be hided now")
+
+    def show_hided_labels(self):
+        print("Labels will be showed now")
+
+    def toggle_hide_labels(self):
+
+        if self.mode == Mode.hided_polygons:
+            self.show_hided_labels()
+        else:
+            self.hide_labels()
+
     def square_pressed(self):
         self.mode = Mode.drawing
         self.set_labels_color()
@@ -1777,13 +1801,10 @@ class MainWindow(QtWidgets.QMainWindow):
         labels = [self.cls_combo.itemText(i) for i in range(self.cls_combo.count())]
         self.project_data.set_labels_colors(labels)
 
-    def load_image_data(self, image_name):
-        # Проверка наличия записи о цветах полигонов
+    def add_image_shapes_to_view(self, im_project_data):
+        if im_project_data:
 
-        im = self.project_data.get_image_data(image_name)
-        if im:
-
-            for shape in im["shapes"]:
+            for shape in im_project_data["shapes"]:
                 cls_num = shape["cls_num"]
                 cls_name = self.cls_combo.itemText(cls_num)
                 points = shape["points"]
@@ -1797,6 +1818,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 else:
                     text = cls_name
                 self.view.add_polygon_to_scene(cls_num, points, color=color, alpha=alpha_tek, id=shape["id"], text=text)
+
+    def load_image_data(self, image_name):
+        # Проверка наличия записи о цветах полигонов
+
+        im = self.project_data.get_image_data(image_name)
+        self.add_image_shapes_to_view(im)
 
     def end_drawing(self):
 
@@ -1833,6 +1860,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.dataset_images.append(image_name)
 
             self.fill_images_label(self.dataset_images)
+            self.project_data.set_image_lrm(image_name, self.lrm)
 
             # Отключаем режим выделения области
             self.mode = Mode.normal
@@ -1849,7 +1877,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.mode = Mode.normal
                 self.save_view_to_project()
 
-        if self.mode != Mode.normal:
+        if self.mode != Mode.normal:  # pressed Space
+
             self.mode = Mode.normal
             self.save_view_to_project()
 
@@ -1954,6 +1983,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.mode == Mode.drawing:
             self.mode = Mode.normal
             self.view.break_drawing()
+
         self.save_view_to_project()
 
         next_im_name = self.images_list_widget.get_next_name()
@@ -1968,6 +1998,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.mode == Mode.drawing:
             self.mode = Mode.normal
             self.view.break_drawing()
+
         self.save_view_to_project()
 
         before_im_name = self.images_list_widget.get_before_name()
@@ -1981,6 +2012,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.copy_active_item_to_buffer()
 
     def paste_label(self):
+
         if not self.image_set:
             return
 
