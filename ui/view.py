@@ -1,3 +1,4 @@
+import math
 import os
 
 import numpy as np
@@ -761,11 +762,13 @@ class GraphicsView(QtWidgets.QGraphicsView):
         return None
 
     def add_fat_point_to_polygon_vertex(self, vertex):
-        scale = self._zoom / 5.0 + 1
+        circle_width = self.fat_width * math.exp(-self._zoom*0.3) + 1  # self._zoom / 5.0 + 1
+        # print(
+        #     f"Fat point zoom: {self._zoom}, circle_width: {circle_width}, fat_width: {self.fat_width}")
         self.fat_point = GrEllipsLabel()
-        self.fat_point.setRect(vertex.x() - self.fat_width / (2 * scale),
-                               vertex.y() - self.fat_width / (2 * scale),
-                               self.fat_width / scale, self.fat_width / scale)
+        self.fat_point.setRect(vertex.x() - circle_width / 2,
+                               vertex.y() - circle_width / 2,
+                               circle_width, circle_width)
         self.fat_point.setPen(self.fat_point_pen)
         self.fat_point.setBrush(self.fat_point_brush)
 
@@ -994,10 +997,12 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
                     # 4. Перемещаем подсветку узла
                     if self.fat_point:
-                        scale = self._zoom / 5.0 + 1
-                        self.fat_point.setRect(lp.x() - self.fat_width / (2 * scale),
-                                               lp.y() - self.fat_width / (2 * scale),
-                                               self.fat_width / scale, self.fat_width / scale)
+                        circle_width = self.fat_width * math.exp(-self._zoom * 0.25) + 1  # self._zoom / 5.0 + 1
+                        # print(
+                        #     f"Fat point zoom: {self._zoom}, circle_width: {circle_width}, fat_width: {self.fat_width}")
+                        self.fat_point.setRect(lp.x() - circle_width / 2,
+                                               lp.y() - circle_width / 2,
+                                               circle_width, circle_width)
 
                     return True
 
