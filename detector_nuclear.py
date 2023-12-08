@@ -13,17 +13,25 @@ from utils.edges_from_mask import mask_results_to_yolo_txt
 from utils.nuclear_post_processing import PostProcessingWorker
 import gc
 from ui.dialogs.ask_next_step_dialog import AskNextStepDialog
+from utils.settings_handler import AppSettings
 
 basedir = os.path.dirname(__file__)
 
 
 class DetectorNuclear(Detector):
     def __init__(self, parent=None):
+        self.settings = AppSettings()
+        self.settings.write_sam_hq(0)
         super().__init__(parent)
 
         self.mask_res = []
 
         self.setWindowTitle("Nuclear power station detector")
+
+    def hide(self) -> bool:
+        self.settings.write_sam_hq(1)
+        super().hide()
+
 
     def on_post_finished(self):
 
@@ -45,8 +53,15 @@ class DetectorNuclear(Detector):
 
             shape = {'id': shape_id, 'cls_num': cls_num, 'points': pol['points'], 'conf': 1.0}
             self.detected_shapes.append(shape)
+            cls_name = self.cls_combo.itemText(cls_num)
 
-            self.view.add_polygon_to_scene(cls_num, pol['points'], color=color, id=shape_id)
+            label_text_params = self.settings.read_label_text_params()
+            if label_text_params['hide']:
+                text = None
+            else:
+                text = f"{cls_name} {1.00}"
+
+            self.view.add_polygon_to_scene(cls_num, pol['points'], color=color, id=shape_id, text=text)
 
         self.block_geo_coords_message = False
 
@@ -134,7 +149,15 @@ class DetectorNuclear(Detector):
             if not color:
                 color = cls_settings.PALETTE[cls_num]
 
-            self.view.add_polygon_to_scene(cls_num, points, color=color, id=shape_id)
+            label_text_params = self.settings.read_label_text_params()
+            cls_name = self.cls_combo.itemText(cls_num)
+
+            if label_text_params['hide']:
+                text = None
+            else:
+                text = f"{cls_name} {res['conf']:0.2f}"
+
+            self.view.add_polygon_to_scene(cls_num, points, color=color, id=shape_id, text=text)
 
             shape = {'id': shape_id, 'cls_num': cls_num, 'points': points, 'conf': res['conf']}
             self.detected_shapes.append(shape)

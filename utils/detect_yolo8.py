@@ -8,7 +8,7 @@ from PIL import Image
 from bs4 import BeautifulSoup
 from openvino.runtime import Core
 from ultralytics import YOLO
-from ultralytics.yolo.utils.plotting import Annotator, Colors
+from ultralytics.utils.plotting import Annotator, Colors
 
 from yolov8.inference_openvino import detect
 
