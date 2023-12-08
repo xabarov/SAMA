@@ -1,5 +1,7 @@
 import os
 
+from PyQt5 import QtCore, QtGui
+from PyQt5.QtGui import QColor
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QListWidget
 
@@ -14,6 +16,10 @@ class ImagesWidget(QListWidget):
         self.icon_folder = os.path.join(icon_folder, '..', 'image_status')
         # self.setMouseTracking(True)
 
+        self.icons = {'empty': QIcon(self.icon_folder + "/empty.png"),
+                      'in_work': QIcon(self.icon_folder + "/in_work.png"),
+                      'approve': QIcon(self.icon_folder + "/approve.png")}
+
     def addItem(self, text, status=None) -> None:
         """
         Три варианта статуса
@@ -23,22 +29,17 @@ class ImagesWidget(QListWidget):
         """
 
         item = ListWidgetItemCustomSort(text)
-        if not status or status == 'empty':
-            item.setIcon(QIcon(self.icon_folder + "/empty.png"))
-        elif status == "in_work":
-            item.setIcon(QIcon(self.icon_folder + "/in_work.png"))
-        elif status == "approve":
-            item.setIcon(QIcon(self.icon_folder + "/approve.png"))
+        if not status:
+            status = 'empty'
+        item.setIcon(self.icons[status])
+
         super().addItem(item)
 
     def set_status(self, status):
         item = self.currentItem()
-        if not status or status == 'empty':
-            item.setIcon(QIcon(self.icon_folder + "/empty.png"))
-        elif status == "in_work":
-            item.setIcon(QIcon(self.icon_folder + "/in_work.png"))
-        elif status == "approve":
-            item.setIcon(QIcon(self.icon_folder + "/approve.png"))
+        if not status:
+            status = 'empty'
+        item.setIcon(self.icons[status])
 
     def get_next_idx(self):
         if self.count() == 0:
