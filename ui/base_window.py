@@ -80,6 +80,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Signals with Right Panels
         self.im_panel_count_conn = ImagesPanelCountConnection()
         self.labels_count_conn = LabelsPanelCountConnection()
+        self.selected_count_conn = LabelsPanelCountConnection()
         self.on_theme_change_connection = ThemeChangeConnection()
 
         lay = QtWidgets.QSplitter(QtCore.Qt.Horizontal)  # QtWidgets.QWidget()
@@ -472,7 +473,9 @@ class MainWindow(QtWidgets.QMainWindow):
         lay = QtWidgets.QVBoxLayout()
         label_panel = LabelsPanel(self, self.break_drawing, self.clean_all_labels, self.icon_folder,
                                   on_color_change_signal=self.on_theme_change_connection.on_theme_change,
-                                  on_labels_count_change=self.labels_count_conn.on_labels_count_change)
+                                  on_labels_count_change=self.labels_count_conn.on_labels_count_change,
+                                  on_selected_num_changed=self.selected_count_conn.on_labels_count_change)
+
         label_panel.setMaximumHeight(300)
         lay.addWidget(label_panel)
 
@@ -870,12 +873,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.fill_labels_on_tek_image_list_widget()
         self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+        items = self.labels_on_tek_image.selectedItems()
+        self.selected_count_conn.on_labels_count_change.emit(len(items))
 
         self.view.setFocus()
 
     def labels_on_tek_image_clicked(self, item):
         item_id = item.text().split(" ")[-1]
         self.view.activate_item_by_id(int(item_id))
+        items = self.labels_on_tek_image.selectedItems()
+        self.selected_count_conn.on_labels_count_change.emit(len(items))
 
     def exportToYOLOBox(self):
         self.save_project()
@@ -1531,6 +1538,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
             self.images_list_widget.setCurrentRow(0)
 
+            self.selected_count_conn.on_labels_count_change.emit(0)
+            self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+
             self.reset_image_panel_progress_bar()
 
         self.info_message(
@@ -1776,12 +1786,23 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def polygon_pressed(self, pressed_id):
         self.window_state = WindowState.normal
+
+        if pressed_id == -1: # нажали не по полигону
+            items_selected = self.labels_on_tek_image.selectedItems()
+            for item in items_selected:
+                item.setSelected(False)
+
+            self.selected_count_conn.on_labels_count_change.emit(0)
+            return
+
         for i in range(self.labels_on_tek_image.count()):
             item = self.labels_on_tek_image.item(i)
             item_id = item.text().split(" ")[-1]
             if item_id:
                 if int(item_id) == pressed_id:
                     self.labels_on_tek_image.setCurrentItem(item)
+                    self.selected_count_conn.on_labels_count_change.emit(1)
+
                     break
 
     def on_polygon_delete(self, delete_ids):
@@ -1934,6 +1955,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.load_image_data(self.tek_image_name)
         self.save_view_to_project()
+        self.selected_count_conn.on_labels_count_change.emit(0)
+        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
 
     def show_shortcuts(self):
         self.shortcuts_window = ShortCutsEditor(on_ok_act=self.reset_shortcuts)

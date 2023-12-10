@@ -75,7 +75,7 @@ class ImagesPanel(QWidget):
 class LabelsPanel(QWidget):
     def __init__(self, parent, del_label_from_image_act, clear_all_labels, icon_folder, button_size=30,
                  on_color_change_signal=None,
-                 on_labels_count_change=None):
+                 on_labels_count_change=None, on_selected_num_changed=None):
         super().__init__(parent)
 
         self.settings = AppSettings()
@@ -87,6 +87,7 @@ class LabelsPanel(QWidget):
         self.del_label_from_image_act = del_label_from_image_act
         self.on_color_change_signal = on_color_change_signal
         self.on_labels_count_change = on_labels_count_change
+        self.on_selected_num_changed = on_selected_num_changed
         self.button_size = button_size
         self.icon_folder = icon_folder
         self.clear_all_labels = clear_all_labels
@@ -103,7 +104,16 @@ class LabelsPanel(QWidget):
         if self.on_labels_count_change:
             self.on_labels_count_change.connect(self.on_lbs_count_change)
 
+        if self.on_selected_num_changed:
+            self.on_selected_num_changed.connect(self.on_sel_num_changed)
+
         self.setLayout(self.header)
+
+    def on_sel_num_changed(self, count):
+        if count > 0:
+            self.del_im_button.setEnabled(True)
+        else:
+            self.del_im_button.setEnabled(False)
 
     def create_del_label(self):
         self.del_im_button = QPushButton()
@@ -138,8 +148,6 @@ class LabelsPanel(QWidget):
 
     def on_lbs_count_change(self, count):
         if count > 0:
-            self.del_im_button.setEnabled(True)
             self.clean_button.setEnabled(True)
         else:
-            self.del_im_button.setEnabled(False)
             self.clean_button.setEnabled(False)

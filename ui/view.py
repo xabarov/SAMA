@@ -459,6 +459,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if text:
             self.scene().addItem(polygon_new.get_label())
 
+        return id
+
     def add_point_to_active(self, lp):
 
         if len(self.active_group) == 1:
@@ -715,6 +717,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                         self.active_group.reset_clicked_item(pressed_polygon, is_shift)
                         self.polygon_clicked.id_pressed.emit(pressed_polygon.id)
                     else:
+                        self.polygon_clicked.id_pressed.emit(-1)
                         self.active_group.clear()
 
     def get_point_near_by_active_polygon_vertex(self, point):

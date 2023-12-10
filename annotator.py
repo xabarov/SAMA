@@ -669,8 +669,6 @@ class Annotator(MainWindow):
         self.detected_shapes = []
         for res in self.CNN_worker.mask_results:
 
-            shape_id = self.view.get_unique_label_id()
-
             cls_num = res['cls_num']
             points = res['points']
 
@@ -689,7 +687,7 @@ class Annotator(MainWindow):
             else:
                 text = f"{cls_name} {res['conf']:0.2f}"
 
-            self.view.add_polygon_to_scene(cls_num, points, color=color, id=shape_id, text=text)
+            shape_id = self.view.add_polygon_to_scene(cls_num, points, color=color, text=text)
 
             shape = {'id': shape_id, 'cls_num': cls_num, 'points': points, 'conf': res['conf']}
             self.detected_shapes.append(shape)

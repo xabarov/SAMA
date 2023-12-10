@@ -42,7 +42,6 @@ class DetectorNuclear(Detector):
         polygons = self.post_worker.polygons
         for pol in polygons:
             cls_num = pol['cls_num']  # bns
-            shape_id = self.view.get_unique_label_id()
 
             color = None
             label = self.project_data.get_label_name(cls_num)
@@ -51,8 +50,6 @@ class DetectorNuclear(Detector):
             if not color:
                 color = cls_settings.PALETTE[cls_num]
 
-            shape = {'id': shape_id, 'cls_num': cls_num, 'points': pol['points'], 'conf': 1.0}
-            self.detected_shapes.append(shape)
             cls_name = self.cls_combo.itemText(cls_num)
 
             label_text_params = self.settings.read_label_text_params()
@@ -61,7 +58,10 @@ class DetectorNuclear(Detector):
             else:
                 text = f"{cls_name} {1.00}"
 
-            self.view.add_polygon_to_scene(cls_num, pol['points'], color=color, id=shape_id, text=text)
+            shape_id = self.view.add_polygon_to_scene(cls_num, pol['points'], color=color, text=text)
+
+            shape = {'id': shape_id, 'cls_num': cls_num, 'points': pol['points'], 'conf': 1.0}
+            self.detected_shapes.append(shape)
 
         self.block_geo_coords_message = False
 
@@ -137,8 +137,6 @@ class DetectorNuclear(Detector):
         self.detected_shapes = []
         for res in self.mask_res:
 
-            shape_id = self.view.get_unique_label_id()
-
             cls_num = res['cls_num']
             points = res['points']
 
@@ -157,7 +155,7 @@ class DetectorNuclear(Detector):
             else:
                 text = f"{cls_name} {res['conf']:0.2f}"
 
-            self.view.add_polygon_to_scene(cls_num, points, color=color, id=shape_id, text=text)
+            shape_id = self.view.add_polygon_to_scene(cls_num, points, color=color, text=text)
 
             shape = {'id': shape_id, 'cls_num': cls_num, 'points': points, 'conf': res['conf']}
             self.detected_shapes.append(shape)

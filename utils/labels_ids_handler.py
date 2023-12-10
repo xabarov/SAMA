@@ -25,10 +25,11 @@ class LabelsIds:
 
     def remove_label_id(self, id):
         labels_list = list(self.labels_ids)
-        labels_list.sort()
-        if id == labels_list[-1]:
-            self.max_id -= 1
-        self.labels_ids.discard(id)
+        if len(labels_list) > 0:
+            labels_list.sort()
+            if id == labels_list[-1]:
+                self.max_id -= 1
+            self.labels_ids.discard(id)
 
     def print_labels(self):
 

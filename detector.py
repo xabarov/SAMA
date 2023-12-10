@@ -180,7 +180,7 @@ class Detector(Annotator):
                 alpha_tek = self.settings.read_alpha()
                 color = self.project_data.get_label_color(cls_name)
 
-                self.view.add_polygon_to_scene(cls_num, points, color, alpha_tek, id=None)
+                self.view.add_polygon_to_scene(cls_num, points, color, alpha_tek)
                 self.save_view_to_project()
 
             else:

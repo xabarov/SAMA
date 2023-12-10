@@ -110,7 +110,6 @@ class PostProcessingWorker(QtCore.QThread):
 
                 for points in ContBNS:
                     cls_num = 5  # bns
-                    # self.view.add_polygon_to_scene(cls_num, points, color=color, id=shape_id)
                     self.polygons.append({'cls_num': cls_num, 'points': points})
 
             step += 1
