@@ -26,6 +26,7 @@ from utils.importer import Importer
 from utils.predictor import SAMImageSetter
 from utils.sam_predictor import load_model as sam_load_model
 from utils.sam_predictor import mask_to_seg, predict_by_points, predict_by_box
+from utils.states import DrawState
 
 
 class Annotator(MainWindow):
@@ -62,6 +63,8 @@ class Annotator(MainWindow):
 
         self.scanning_mode = False
         self.lrm = None
+
+        self.importer = None
 
         self.detected_shapes = []
 
@@ -198,7 +201,7 @@ class Annotator(MainWindow):
 
     def toggle_act(self, is_active):
         """
-        Переключение действий, завясящих от состояния is_active
+        Переключение действий, зависящих от состояния is_active
         """
         super(Annotator, self).toggle_act(is_active)
         self.aiAnnotatorMethodMenu.setEnabled(is_active)
@@ -277,7 +280,8 @@ class Annotator(MainWindow):
         self.image_setter.set_image(self.cv2_image)
         self.queue_to_image_setter = []
         self.info_message(
-            "Нейросеть SAM еще не готова. Подождите секунду..." if self.lang == 'RU' else "SAM is loading. Please wait...")
+            "Нейросеть SAM еще не готова. Подождите секунду..." if self.lang == 'RU' else "SAM is loading. Please "
+                                                                                          "wait...")
         self.image_setter.start()
 
     def get_jpg_path(self, image_name):
@@ -418,31 +422,15 @@ class Annotator(MainWindow):
         """
         Нажатие левой или правой кнопки мыши в режиме точек-prompts SAM
         """
-
-        self.ann_type = "AiPoints"
-        self.set_labels_color()
-        cls_txt = self.cls_combo.currentText()
-        cls_num = self.cls_combo.currentIndex()
-
-        label_color = self.project_data.get_label_color(cls_txt)
-
-        alpha_tek = self.settings.read_alpha()
-
-        self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
+        self.draw_state = DrawState.ai_points
+        self.start_view_drawing(self.draw_state)
 
     def ai_mask_pressed(self):
         """
         Старт рисования прямоугольной области в режиме SAM
         """
-        self.ann_type = "AiMask"
-        self.set_labels_color()
-        cls_txt = self.cls_combo.currentText()
-        cls_num = self.cls_combo.currentIndex()
-
-        label_color = self.project_data.get_label_color(cls_txt)
-
-        alpha_tek = self.settings.read_alpha()
-        self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
+        self.draw_state = DrawState.ai_mask
+        self.start_view_drawing(self.draw_state)
 
     def add_sam_polygon_to_scene(self, sam_mask, cls_num=None, is_save_to_temp_folder=False):
         """
@@ -453,7 +441,7 @@ class Annotator(MainWindow):
         sam_mask = hf.clean_mask(sam_mask, type='remove', min_size=min_size, connectivity=1)
         if is_save_to_temp_folder:
             mask_name = hf.create_unique_image_name(self.tek_image_name)
-            mask_name = os.path.join(self.handle_temp_folder(), mask_name)
+            mask_name = os.path.join(hf.handle_temp_folder(os.getcwd()), mask_name)
             hf.save_mask_as_image(sam_mask, mask_name)
         points_mass = mask_to_seg(sam_mask, simplify_factor=simplify_factor)
 
@@ -521,7 +509,7 @@ class Annotator(MainWindow):
         Прерывание рисования метки
         """
         super(Annotator, self).break_drawing()
-        if self.ann_type == "AiPoints":
+        if self.draw_state == DrawState.ai_points:
             self.view.clear_ai_points()
             self.view.remove_items_from_active_group()
 
@@ -531,7 +519,7 @@ class Annotator(MainWindow):
         """
         super(Annotator, self).end_drawing()
 
-        if self.ann_type == "AiPoints":
+        if self.draw_state == DrawState.ai_points:
 
             self.view.setCursor(QCursor(QtCore.Qt.BusyCursor))
 
@@ -602,13 +590,16 @@ class Annotator(MainWindow):
         if not self.image_setter.isRunning():
             self.image_setter.set_image(self.cv2_image)
             self.info_message(
-                "Начинаю загружать изображение в нейросеть SAM..." if self.lang == 'RU' else "Start loading image to SAM...")
+                "Начинаю загружать изображение в нейросеть SAM..." if self.lang == 'RU' else "Start loading image to "
+                                                                                             "SAM...")
             self.image_setter.start()
         else:
             self.queue_to_image_setter.append(image_name)
-
-            self.info_message(
-                f"Изображение {os.path.split(image_name)[-1]} добавлено в очередь на обработку." if self.lang == 'RU' else f"Image {os.path.split(image_name)[-1]} is added to queue...")
+            if self.lang == 'RU':
+                message = f"Изображение {os.path.split(image_name)[-1]} добавлено в очередь на обработку."
+            else:
+                message = f"Image {os.path.split(image_name)[-1]} is added to queue..."
+            self.info_message(message)
 
     def detect(self):
         """
@@ -637,9 +628,9 @@ class Annotator(MainWindow):
         simplify_factor = self.settings.read_simplify_factor()
 
         if self.scanning_mode:
-            str_text = "Начинаю классифкацию СНС {0:s} сканирующим окном".format(self.started_cnn)
+            str_text = "Начинаю классификацию СНС {0:s} сканирующим окном".format(self.started_cnn)
         else:
-            str_text = "Начинаю классифкацию СНС {0:s}".format(self.started_cnn)
+            str_text = "Начинаю классификацию СНС {0:s}".format(self.started_cnn)
 
         self.info_message(str_text)
 
@@ -705,9 +696,11 @@ class Annotator(MainWindow):
 
         self.progress_toolbar.hide_progressbar()
         self.save_view_to_project()
-
-        self.info_message(
-            f"Найдено {len(self.CNN_worker.mask_results)} объектов" if self.lang == 'RU' else f"{len(self.CNN_worker.mask_results)} objects has been detected")
+        if self.lang == 'RU':
+            message = f"Найдено {len(self.CNN_worker.mask_results)} объектов"
+        else:
+            message = f"{len(self.CNN_worker.mask_results)} objects has been detected"
+        self.info_message(message)
 
     def grounding_sam_pressed(self):
         """
@@ -750,8 +743,13 @@ class Annotator(MainWindow):
         self.gd_worker.finished.connect(self.on_gd_worker_finished)
 
         if not self.gd_worker.isRunning():
-            self.info_message(
-                f"Начинаю поиск {self.prompt_cls_name} на изображении..." if self.lang == 'RU' else f"Start searching {self.prompt_cls_name} on image...")
+            if self.lang == 'RU':
+                message = f"Начинаю поиск {self.prompt_cls_name} на изображении..."
+            else:
+                message = f"Start searching {self.prompt_cls_name} on image..."
+
+            self.info_message(message)
+
             self.gd_worker.start()
 
     def start_grounddino(self):
@@ -798,7 +796,7 @@ class Annotator(MainWindow):
         conf_thres_set = self.settings.read_conf_thres()
         iou_thres_set = self.settings.read_iou_thres()
 
-        str_text = "Начинаю классифкацию СНС {0:s}".format(self.started_cnn)
+        str_text = "Начинаю классификацию СНС {0:s}".format(self.started_cnn)
 
         self.info_message(str_text)
 
@@ -861,14 +859,7 @@ class Annotator(MainWindow):
                                  copy_images_path=copy_images_path, dataset=yaml_data["selected_dataset"],
                                  is_coco=False, convert_to_masks=convert_to_masks, sam_predictor=self.sam)
 
-        self.importer.load_percent_conn.percent.connect(self.on_import_percent_change)
-        self.importer.info_conn.info_message.connect(self.on_importer_message)
-        self.importer.err_conn.error_message.connect(self.on_importer_message)
-
-        self.importer.finished.connect(self.on_import_finished)
-
-        if not self.importer.isRunning():
-            self.importer.start()
+        self.start_importer()
 
 
 if __name__ == '__main__':

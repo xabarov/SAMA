@@ -114,7 +114,7 @@ class Detector(Annotator):
             if image_name in self.map_geotiff_names:
                 jpg_path = self.map_geotiff_names[image_name]
             else:
-                temp_folder = self.handle_temp_folder()  # if not exist
+                temp_folder = hf.handle_temp_folder(os.getcwd())  # if not exist
                 jpg_path = os.path.join(temp_folder,
                                         os.path.basename(image_name).split('.')[0] + '.jpg')
 
@@ -157,7 +157,7 @@ class Detector(Annotator):
             segment_np = np.zeros((shape[0], shape[1], 3))
             segment_np[:, :] = [0, 0, 0]
             segment_np[mask, :] = cls_settings.PALETTE_SEG[cls_num]
-            temp_folder = self.handle_temp_folder()
+            temp_folder = hf.handle_temp_folder(os.getcwd())
             segment_name = os.path.join(temp_folder, f'segment_{cls_name}.jpg')
             cv2.imwrite(segment_name, segment_np)
             self.view.add_segment_pixmap(QtGui.QPixmap(segment_name), opacity=0.5, z_value=100 + cls_num)

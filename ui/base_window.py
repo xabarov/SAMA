@@ -1,7 +1,6 @@
 import os
 import shutil
 import sys
-from enum import Enum
 
 import cv2
 import numpy as np
@@ -36,14 +35,7 @@ from utils.importer import Importer
 from utils.project import ProjectHandler
 from utils.settings_handler import AppSettings
 from utils.settings_handler import shortcuts as shortcuts_init
-
-
-class Mode(Enum):
-    normal = 1
-    drawing = 2
-    rubber_band = 3
-    hided_polygons = 4
-
+from utils.states import DrawState, WindowState
 
 basedir = os.path.dirname(__file__)
 
@@ -70,7 +62,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # self.start_gif(is_prog_load=True)
 
         # Rubber band
-        self.mode = Mode.normal
+        self.window_state = WindowState.normal
         self.rubber_band_change_conn = RubberBandModeConnection()
 
         # GraphicsView
@@ -80,6 +72,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.polygon_clicked.id_pressed.connect(self.polygon_pressed)
         self.view.polygon_delete.id_delete.connect(self.on_polygon_delete)
         self.view.polygon_end_drawing.on_end_drawing.connect(self.on_polygon_end_draw)
+        self.view.list_of_polygons_conn.list_of_polygons.connect(self.on_rubber_band_end)
 
         self.view.polygon_cls_num_change.pol_cls_num_and_id.connect(self.change_polygon_cls_num)
         self.view.info_conn.info_message.connect(self.info_message)
@@ -121,7 +114,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.lang = self.settings.read_lang()
 
         self.scaleFactor = 1.0
-        self.ann_type = "Polygon"
+        self.draw_state = DrawState.polygon
 
         self.loaded_proj_name = None
         self.labels_on_tek_image_ids = None
@@ -291,7 +284,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Annotators
         self.polygonAct = QAction("Полигон" if self.lang == 'RU' else "Polygon", self, enabled=False,
                                   triggered=self.polygon_tool_pressed, checkable=True)
-        self.circleAct = QAction("Эллипс" if self.lang == 'RU' else "Ellips", self, enabled=False,
+        self.circleAct = QAction("Эллипс" if self.lang == 'RU' else "Ellipse", self, enabled=False,
                                  triggered=self.circle_pressed, checkable=True)
         self.squareAct = QAction("Прямоугольник" if self.lang == 'RU' else "Box", self, enabled=False,
                                  triggered=self.square_pressed,
@@ -611,35 +604,33 @@ class MainWindow(QtWidgets.QMainWindow):
         Действие - выбрать область
         """
         self.break_drawing()  # Если до этого что-то рисовали - сбросить
-        self.mode = Mode.rubber_band
+        self.window_state = WindowState.rubber_band
         self.rubber_band_change_conn.on_rubber_mode_change.emit(True)
 
-    def save_active_item_as_image(self):
-        if not self.image_set:
-            return
+    def save_selected_polygon_as_image(self, pol, im_full_name):
+        pts = np.array(pol)
 
-        # Получаем полигон селекта
-        pol = self.view.get_active_item_polygon()
+        # (1) Crop the bounding rect
+        rect = cv2.boundingRect(pts)
+        x, y, w, h = rect
+        cropped = self.cv2_image[y:y + h, x:x + w].copy()
+        # (2) make mask
+        pts = pts - pts.min(axis=0)
+
+        mask = np.zeros(cropped.shape[:2], np.uint8)
+        cv2.drawContours(mask, [pts], -1, (255, 255, 255), -1, cv2.LINE_AA)
+
+        # (3) do bit-op
+        dst = cv2.bitwise_and(cropped, cropped, mask=mask)
+
+        cv2.imwrite(im_full_name, dst)
+
+    def save_polygon_as_image(self, pol):
         if pol:
-            pts = np.array(pol)
-
-            ## (1) Crop the bounding rect
-            rect = cv2.boundingRect(pts)
-            x, y, w, h = rect
-            croped = self.cv2_image[y:y + h, x:x + w].copy()
-            ## (2) make mask
-            pts = pts - pts.min(axis=0)
-
-            mask = np.zeros(croped.shape[:2], np.uint8)
-            cv2.drawContours(mask, [pts], -1, (255, 255, 255), -1, cv2.LINE_AA)
-
-            ## (3) do bit-op
-            dst = cv2.bitwise_and(croped, croped, mask=mask)
-
             image_name = hf.create_unique_image_name(self.tek_image_name)
             im_full_name = os.path.join(self.dataset_dir, image_name)
 
-            cv2.imwrite(im_full_name, dst)
+            self.save_selected_polygon_as_image(pol, im_full_name)
 
             # Добавляем в набор картинок и в панель
             if image_name not in self.dataset_images:
@@ -652,11 +643,28 @@ class MainWindow(QtWidgets.QMainWindow):
             self.tek_image_name = image_name
             self.tek_image_path = im_full_name
             self.reload_image(is_tek_image_changed=True)
-            self.images_list_widget.move_last()
+            self.images_list_widget.move_to_image_name(image_name)
 
         else:
             self.info_message(
-                "Пожалуйста, выделите полигон на изображении" if self.lang == 'RU' else "Please select some polygon on image as active")
+                "Пожалуйста, выделите полигон на изображении" if self.lang == 'RU' else "Please select some polygon "
+                                                                                        "on image as active")
+
+        self.window_state = WindowState.normal
+
+    def save_active_item_as_image(self):
+        if not self.image_set:
+            if self.lang == 'RU':
+                message = "Подождите окончания загрузки изображения"
+            else:
+                message = "Wait for the image to finish loading"
+            self.info_message(message)
+
+            return
+
+        # Получаем полигон выделенной области
+        pol = self.view.get_active_item_polygon()
+        self.save_polygon_as_image(pol)
 
     def change_polygon_label_clicked(self):
         """
@@ -670,9 +678,23 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         labels = self.project_data.get_labels()
         theme = self.settings.read_theme()
+        variants = [labels[i] for i in range(len(labels)) if i != cls_num]
+
+        if len(variants) < 2:
+            if self.lang == 'RU':
+                message = f"Добавьте еще один класс. Пока в списке только один класс {labels[cls_num]}"
+            else:
+                message = f"Add a different label name. At the moment you only have {labels[cls_num]}."
+            self.info_message(message)
+            return
+
         self.combo_dialog = CustomComboDialog(self, theme=theme,
-                                              title_name="Изменение имени метки" if self.lang == 'RU' else "Label name change",
-                                              question_name="Введите имя класса:" if self.lang == 'RU' else "Enter label name:",
+                                              title_name="Изменение имени метки" if self.lang == 'RU' else "Label "
+                                                                                                           "name "
+                                                                                                           "change",
+                                              question_name="Введите имя класса:" if self.lang == 'RU' else "Enter "
+                                                                                                            "label "
+                                                                                                            "name:",
                                               variants=[labels[i] for i in range(len(labels)) if i != cls_num])
 
         self.combo_dialog.okBtn.clicked.connect(self.change_cls_num_ok_clicked)
@@ -710,8 +732,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         if self.dataset_dir:
             last_opened_path = self.settings.read_last_opened_path()
+            txt = 'Загрузка изображений в проект' if self.lang == 'RU' else "Loading dataset"
             images, _ = QFileDialog.getOpenFileNames(self,
-                                                     'Загрузка изображений в проект' if self.lang == 'RU' else "Loading dataset",
+                                                     txt,
                                                      last_opened_path,
                                                      'Images Files (*.jpeg *.png *.jpg *.tiff)')
             if images and len(images) > 0:
@@ -773,9 +796,16 @@ class MainWindow(QtWidgets.QMainWindow):
             if not last_user:
                 last_user = ""
             else:
-                last_user = f"Последние правки сделаны {last_user}" if self.lang == 'RU' else f"Last edit user {last_user}"
+                if self.lang == 'RU':
+                    last_user = f"Последние правки сделаны {last_user}"
+                else:
+                    last_user = f"Last edit user {last_user}"
 
-            title = f'Изменение статуса изображения {tek_im_name}' if self.lang == 'RU' else f'Change image {tek_im_name} status'
+            if self.lang == 'RU':
+                title = f'Изменение статуса изображения {tek_im_name}'
+            else:
+                title = f'Change image {tek_im_name} status '
+
             text = f'Выберите новый\nстатус изображения: ' if self.lang == 'RU' else f'Choose new image status: '
             variants = ['empty', 'in_work', 'approve']
 
@@ -825,8 +855,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def images_list_widget_clicked(self, item):
 
-        if self.mode == Mode.drawing:
-            self.mode = Mode.normal
+        if self.window_state == WindowState.drawing:
+            self.window_state = WindowState.normal
             self.view.break_drawing()
 
         self.write_scene_to_project_data()
@@ -902,6 +932,9 @@ class MainWindow(QtWidgets.QMainWindow):
                                  copy_images_path=copy_images_path, dataset=yaml_data["selected_dataset"],
                                  is_coco=False)
 
+        self.start_importer()
+
+    def start_importer(self):
         self.importer.load_percent_conn.percent.connect(self.on_import_percent_change)
         self.importer.info_conn.info_message.connect(self.on_importer_message)
         self.importer.err_conn.error_message.connect(self.on_importer_message)
@@ -914,8 +947,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def on_importer_message(self, message):
         self.info_message(message)
 
-    def on_import_percent_change(self, persent):
-        self.import_dialog.set_progress(persent)
+    def on_import_percent_change(self, percent):
+        self.import_dialog.set_progress(percent)
 
     def importFromYOLOSeg(self):
         self.close_project()
@@ -966,13 +999,18 @@ class MainWindow(QtWidgets.QMainWindow):
         self.export_dialog.hide()
         msgbox = QMessageBox()
         msgbox.setIcon(QMessageBox.Information)
-        msgbox.setText(
-            f"Экспорт в формат {self.export_format} завершен успешно" if self.lang == 'RU' else f"Export to {self.export_format} was successful")
+
+        if self.lang == 'RU':
+            text = f"Экспорт в формат {self.export_format} завершен успешно"
+        else:
+            text = f"Export to {self.export_format} was successful"
+
+        msgbox.setText(text)
         msgbox.setWindowTitle("Экспорт завершен")
         msgbox.exec()
 
     def add_new_name_to_combobox(self, new_name):
-        # Обновлем список комбо-бокса
+        # Обновляем список комбо-бокса
         cls_names = [self.cls_combo.itemText(i) for i in range(self.cls_combo.count())]
         new_cls = []
         for cls in cls_names:
@@ -986,8 +1024,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def add_label_button_clicked(self):
 
         self.input_dialog = CustomInputDialog(self,
-                                              title_name="Добавление нового класса" if self.lang == 'RU' else "New label",
-                                              question_name="Введите имя класса:" if self.lang == 'RU' else "Enter label name:")
+                                              title_name="Добавление нового класса" if self.lang == 'RU' else "New "
+                                                                                                              "label",
+                                              question_name="Введите имя класса:" if self.lang == 'RU' else "Enter "
+                                                                                                            "label "
+                                                                                                            "name:")
         self.input_dialog.okBtn.clicked.connect(self.add_label_ok_clicked)
         self.input_dialog.show()
         self.input_dialog.edit.setFocus()
@@ -1005,8 +1046,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 msgbox.setText(
                     f"Ошибка добавления класса" if self.lang == 'RU' else "Error in setting new label")
                 msgbox.setWindowTitle("Ошибка добавления класса" if self.lang == 'RU' else "Error")
-                msgbox.setInformativeText(
-                    f"Класс с именем {new_name} уже существует" if self.lang == 'RU' else f"Label with name {new_name} is already exist. Try again")
+                if self.lang == 'RU':
+                    info_text = f"Класс с именем {new_name} уже существует"
+                else:
+                    info_text = f"Label with name {new_name} is already exist. Try again"
+
+                msgbox.setInformativeText(info_text)
                 msgbox.exec()
                 return
 
@@ -1035,7 +1080,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 f"Ошибка удаления класса" if self.lang == 'RU' else "Error in deleting label")
             msgbox.setWindowTitle(f"Ошибка удаления класса" if self.lang == 'RU' else "Error")
             msgbox.setInformativeText(
-                "Количество классов должно быть хотя бы 2 для удаления текущего" if self.lang == 'RU' else "The last label left. If you don't like the name - just rename it")
+                "Количество классов должно быть хотя бы 2 для удаления текущего" if self.lang == 'RU' else "The last "
+                                                                                                           "label "
+                                                                                                           "left. If "
+                                                                                                           "you don't "
+                                                                                                           "like the "
+                                                                                                           "name - "
+                                                                                                           "just "
+                                                                                                           "rename it")
             msgbox.exec()
             return
 
@@ -1067,8 +1119,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.ask_del_label.close()  # закрываем окно
 
-        # 1. Убираем имя из комбобокса
-        self.del_label_from_combobox(old_name)  # теперь в комбобоксе нет имени
+        # 1. Убираем имя из комбо-бокса
+        self.del_label_from_combobox(old_name)  # теперь в комбо-боксе нет имени
 
         # 2. Обновляем все полигоны
         self.project_data.change_data_class_from_to(old_name, new_name)
@@ -1152,9 +1204,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def rename_label_button_clicked(self):
 
         cls_name = self.cls_combo.currentText()
+        title = f"Редактирование имени класса {cls_name}" if self.lang == 'RU' else f"Rename label {cls_name}"
+        question = "Введите новое имя класса:" if self.lang == 'RU' else "Enter new label name:"
         self.input_dialog = CustomInputDialog(self,
-                                              title_name=f"Редактирование имени класса {cls_name}" if self.lang == 'RU' else f"Rename label {cls_name}",
-                                              question_name="Введите новое имя класса:" if self.lang == 'RU' else "Enter new label name:")
+                                              title_name=title,
+                                              question_name=question)
 
         self.input_dialog.okBtn.clicked.connect(self.rename_label_ok_clicked)
         self.input_dialog.show()
@@ -1301,7 +1355,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             self.ruler_act.setEnabled(False)
 
-        self.lrm = lrm  # присвоить в любом случае, даже None. Иначе может использоваться lrm от предыдущего снимка
+        self.lrm = lrm  # Присвоить в любом случае, даже None. Иначе может использоваться lrm от предыдущего снимка
 
         self.ruler_act.setChecked(False)  # Выключить рулетку. Могла остаться включенной
 
@@ -1315,22 +1369,6 @@ class MainWindow(QtWidgets.QMainWindow):
             lrm = hf.try_read_lrm(self.tek_image_path)
 
         return lrm
-
-    def handle_temp_folder(self):
-        temp_folder = os.path.join(os.getcwd(), 'temp')
-        if not os.path.exists(temp_folder):
-            os.makedirs(temp_folder)
-
-        return temp_folder
-
-    def clear_temp_folder(self):
-        temp_folder = os.path.join(os.getcwd(), 'temp')
-        # print(temp_folder)
-        if os.path.exists(temp_folder):
-            try:
-                shutil.rmtree(temp_folder)
-            except:
-                print("Can't remove temp folder")
 
     def print_(self):
         """
@@ -1396,8 +1434,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.dataset_images = dataset_images
 
-        self.info_message(
-            f"Число загруженны в проект изображений: {len(self.dataset_images)}" if self.lang == 'RU' else f"Loaded images count: {len(self.dataset_images)}")
+        text = "Число загруженных в проект изображений" if self.lang == 'RU' else f"Loaded images count"
+        message = f"{text}: {len(self.dataset_images)}"
+        self.info_message(message)
+
         self.loaded_proj_name = self.create_new_proj_dialog.get_project_name()
         self.create_new_proj_dialog.hide()
         self.save_project_as(proj_name=self.loaded_proj_name)
@@ -1535,8 +1575,9 @@ class MainWindow(QtWidgets.QMainWindow):
         Загрузка проекта
         """
         last_opened_path = self.settings.read_last_opened_path()
+        title = 'Загрузка проекта' if self.lang == 'RU' else "Loading project"
         loaded_proj_name, _ = QFileDialog.getOpenFileName(self,
-                                                          'Загрузка проекта' if self.lang == 'RU' else "Loading project",
+                                                          title,
                                                           last_opened_path,
                                                           'JSON Proj File (*.json)')
 
@@ -1661,7 +1702,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Изменение темы приложения
         """
-        app = QApplication.instance()
+        app_new = QApplication.instance()
 
         # primary_color = "#ffffff"
 
@@ -1681,7 +1722,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         invert_secondary = False if 'dark' in theme else True
 
-        apply_stylesheet(app, theme=theme, extra=extra, invert_secondary=invert_secondary)
+        apply_stylesheet(app_new, theme=theme, extra=extra, invert_secondary=invert_secondary)
 
         self.cls_combo.change_theme(theme)
 
@@ -1714,9 +1755,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.info_message(
             f"Настройки проекта изменены" if lang == 'RU' else "Settings is saved")
 
-    def polygon_tool_pressed(self):
+    def start_view_drawing(self, draw_state):
 
-        self.mode = Mode.drawing
+        self.window_state = WindowState.drawing
+
         self.set_labels_color()
         cls_txt = self.cls_combo.currentText()
         cls_num = self.cls_combo.currentIndex()
@@ -1724,26 +1766,26 @@ class MainWindow(QtWidgets.QMainWindow):
         label_color = self.project_data.get_label_color(cls_txt)
 
         alpha_tek = self.settings.read_alpha()
-        self.ann_type = "Polygon"
 
         label_text_params = self.settings.read_label_text_params()
         if label_text_params['hide']:
             text = None
         else:
             text = cls_txt
-        self.view.start_drawing(self.ann_type, cls_num, color=label_color, alpha=alpha_tek, text=text)
+        self.view.start_drawing(draw_state, cls_num, color=label_color, alpha=alpha_tek, text=text)
 
     def polygon_pressed(self, pressed_id):
-        self.mode = Mode.normal
+        self.window_state = WindowState.normal
         for i in range(self.labels_on_tek_image.count()):
             item = self.labels_on_tek_image.item(i)
             item_id = item.text().split(" ")[-1]
-            if item_id and int(item_id) == pressed_id:
-                self.labels_on_tek_image.setCurrentItem(item)
-                break
+            if item_id:
+                if int(item_id) == pressed_id:
+                    self.labels_on_tek_image.setCurrentItem(item)
+                    break
 
     def on_polygon_delete(self, delete_ids):
-        self.mode = Mode.normal
+        self.window_state = WindowState.normal
         self.save_view_to_project()
 
     def hide_labels(self):
@@ -1754,44 +1796,25 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def toggle_hide_labels(self):
 
-        if self.mode == Mode.hided_polygons:
+        if self.window_state == WindowState.hided_polygons:
             self.show_hided_labels()
         else:
             self.hide_labels()
 
+    def polygon_tool_pressed(self):
+
+        self.draw_state = DrawState.polygon
+        self.start_view_drawing(self.draw_state)
+
     def square_pressed(self):
-        self.mode = Mode.drawing
-        self.set_labels_color()
-        cls_txt = self.cls_combo.currentText()
-        cls_num = self.cls_combo.currentIndex()
+        self.draw_state = DrawState.box
 
-        label_color = self.project_data.get_label_color(cls_txt)
-
-        alpha_tek = self.settings.read_alpha()
-        self.ann_type = "Box"
-        label_text_params = self.settings.read_label_text_params()
-        if label_text_params['hide']:
-            text = None
-        else:
-            text = cls_txt
-        self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek, text=text)
+        self.start_view_drawing(self.draw_state)
 
     def circle_pressed(self):
-        self.mode = Mode.drawing
-        self.set_labels_color()
-        cls_txt = self.cls_combo.currentText()
-        cls_num = self.cls_combo.currentIndex()
 
-        label_color = self.project_data.get_label_color(cls_txt)
-
-        alpha_tek = self.settings.read_alpha()
-        self.ann_type = "Ellips"
-        label_text_params = self.settings.read_label_text_params()
-        if label_text_params['hide']:
-            text = None
-        else:
-            text = cls_txt
-        self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek, text=text)
+        self.draw_state = DrawState.ellipse
+        self.start_view_drawing(self.draw_state)
 
     def ann_triggered(self, ann):
         self.annotatorToolButton.setDefaultAction(ann)
@@ -1825,61 +1848,36 @@ class MainWindow(QtWidgets.QMainWindow):
         im = self.project_data.get_image_data(image_name)
         self.add_image_shapes_to_view(im)
 
-    def end_drawing(self):
+    def on_rubber_band_end(self, points):
 
-        if self.mode == Mode.rubber_band:
-            # Режим селекции области на изображении
-
-            if not self.image_set:
-                return
-
-            # Получаем полигон селекта
-            pol = self.view.get_rubber_band_polygon()
-            pts = np.array(pol)
-
-            ## (1) Crop the bounding rect
-            rect = cv2.boundingRect(pts)
-            x, y, w, h = rect
-            croped = self.cv2_image[y:y + h, x:x + w].copy()
-            ## (2) make mask
-            pts = pts - pts.min(axis=0)
-
-            mask = np.zeros(croped.shape[:2], np.uint8)
-            cv2.drawContours(mask, [pts], -1, (255, 255, 255), -1, cv2.LINE_AA)
-
-            ## (3) do bit-op
-            dst = cv2.bitwise_and(croped, croped, mask=mask)
-
-            image_name = hf.create_unique_image_name(self.tek_image_name)
-            im_full_name = os.path.join(self.dataset_dir, image_name)
-
-            cv2.imwrite(im_full_name, dst)
-
-            # Добавляем в набор картинок и в панель
-            if image_name not in self.dataset_images:
-                self.dataset_images.append(image_name)
-
-            self.fill_images_label(self.dataset_images)
-            self.project_data.set_image_lrm(image_name, self.lrm)
-
-            # Отключаем режим выделения области
-            self.mode = Mode.normal
-            self.rubber_band_change_conn.on_rubber_mode_change.emit(False)
+        if not self.image_set:
+            if self.lang == 'RU':
+                message = "Подождите окончания загрузки изображения"
+            else:
+                message = "Wait for the image to finish loading"
+            self.info_message(message)
 
             return
 
-        if self.ann_type in ["Polygon", "Box", "Ellips"]:
-            if self.mode == Mode.drawing:
+        # Получаем полигон селекта
+        self.save_polygon_as_image(points)
+
+        self.rubber_band_change_conn.on_rubber_mode_change.emit(False)
+
+    def end_drawing(self):
+
+        if self.draw_state in [DrawState.polygon, DrawState.ellipse, DrawState.box]:
+            if self.window_state == WindowState.drawing:
                 cls_txt = self.cls_combo.currentText()
                 cls_num = self.cls_combo.currentIndex()
                 label_color = self.project_data.get_label_color(cls_txt)
                 self.view.end_drawing(cls_num=cls_num, text=cls_txt, color=label_color)  # save it to
-                self.mode = Mode.normal
+                self.window_state = WindowState.normal
                 self.save_view_to_project()
 
-        if self.mode != Mode.normal:  # pressed Space
+        if self.window_state != WindowState.normal:  # pressed Space
 
-            self.mode = Mode.normal
+            self.window_state = WindowState.normal
             self.save_view_to_project()
 
     def start_drawing(self):
@@ -1887,6 +1885,11 @@ class MainWindow(QtWidgets.QMainWindow):
         Старт рисования метки
         """
         if not self.image_set:
+            if self.lang == 'RU':
+                message = "Подождите окончания загрузки изображения"
+            else:
+                message = "Wait for the image to finish loading"
+            self.info_message(message)
             return
 
         self.set_labels_color()
@@ -1897,23 +1900,23 @@ class MainWindow(QtWidgets.QMainWindow):
 
         alpha_tek = self.settings.read_alpha()
 
-        if self.mode == Mode.rubber_band:
+        if self.window_state == WindowState.rubber_band:
             self.rubber_band_change_conn.on_rubber_mode_change.emit(False)
-        self.mode = Mode.drawing
+        self.window_state = WindowState.drawing
 
         label_text_params = self.settings.read_label_text_params()
         if label_text_params['hide']:
             text = None
         else:
             text = cls_txt
-        self.view.start_drawing(self.ann_type, cls_num=cls_num, color=label_color, alpha=alpha_tek, text=text)
+        self.view.start_drawing(self.draw_state, cls_num=cls_num, color=label_color, alpha=alpha_tek, text=text)
 
     def break_drawing(self):
 
         """Delete polygon pressed"""
 
         self.view.break_drawing()
-        self.mode = Mode.normal
+        self.window_state = WindowState.normal
 
         self.save_view_to_project()
 
@@ -1940,18 +1943,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # print('Undo')
         self.view.remove_last_changes()
         self.save_view_to_project()
-        self.mode = Mode.normal
-
-    def match_modifiers(self, shortcut_modifiers, pressed_modifiers):
-
-        if not shortcut_modifiers:
-            return True
-
-        for m in shortcut_modifiers:
-            if m not in pressed_modifiers:
-                return False
-
-        return True
+        self.window_state = WindowState.normal
 
     def keyPressEvent(self, e):
         modifierPressed = QApplication.keyboardModifiers()
@@ -1968,20 +1960,19 @@ class MainWindow(QtWidgets.QMainWindow):
         # print(shortcuts)
 
         for sc_key, act in zip(
-                ['copy', 'del', 'end_drawing', 'image_after', 'image_before', 'paste', 'start_drawing', 'undo']
-                ,
+                ['copy', 'del', 'end_drawing', 'image_after', 'image_before', 'paste', 'start_drawing', 'undo'],
                 [self.copy_label, self.break_drawing, self.end_drawing, self.go_next, self.go_before, self.paste_label,
                  self.start_drawing, self.undo]):
             shortcut = shortcuts[sc_key]
-            shortciut_modifiers = shortcut['modifier']
-            if e.key() == shortcut['shortcut_key_eng'] or e.key() == shortcut[
-                'shortcut_key_ru'] and self.match_modifiers(shortciut_modifiers, modifierName):
+            shortcut_modifiers = shortcut['modifier']
+            if e.key() == shortcut['shortcut_key_eng'] or e.key() == shortcut['shortcut_key_ru'] and hf.match_modifiers(
+                    shortcut_modifiers, modifierName):
                 act()
 
     def go_next(self):
 
-        if self.mode == Mode.drawing:
-            self.mode = Mode.normal
+        if self.window_state == WindowState.drawing:
+            self.window_state = WindowState.normal
             self.view.break_drawing()
 
         self.save_view_to_project()
@@ -1995,8 +1986,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def go_before(self):
 
-        if self.mode == Mode.drawing:
-            self.mode = Mode.normal
+        if self.window_state == WindowState.drawing:
+            self.window_state = WindowState.normal
             self.view.break_drawing()
 
         self.save_view_to_project()
@@ -2012,9 +2003,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.copy_active_item_to_buffer()
 
     def paste_label(self):
-
-        if not self.image_set:
-            return
 
         self.view.paste_buffer()
         self.save_view_to_project()
@@ -2036,7 +2024,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         if self.is_asked_before_close:
-            self.clear_temp_folder()
+            hf.clear_temp_folder(os.getcwd())
             event.accept()
         else:
             if self.loaded_proj_name:
@@ -2096,10 +2084,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def add_user_clicked(self):
         user_name = self.user_names_combo.currentText()
-
+        title = f"Добавление нового пользователя {user_name}" if self.lang == 'RU' else f"Add new user {user_name}"
+        question = "Введите имя нового пользователя:" if self.lang == 'RU' else "Enter new user name:"
         self.user_dialog = CustomInputDialog(self,
-                                             title_name=f"Добавление нового пользователя {user_name}" if self.lang == 'RU' else f"Add new user {user_name}",
-                                             question_name="Введите имя нового пользователя:" if self.lang == 'RU' else "Enter new user name:")
+                                             title_name=title,
+                                             question_name=question)
         self.user_dialog.setMinimumWidth(500)
 
         self.user_dialog.okBtn.clicked.connect(self.add_user_ok_clicked)
@@ -2115,15 +2104,20 @@ class MainWindow(QtWidgets.QMainWindow):
                 idx = self.user_names_combo.getPos(new_name)
                 self.user_names_combo.setCurrentIndex(idx)
             else:
-                self.info_message(
-                    f"Не могу добавить пользователя {new_name}. Такой пользователь уже существует" if self.lang == 'RU' else f"Can't add {new_name}. User already exists")
+                if self.lang == 'RU':
+                    message = f"Не могу добавить пользователя {new_name}. Такой пользователь уже существует"
+                else:
+                    message = f"Can't add {new_name}. User already exists"
+                self.info_message(message)
 
     def rename_user(self):
         user_name = self.user_names_combo.currentText()
 
+        title = f"Редактирование имени пользователя {user_name}" if self.lang == 'RU' else f"Rename user {user_name}"
+        question = "Введите новое имя пользователя:" if self.lang == 'RU' else "Enter new user name:"
         self.user_dialog = CustomInputDialog(self,
-                                             title_name=f"Редактирование имени пользователя {user_name}" if self.lang == 'RU' else f"Rename user {user_name}",
-                                             question_name="Введите новое имя пользователя:" if self.lang == 'RU' else "Enter new user name:")
+                                             title_name=title,
+                                             question_name=question)
         self.user_dialog.setMinimumWidth(500)
 
         self.user_dialog.okBtn.clicked.connect(self.rename_user_ok_clicked)
@@ -2146,7 +2140,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.del_user_name = self.user_names_combo.currentText()
 
         title = f'Удаление пользователя' if self.lang == 'RU' else 'User delete'
-        text = f'Вы точно хотите удалить пользователя {self.del_user_name}?' if self.lang == 'RU' else f'Are you really want to delete {self.del_user_name}?'
+        if self.lang == 'RU':
+            text = f'Вы точно хотите удалить пользователя {self.del_user_name}?'
+        else:
+            text = f'Are you really want to delete {self.del_user_name}?'
+
         self.delete_box = OkCancelDialog(self, title=title, text=text, on_ok=self.on_delete_user_ok)
         self.delete_box.setMinimumWidth(300)
 
@@ -2187,6 +2185,6 @@ if __name__ == '__main__':
 
     apply_stylesheet(app, theme='dark_blue.xml', extra=extra, invert_secondary=False)
 
-    w = MainWindow()
-    w.show()
+    window = MainWindow()
+    window.show()
     sys.exit(app.exec_())

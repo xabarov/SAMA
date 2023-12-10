@@ -406,7 +406,7 @@ class DetectorClient(MainWindow):
         ax.tick_params(axis='x', rotation=70)
         plt.title('Баланс меток')
 
-        temp_folder = self.handle_temp_folder()
+        temp_folder = hf.handle_temp_folder(os.getcwd())
         fileName = os.path.join(temp_folder, 'balance.jpg')
         plt.savefig(fileName)
 

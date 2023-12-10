@@ -97,7 +97,7 @@ class DetectorNuclear(Detector):
             self.progress_toolbar.show_progressbar()
             self.block_geo_coords_message = True
 
-            yolo_txt_name = os.path.join(self.handle_temp_folder(), f'{self.tek_image_name.split(".jpg")[0]}.txt')
+            yolo_txt_name = os.path.join(hf.handle_temp_folder(os.getcwd()), f'{self.tek_image_name.split(".jpg")[0]}.txt')
 
             if self.tek_image_name in self.map_geotiff_names:
                 tek_image_path = self.map_geotiff_names[self.tek_image_name]

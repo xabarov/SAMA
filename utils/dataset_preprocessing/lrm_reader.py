@@ -3,15 +3,16 @@ import ujson
 import os
 import numpy as np
 from PIL import Image
-
+from tqdm import tqdm
 
 def write_lrms_to_json(dataset_folder, json_name, normalize_size=1280, img_ext='jpg'):
     images = [im for im in os.listdir(dataset_folder) if
               os.path.isfile(os.path.join(dataset_folder, im)) and '.' + img_ext in im]
     lrms_info = {}
     last_lrm = 0
-    for im in images:
 
+    for i in tqdm(range(len(images))):
+        im = images[i]
         im_full_path = os.path.join(dataset_folder, im)
         lrm = try_read_lrm(im_full_path)
 
@@ -47,7 +48,7 @@ def analyze_lrm_json(lrm_json_path):
 
 
 if __name__ == '__main__':
-    dataset_dir = "F:\python\datasets\\aes_dist\images"
+    dataset_dir = "D:\\python\\datasets\\airplanes_copy"
     json_name = "lrms.json"
     write_lrms_to_json(dataset_dir, json_name, img_ext='jpg')
     # analyze_lrm_json(json_name)

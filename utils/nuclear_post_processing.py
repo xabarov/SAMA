@@ -64,19 +64,17 @@ class PostProcessingWorker(QtCore.QThread):
         crop_names = []
         if not bns_zones:
             self.psnt_connection.percent.emit(100)
+            info_message = f"Зоны для поиска БНС не найдены" if self.settings.read_lang() == 'RU' else f"Can't find BNS local zone"
+            self.info_connection.info_message.emit(info_message)
             return
 
         im = Image.open(self.tek_image_path)
 
-        for i, coords in enumerate(bns_zones['Coords']):
-            left_upper = coords[0]
-            right_bottom = coords[1]
-            im_crop = im.crop((*left_upper, *right_bottom))
+        for i, im in enumerate(bns_zones['Imgs']):
 
             crop_name = os.path.join(self.save_folder, f'crop{i}.jpg')
             crop_names.append(crop_name)
-
-            im_crop.save(crop_name)
+            im.save(crop_name)
 
         self.psnt_connection.percent.emit(40)
 
@@ -85,7 +83,7 @@ class PostProcessingWorker(QtCore.QThread):
 
         step = 0
         steps = len(crop_names) * 2
-        points_per_side = self.calc_points_per_side(min_obj_width_meters=80)
+        points_per_side = 16  # self.calc_points_per_side(min_obj_width_meters=80)
         print(f"Points per side = {points_per_side}")
 
         generator = create_generator(self.sam_model, pred_iou_thresh=0.88, box_nms_thresh=0.7,

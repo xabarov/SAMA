@@ -13,6 +13,31 @@ settings = AppSettings()
 from shapely import Polygon
 
 
+def set_item_label(item, text=None, color=None):
+    if not item.label:
+        point_mass = hf.convert_item_polygon_to_point_mass(item.polygon())
+
+        if len(point_mass) > 2:
+            text_pos = hf.calc_label_pos(point_mass)
+            if not text:
+                text = item.text
+            if not color:
+                color = item.color
+
+            item.set_label(text, text_pos, color)
+
+            return item.get_label()
+
+
+def check_polygon_item(item):
+    point_mass = hf.convert_item_polygon_to_point_mass(item.polygon())
+
+    if len(point_mass) > 2:
+        return True
+
+    return False
+
+
 def make_label(text, text_pos, color):
     label_text_params = settings.read_label_text_params()
     label = QtWidgets.QGraphicsTextItem()
@@ -55,12 +80,74 @@ def get_color(color, cls_num, alpha, alpha_min=15, alpha_max=200):
     return (color[0], color[1], color[2], alpha)
 
 
+class AiPoint(QtWidgets.QGraphicsEllipseItem):
+    def __init__(self, parent, line_width=12, is_positive=True):
+        self.positive_point_pen = QPen(QColor(*config.POSITIVE_POINT_COLOR), line_width, QtCore.Qt.SolidLine)
+        self.negative_point_pen = QPen(QColor(*config.NEGATIVE_POINT_COLOR), line_width, QtCore.Qt.SolidLine)
+
+        self.positive_point_brush = QtGui.QBrush(QColor(*config.POSITIVE_POINT_COLOR), QtCore.Qt.SolidPattern)
+        self.negative_point_brush = QtGui.QBrush(QColor(*config.NEGATIVE_POINT_COLOR), QtCore.Qt.SolidPattern)
+
+        super().__init__(parent)
+
+        if is_positive:
+            self.setBrush(self.positive_point_brush)
+            self.setPen(self.positive_point_pen)
+        else:
+            self.setBrush(self.negative_point_brush)
+            self.setPen(self.negative_point_pen)
+
+    def get_label(self):
+        return None
+
+
+class RulerLine(QtWidgets.QGraphicsLineItem):
+    def __init__(self, parent, line_width=12, ruler_color=None):
+        if not ruler_color:
+            ruler_color = config.RULER_COLOR
+
+        self.ruler_pen = QPen(QColor(*ruler_color), line_width, QtCore.Qt.SolidLine)
+
+        super().__init__(parent)
+
+        self.setPen(self.ruler_pen)
+
+    def get_label(self):
+        return None
+
+
+class RulerPoint(QtWidgets.QGraphicsEllipseItem):
+    def __init__(self, parent, line_width=12, ruler_color=None):
+        if not ruler_color:
+            ruler_color = config.RULER_COLOR
+
+        self.ruler_brush = QtGui.QBrush(QColor(*ruler_color), QtCore.Qt.SolidPattern)
+
+        self.ruler_pen = QPen(QColor(*ruler_color), line_width, QtCore.Qt.SolidLine)
+
+        super().__init__(parent)
+
+        self.setBrush(self.ruler_brush)
+        self.setPen(self.ruler_pen)
+
+    def get_label(self):
+        return None
+
+
+class FatPoint(QtWidgets.QGraphicsEllipseItem):
+    def __init__(self, parent):
+        super().__init__(parent)
+
+    def get_label(self):
+        return None
+
+
 class GrEllipsLabel(QtWidgets.QGraphicsEllipseItem):
     """
     Эллипс с поддержкой номера класса, цветов и т.д.
     """
 
-    def __init__(self, parent=None, cls_num=0, color=None, alpha_percent=50, id=0, text=None, text_pos=None):
+    def __init__(self, parent=None, cls_num=0, color=None, alpha_percent=50, id=-1, text=None, text_pos=None):
 
         super().__init__(parent)
         self.cls_num = cls_num

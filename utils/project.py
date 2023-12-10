@@ -349,7 +349,7 @@ class ProjectHandler(QWidget):
 
     def delete_data_by_class_number(self, cls_num):
 
-        for im_name, image in self.data["images"]:  # image = {shapes:[], lrm:float, status:str}
+        for im_name, image in self.data["images"].items():  # image = {shapes:[], lrm:float, status:str}
             new_shapes = []
             for shape in image["shapes"]:
                 if shape["cls_num"] < cls_num:

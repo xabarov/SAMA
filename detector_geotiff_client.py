@@ -36,7 +36,7 @@ class DetectorGeoTIFFClient(DetectorClient):
 
         if self.tek_image_name.split('.')[-1] == 'tif':
             img_name = os.path.basename(self.map_geotiff_names[self.tek_image_path])
-            img_path = self.handle_temp_folder()
+            img_path = hf.handle_temp_folder(os.getcwd())
         else:
             img_name = os.path.basename(self.tek_image_path)
             img_path = self.dataset_dir
@@ -56,7 +56,7 @@ class DetectorGeoTIFFClient(DetectorClient):
                     jpg_path = self.map_geotiff_names[image_name]
                 else:
 
-                    temp_folder = self.handle_temp_folder()  # if not exist
+                    temp_folder = hf.handle_temp_folder(os.getcwd())  # if not exist
                     jpg_path = os.path.join(temp_folder,
                                             os.path.basename(image_name).split('.')[0] + '.jpg')
 
@@ -97,7 +97,7 @@ class DetectorGeoTIFFClient(DetectorClient):
                 image = cv2.imread(jpg_path)
             else:
 
-                temp_folder = self.handle_temp_folder()  # if not exist
+                temp_folder = hf.handle_temp_folder(os.getcwd())  # if not exist
                 jpg_path = os.path.join(temp_folder,
                                         os.path.basename(image_name).split('.')[0] + '.jpg')
 

@@ -1,6 +1,7 @@
 import datetime
 import math
 import os
+import shutil
 
 import cv2
 import geopandas as gpd
@@ -97,11 +98,13 @@ def merge_polygons(polygons):
 
     return polygons
 
+
 def is_polygon_self_intersected(pol):
     pol_shapely = convert_item_polygon_to_shapely(pol)
     if not pol_shapely.is_valid:
         return True
     return False
+
 
 def try_read_lrm(image_name, from_crs='epsg:3395', to_crs='epsg:4326'):
     ext = coords_calc.get_ext(image_name)
@@ -120,6 +123,40 @@ def try_read_lrm(image_name, from_crs='epsg:3395', to_crs='epsg:4326'):
     if ext == 'tif' or ext == 'tiff':
         gdal_data = get_data(image_name, print_info=False)
         return coords_calc.lrm_from_gdal_data(image_name, gdal_data, from_crs=from_crs, to_crs=to_crs)
+
+
+def clear_temp_folder(cwd=None):
+    if not cwd:
+        cwd = os.getcwd()
+    temp_folder = os.path.join(cwd, 'temp')
+    # print(temp_folder)
+    if os.path.exists(temp_folder):
+        try:
+            shutil.rmtree(temp_folder)
+        except:
+            print("Can't remove temp folder")
+
+
+def handle_temp_folder(cwd):
+    if not cwd:
+        cwd = os.getcwd()
+
+    temp_folder = os.path.join(cwd, 'temp')
+    if not os.path.exists(temp_folder):
+        os.makedirs(temp_folder)
+
+    return temp_folder
+
+
+def match_modifiers(shortcut_modifiers, pressed_modifiers):
+    if not shortcut_modifiers:
+        return True
+
+    for m in shortcut_modifiers:
+        if m not in pressed_modifiers:
+            return False
+
+    return True
 
 
 def read_min_max_stat(path_to_doverit):

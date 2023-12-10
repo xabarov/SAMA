@@ -74,6 +74,17 @@ class ImagesWidget(QListWidget):
     def move_to(self, index):
         self.setCurrentRow(index)
 
+    def move_to_image_name(self, name):
+        for i in range(self.count()):
+            if self.item(i).text() == name:
+                self.setCurrentRow(i)
+                return
+
+    def take_item_by_name(self, name):
+        for i in range(self.count()):
+            if self.item(i).text() == name:
+                return self.takeItem(i)
+
     def get_idx_before(self):
         if self.count() == 0:
             return -1

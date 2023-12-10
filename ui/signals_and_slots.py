@@ -10,6 +10,10 @@ class PolygonDeleteConnection(Ps2Core.QObject):
     id_delete = Signal(list)
 
 
+class ListOfPolygonsConnection(Ps2Core.QObject):
+    list_of_polygons = Signal(list)
+
+
 class PolygonEndDrawing(Ps2Core.QObject):
     on_end_drawing = Signal(bool)
 
@@ -60,4 +64,3 @@ class ViewMouseCoordsConnection(Ps2Core.QObject):
 
 class ProjectSaveLoadConn(Ps2Core.QObject):
     on_finished = Signal(bool)
-
