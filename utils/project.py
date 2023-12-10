@@ -340,12 +340,51 @@ class ProjectHandler(QWidget):
             del self.data["images"][image_name]
 
     def delete_data_by_class_name(self, cls_name):
+        name_to_name_map = {}  # Конвертер старого имени в новое
+        old_name_to_num = {}
+        new_labels = []
+
         for i, label in enumerate(self.data["labels"]):
-            if label == cls_name:
-                self.delete_data_by_class_number(i)
-                self.delete_label_color(label)
-                self.delete_label(label)
-                return
+
+            if label != cls_name:
+                name_to_name_map[label] = label
+                new_labels.append(label)
+            else:
+                name_to_name_map[label] = None
+
+            old_name_to_num[label] = i
+
+        new_name_to_num = {}
+        for i, label in enumerate(new_labels):
+            new_name_to_num[label] = i
+
+        num_to_num = {}
+        for label, old_num in old_name_to_num.items():
+            new_name = name_to_name_map[label]
+            if new_name:
+                new_num = new_name_to_num[new_name]
+                num_to_num[old_num] = new_num
+            else:
+                num_to_num[old_num] = -1
+
+        for im_name, image in self.data["images"].items():  # image = {shapes:[], lrm:float, status:str}
+            new_shapes = []
+            for shape in image["shapes"]:
+
+                new_num = num_to_num[shape["cls_num"]]
+                if new_num != -1:
+                    shape_new = {}
+                    shape_new["cls_num"] = new_num
+                    shape_new["points"] = shape["points"]
+                    shape_new["id"] = shape["id"]
+                    new_shapes.append(shape_new)
+
+            image["shapes"] = new_shapes
+            self.data["images"][im_name] = image
+
+        self.set_labels(new_labels)
+
+        self.delete_label_color(cls_name)
 
     def delete_data_by_class_number(self, cls_num):
 
@@ -365,43 +404,46 @@ class ProjectHandler(QWidget):
             self.data["images"][im_name] = image
 
     def change_data_class_from_to(self, from_cls_name, to_cls_name):
-        # Two stage:
-        # 1) change
-        from_cls_num = self.get_label_num(from_cls_name)
-        to_cls_num = self.get_label_num(to_cls_name)
+
+        name_to_name_map = {}  # Конвертер старого имени в новое
+        old_name_to_num = {}
+        new_labels = []
+
+        for i, label in enumerate(self.data["labels"]):
+
+            if label != from_cls_name:
+                name_to_name_map[label] = label
+                new_labels.append(label)
+            else:
+                name_to_name_map[label] = to_cls_name
+
+            old_name_to_num[label] = i
+
+        new_name_to_num = {}
+        for i, label in enumerate(new_labels):
+            new_name_to_num[label] = i
+
+        num_to_num = {}
+        for label, old_num in old_name_to_num.items():
+            new_name = name_to_name_map[label]
+            new_num = new_name_to_num[new_name]
+            num_to_num[old_num] = new_num
+
 
         for im_name, image in self.data["images"].items():  # image = {shapes:[], lrm:float, status:str}
             new_shapes = []
             for shape in image["shapes"]:
-
-                if shape["cls_num"] < from_cls_num:
-                    # save without change
-                    new_shapes.append(shape)
-
-                else:
-
-                    shape_new = {}
-
-                    if shape["cls_num"] == from_cls_num:
-                        shape_new["cls_num"] = to_cls_num
-                    else:
-                        # Все номера от from старше должны уменьшиться на 1
-                        shape_new["cls_num"] = shape["cls_num"] - 1
-
-                    shape_new["points"] = shape["points"]
-                    shape_new["id"] = shape["id"]
-                    new_shapes.append(shape_new)
+                shape_new = {}
+                shape_new["cls_num"] = num_to_num[shape["cls_num"]]
+                shape_new["points"] = shape["points"]
+                shape_new["id"] = shape["id"]
+                new_shapes.append(shape_new)
 
             image["shapes"] = new_shapes
             self.data["images"][im_name] = image
 
-        # labels
-        labels = []
 
-        for label in self.data["labels"]:
-            if label != from_cls_name:
-                labels.append(label)
-        self.set_labels(labels)
+        self.set_labels(new_labels)
 
         self.delete_label_color(from_cls_name)
 

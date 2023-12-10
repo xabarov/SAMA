@@ -740,16 +740,29 @@ class MainWindow(QtWidgets.QMainWindow):
                                                      txt,
                                                      last_opened_path,
                                                      'Images Files (*.jpeg *.png *.jpg *.tiff)')
-            if images and len(images) > 0:
+            if images and len(images) > 0:  # full names
                 self.settings.write_last_opened_path(os.path.dirname(images[0]))
+
                 for im in images:
                     im_base_name = os.path.basename(im)
-                    im_new_name = os.path.join(self.dataset_dir, im_base_name)
-                    if os.path.basename(im_new_name) != os.path.basename(im):
-                        shutil.copy(im, im_new_name)
 
-                    if im_base_name not in self.dataset_images:
-                        self.dataset_images.append(im_base_name)
+                    # Есть изображение с таким именем. Создаем новое уникальное имя
+                    if im_base_name in self.dataset_images:
+                        im_unique = hf.create_unique_image_name(im_base_name)
+
+                        if self.lang == 'RU':
+                            message = f"В датасете уже есть изображение с именем {im_base_name}. " \
+                                      f"Будет добавлено как {im_unique}"
+                        else:
+                            message = f"The dataset already has an image with the name {im_base_name}." \
+                                      f" Will be added as {im_unique}"
+                        self.info_message(message)
+
+                        im_base_name = im_unique
+
+                    im_new_name = os.path.join(self.dataset_dir, im_base_name)
+                    shutil.copy(im, im_new_name)
+                    self.dataset_images.append(im_base_name)
 
                 self.fill_images_label(self.dataset_images)
 
@@ -1132,13 +1145,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # 2. Обновляем все полигоны
         self.project_data.change_data_class_from_to(old_name, new_name)
 
-        # 3. Обновляем метки
-        self.save_view_to_project()
-
-        # 4. Переоткрываем изображение и рисуем полигоны из проекта
-        self.open_image(self.tek_image_path)
-        self.load_image_data(self.tek_image_name)
-        self.view.setFocus()
+        # 3. Переоткрываем изображение и рисуем полигоны из проекта
+        self.reload_image(is_tek_image_changed=False)
 
     def on_ask_del_all(self):
 
@@ -1152,14 +1160,8 @@ class MainWindow(QtWidgets.QMainWindow):
         # 2. Убираем имя класса из комбобокса
         self.del_label_from_combobox(del_name)
 
-        # 3. Обновляем метки
-        self.save_view_to_project()
-
-        # 4. Переоткрываем изображение и рисуем полигоны из проекта
-        self.open_image(self.tek_image_path)
-        self.load_image_data(self.tek_image_name)
-
-        self.view.setFocus()
+        # 3. Переоткрываем изображение и рисуем полигоны из проекта
+        self.reload_image(is_tek_image_changed=False)
 
     def del_label_from_combobox(self, label):
         cls_names = [self.cls_combo.itemText(i) for i in range(self.cls_combo.count())]
@@ -1787,7 +1789,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def polygon_pressed(self, pressed_id):
         self.window_state = WindowState.normal
 
-        if pressed_id == -1: # нажали не по полигону
+        if pressed_id == -1:  # нажали не по полигону
             items_selected = self.labels_on_tek_image.selectedItems()
             for item in items_selected:
                 item.setSelected(False)

@@ -128,39 +128,9 @@ class DetectorNuclear(Detector):
         """
         При завершении классификации.
         """
-
-        if self.scanning_mode:
-            self.scanning_mode = False
-
         self.mask_res = self.CNN_worker.mask_results
 
-        self.detected_shapes = []
-        for res in self.mask_res:
-
-            cls_num = res['cls_num']
-            points = res['points']
-
-            color = None
-            label = self.project_data.get_label_name(cls_num)
-            if label:
-                color = self.project_data.get_label_color(label)
-            if not color:
-                color = cls_settings.PALETTE[cls_num]
-
-            label_text_params = self.settings.read_label_text_params()
-            cls_name = self.cls_combo.itemText(cls_num)
-
-            if label_text_params['hide']:
-                text = None
-            else:
-                text = f"{cls_name} {res['conf']:0.2f}"
-
-            shape_id = self.view.add_polygon_to_scene(cls_num, points, color=color, text=text)
-
-            shape = {'id': shape_id, 'cls_num': cls_num, 'points': points, 'conf': res['conf']}
-            self.detected_shapes.append(shape)
-
-        self.save_view_to_project()
+        super(DetectorNuclear, self).on_cnn_finished()
 
         message = f"Найдено {len(self.detected_shapes)} объектов" if self.settings.read_lang() == 'RU' else f"{len(self.detected_shapes)} objects has been detected"
 

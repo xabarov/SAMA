@@ -622,6 +622,7 @@ class Annotator(MainWindow):
         """
 
         self.started_cnn = self.settings.read_cnn_model()
+        self.detected_image = self.tek_image_name
 
         conf_thres_set = self.settings.read_conf_thres()
         iou_thres_set = self.settings.read_iou_thres()
@@ -665,6 +666,14 @@ class Annotator(MainWindow):
 
         if self.scanning_mode:
             self.scanning_mode = False
+
+        if self.detected_image != self.tek_image_name:
+            # куда-то переключили во время детекции
+            self.save_view_to_project()  # сохраняем что успели наделать на том изображении
+            self.tek_image_name = self.detected_image
+            self.tek_image_path = os.path.join(self.dataset_dir, self.detected_image)
+            self.reload_image(is_tek_image_changed=True)
+            self.images_list_widget.move_to_image_name(self.detected_image)
 
         self.detected_shapes = []
         for res in self.CNN_worker.mask_results:
