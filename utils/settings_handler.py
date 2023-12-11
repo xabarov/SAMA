@@ -22,6 +22,9 @@ shortcuts = {
                     'name_ru': 'Закончить создание метки', 'shortcut_key_eng': 32, 'shortcut_key_ru': 32},
     'fit': {'appearance': 'Ctrl+F', 'modifier': ['Ctrl'], 'name_eng': 'Fit image size',
             'name_ru': 'Подогнать под размер окна', 'shortcut_key_eng': 70, 'shortcut_key_ru': 1040},
+    'hand_move': {'appearance': 'Ctrl+Space', 'modifier': ['Ctrl'], 'name_eng': 'Hand navigator',
+                  'name_ru': 'Перемещение рукой', 'shortcut_key_eng': 32, 'shortcut_key_ru': 32},
+
     'gd': {'appearance': 'Ctrl+G', 'modifier': ['Ctrl'], 'name_eng': 'Create labels by GroundingDINO+SAM',
            'name_ru': 'Создание полигонов с помощью GroundingDINO+SAM', 'shortcut_key_eng': 71,
            'shortcut_key_ru': 1055},

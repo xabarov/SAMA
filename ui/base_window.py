@@ -5,7 +5,7 @@ import sys
 import cv2
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtGui import QMovie, QIcon, QKeySequence, QColor, QPainter
+from PyQt5.QtGui import QMovie, QIcon, QKeySequence, QColor, QPainter, QCursor
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, QToolButton, QLabel, \
     QColorDialog, QProgressBar, QApplication
@@ -35,7 +35,7 @@ from utils.importer import Importer
 from utils.project import ProjectHandler
 from utils.settings_handler import AppSettings
 from utils.settings_handler import shortcuts as shortcuts_init
-from utils.states import DrawState, WindowState
+from utils.states import DrawState, WindowState, ViewState
 
 basedir = os.path.dirname(__file__)
 
@@ -196,11 +196,12 @@ class MainWindow(QtWidgets.QMainWindow):
         # print(shortcuts)
 
         for sc, act in zip(
-                ['copy', 'crop', 'del', 'end_drawing', 'fit', 'image_after', 'image_before',
+                ['copy', 'crop', 'del', 'end_drawing', 'fit', 'hand_move', 'image_after', 'image_before',
                  'open_project', 'paste', 'polygon', 'print', 'quit',
                  'save_project', 'settings', 'start_drawing', 'undo', 'zoom_in', 'zoom_out', 'change_polygon_label',
                  'hide_labels'],
                 [self.copyAct, self.selectAreaAct, self.deleteLabelAct, self.stopDrawAct, self.fitToWindowAct,
+                 self.handMoveWindowAct,
                  self.goNextAct, self.goBeforeAct, self.openProjAct, self.pasteAct, self.polygonAct, self.printAct,
                  self.exitAct,
                  self.saveProjAct, self.settingsAct, self.startDrawAct, self.undoAct, self.zoomInAct, self.zoomOutAct,
@@ -273,6 +274,10 @@ class MainWindow(QtWidgets.QMainWindow):
             "Подогнать под размер окна" if self.lang == 'RU' else "Fit to window size",
             self, enabled=False,
             triggered=self.fitToWindow)
+        self.handMoveWindowAct = QAction(
+            "Перемещение рукой" if self.lang == 'RU' else "Hand navigation",
+            self, enabled=False, checkable=True,
+            triggered=self.on_hand_move_clicked)
 
         self.aboutAct = QAction("О модуле" if self.lang == 'RU' else "About", self,
                                 triggered=self.about)
@@ -291,7 +296,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                  triggered=self.square_pressed,
                                  checkable=True)
         self.hideLabelsAct = QAction("Скрыть разметку" if self.lang == 'RU' else "Hide labels", self, enabled=False,
-                                     triggered=self.toggle_hide_labels)
+                                     triggered=self.toggle_hide_labels, checkable=True)
 
         # Данные о текущем разметчике
         self.addUserAct = QAction(
@@ -390,6 +395,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.viewMenu.addAction(self.zoomOutAct)
         self.viewMenu.addSeparator()
         self.viewMenu.addAction(self.fitToWindowAct)
+        self.viewMenu.addAction(self.handMoveWindowAct)
         self.viewMenu.addSeparator()
         self.viewMenu.addAction(self.selectAreaAct)
         self.viewMenu.addAction(self.saveSelectedPolygonAsImage)
@@ -447,6 +453,7 @@ class MainWindow(QtWidgets.QMainWindow):
         toolBar.addAction(self.zoomInAct)
         toolBar.addAction(self.zoomOutAct)
         toolBar.addAction(self.fitToWindowAct)
+        toolBar.addAction(self.handMoveWindowAct)
         toolBar.addSeparator()
         # toolBar.mouseMoveEvent = lambda e: print(e.x(), e.y())
         toolBar.setMovable(True)
@@ -1262,6 +1269,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.zoomInAct.setIcon(QIcon(self.icon_folder + "/zoom-in.png"))
         self.zoomOutAct.setIcon(QIcon(self.icon_folder + "/zoom-out.png"))
         self.fitToWindowAct.setIcon(QIcon(self.icon_folder + "/fit.png"))
+        self.handMoveWindowAct.setIcon(QIcon(self.icon_folder + "/open-hand.png"))
+
         self.aboutAct.setIcon(QIcon(self.icon_folder + "/info.png"))
         self.settingsAct.setIcon(QIcon(self.icon_folder + "/settings.png"))
 
@@ -1316,6 +1325,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def toggle_act(self, is_active):
 
         self.fitToWindowAct.setEnabled(is_active)
+        self.handMoveWindowAct.setEnabled(is_active)
+        self.handMoveWindowAct.setChecked(not is_active)
+
         self.zoomInAct.setEnabled(is_active)
         self.zoomOutAct.setEnabled(is_active)
 
@@ -1331,6 +1343,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.circleAct.setEnabled(is_active)
         self.squareAct.setEnabled(is_active)
         self.hideLabelsAct.setEnabled(is_active)
+        self.hideLabelsAct.setChecked(not is_active)
 
         self.exportAnnToYoloBoxAct.setEnabled(is_active)
         self.exportAnnToYoloSegAct.setEnabled(is_active)
@@ -1769,6 +1782,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def start_view_drawing(self, draw_state):
 
+        self.toggle_act(True)
+
         self.window_state = WindowState.drawing
 
         self.set_labels_color()
@@ -1810,19 +1825,6 @@ class MainWindow(QtWidgets.QMainWindow):
     def on_polygon_delete(self, delete_ids):
         self.window_state = WindowState.normal
         self.save_view_to_project()
-
-    def hide_labels(self):
-        print("Labels will be hided now")
-
-    def show_hided_labels(self):
-        print("Labels will be showed now")
-
-    def toggle_hide_labels(self):
-
-        if self.window_state == WindowState.hided_polygons:
-            self.show_hided_labels()
-        else:
-            self.hide_labels()
 
     def polygon_tool_pressed(self):
 
@@ -1907,6 +1909,8 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Старт рисования метки
         """
+        self.toggle_act(True)
+
         if not self.image_set:
             if self.lang == 'RU':
                 message = "Подождите окончания загрузки изображения"
@@ -2199,6 +2203,28 @@ class MainWindow(QtWidgets.QMainWindow):
         message = f"Число изображений со статусом approved: " if self.lang == 'RU' else f"Approved images count: "
         message += f"{approved_count} из {len(self.dataset_images)}"
         self.info_message(message)
+
+    def on_hand_move_clicked(self):
+        if self.view.view_state == ViewState.hand_move:
+            self.view.set_view_state(ViewState.normal)
+            self.labels_on_tek_image.setEnabled(True)
+            self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+        else:
+            self.view.set_view_state(ViewState.hand_move)
+            self.labels_on_tek_image.setEnabled(False)
+            self.labels_count_conn.on_labels_count_change.emit(0)
+
+    def toggle_hide_labels(self):
+
+        if self.view.view_state == ViewState.hide_polygons:
+            # Открыть полигоны
+            self.view.set_view_state(ViewState.normal)
+            self.labels_on_tek_image.setEnabled(True)
+            self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+        else:
+            self.view.set_view_state(ViewState.hide_polygons)
+            self.labels_on_tek_image.setEnabled(False)
+            self.labels_count_conn.on_labels_count_change.emit(0)
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QListWidget
 
 from ui.list_widgets.list_item_custom import ListWidgetItemCustomSort
-
+from PyQt5.QtCore import Qt
 
 class LabelsWidget(QListWidget):
 
@@ -11,6 +11,8 @@ class LabelsWidget(QListWidget):
     def addItem(self, text, status=None) -> None:
         item = ListWidgetItemCustomSort(text)
         super().addItem(item)
+
+
 
     def get_next_idx(self):
         if self.count() == 0:

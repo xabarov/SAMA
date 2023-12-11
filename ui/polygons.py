@@ -66,7 +66,7 @@ def make_label(text, text_pos, color):
 def get_color(color, cls_num, alpha, alpha_min=15, alpha_max=200):
     """
     Определение и преобразование цвета
-    Нормализация и ограницение прозрачности
+    Нормализация и ограничение прозрачности
     """
     if not color:
         if cls_num > len(config.COLORS) - 1:
@@ -155,6 +155,10 @@ class GrEllipsLabel(QtWidgets.QGraphicsEllipseItem):
         self.alpha_percent = alpha_percent
         self.color = get_color(color, cls_num, alpha_percent)
         self.label = None
+
+        self.old_color = None
+        self.old_label_text_color = None
+
         self.text = text
         self.text_pos = text_pos
 
@@ -173,6 +177,23 @@ class GrEllipsLabel(QtWidgets.QGraphicsEllipseItem):
         self.label = make_label(text, text_pos, self.color)
         self.text = text
         self.text_pos = text_pos
+
+    def hide_color(self):
+        self.old_color = self.color
+        self.color = self.color[0], self.color[1], self.color[2], 0
+        self.setBrush(QtGui.QBrush(QColor(*self.color), QtCore.Qt.SolidPattern))
+        self.setPen(QPen(QColor(*self.color), 1, QtCore.Qt.SolidLine))
+        if self.label:
+            self.old_label_text_color = self.label.defaultTextColor()
+            self.label.setDefaultTextColor(QColor(*self.color))
+
+    def get_color_back(self, line_width=5):
+        if self.old_color:
+            self.color = self.old_color
+            self.setBrush(QtGui.QBrush(QColor(*self.color), QtCore.Qt.SolidPattern))
+            self.setPen(QPen(QColor(*self.color), line_width, QtCore.Qt.SolidLine))
+            if self.label:
+                self.label.setDefaultTextColor(QColor(*self.old_label_text_color))
 
     def set_color(self, color=None, cls_num=None, alpha_percent=None):
         if not color:
@@ -266,6 +287,9 @@ class GrPolygonLabel(QtWidgets.QGraphicsPolygonItem):
         self.alpha_percent = alpha_percent
         self.color = get_color(color, cls_num, alpha_percent)
         self.label = None
+        self.old_color = None
+        self.old_label_text_color = None
+
         self.text = text
         self.text_pos = text_pos
 
@@ -281,6 +305,22 @@ class GrPolygonLabel(QtWidgets.QGraphicsPolygonItem):
 
     def get_label(self):
         return self.label
+
+    def hide_color(self):
+        self.old_color = self.color
+        self.color = self.color[0], self.color[1], self.color[2], 0
+        self.setBrush(QtGui.QBrush(QColor(*self.color), QtCore.Qt.SolidPattern))
+        self.setPen(QPen(QColor(*self.color), 1, QtCore.Qt.SolidLine))
+        if self.label:
+            self.label.hide()
+
+    def get_color_back(self, line_width=5):
+        if self.old_color:
+            self.color = self.old_color
+            self.setBrush(QtGui.QBrush(QColor(*self.color), QtCore.Qt.SolidPattern))
+            self.setPen(QPen(QColor(*self.color), line_width, QtCore.Qt.SolidLine))
+            if self.label:
+                self.label.show()
 
     def set_color(self, color=None, cls_num=None, alpha_percent=None):
         if not color:

@@ -103,8 +103,11 @@ def create_icons(path_to_source_icon, source_color_rgba, save_path=None):
                     pixelMap[i, j] = (0, 0, 0, 0)
                 pixelsNew[i, j] = pixelMap[i, j]
 
-        img_name = theme.split(".")[0] + ".png"
-        img_name = os.path.join(save_path, img_name)
+        folder_name = theme.split(".")[0]
+        folder_name = os.path.join(save_path, folder_name)
+        if not os.path.exists(folder_name):
+            os.makedirs(folder_name)
+        img_name = os.path.join(folder_name, os.path.basename(path_to_source_icon))
         img.save(img_name)
         img.close()
 
@@ -113,5 +116,5 @@ def create_icons(path_to_source_icon, source_color_rgba, save_path=None):
 
 if __name__ == "__main__":
     # create_icons('play-button.png', )
-    # create_icons('../ui/icons/font_color.png', (0, 0, 0, 255))
-    create_icons_from_folder("../ui/icons\dark_amber", (255, 215, 64, 255), save_path="icons")
+    create_icons('../ui/icons/open-hand.png', (0, 0, 0, 255))
+    # create_icons_from_folder("../ui/icons\dark_amber", (255, 215, 64, 255), save_path="icons")

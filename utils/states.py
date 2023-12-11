@@ -17,7 +17,9 @@ class ViewState(Enum):
     rubber_band = 3  # выделение области изображения
     ruler = 4  # рулетка
     drag = 5  # перемещение полигона
-    vertex_move = 6
+    vertex_move = 6  # перемещение вершины полигона
+    hand_move = 7  # перемещение области изображения "рукой"
+    hide_polygons = 8  # скрываем полигоны
 
 
 class DrawState(Enum):
@@ -32,7 +34,6 @@ class DrawState(Enum):
     ai_mask = 5
     grounding_dino = 6
     rubber_band = 7
-
 
 
 class DragState(Enum):

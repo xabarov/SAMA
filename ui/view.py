@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtGui import QPolygonF, QColor, QPen, QPainter, QPixmap, QFont
+from PyQt5.QtGui import QPolygonF, QColor, QPen, QPainter, QPixmap, QFont, QCursor
 from PyQt5.QtWidgets import QAction, QMenu, QGraphicsItem, QGraphicsSimpleTextItem
 from PyQt5.QtWidgets import QApplication
 from shapely import Polygon, Point
@@ -61,6 +61,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         scene.addItem(self._pixmap_item)
 
         self.buffer = []
+        self.view_state = ViewState.normal
         self.init_objects_and_params()
 
         if not active_color:
@@ -93,7 +94,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         Создание объектов по умолчанию
         """
 
-        self.view_state = ViewState.normal
+        self.set_view_state(ViewState.normal)
         self.drag_state = DragState.no
         self.draw_state = DrawState.polygon
 
@@ -109,6 +110,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.dragged_vertex = None
         self.ellipse_start_point = None
         self.box_start_point = None
+        self.hand_start_point = None
 
         self.pressed_polygon = None
 
@@ -120,6 +122,47 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.segments = []
 
         self.last_added = []
+
+    def set_view_state(self, state):
+
+        self.viewport().setCursor(QCursor(QtCore.Qt.ArrowCursor))
+
+        if state == ViewState.hand_move:
+            self.view_state = state
+            self.hand_start_point = None
+            self.drag_state = DragState.no
+            self.clear_ai_points()
+            self.remove_fat_point_from_scene()
+            self.active_group.clear()
+            self.polygon_clicked.id_pressed.emit(-1)
+            self.viewport().setCursor(QCursor(QtCore.Qt.OpenHandCursor))
+            return
+
+        if state == ViewState.hide_polygons:
+            # скрыть полигоны
+            self.view_state = state
+            self.active_group.clear()
+            self.polygon_clicked.id_pressed.emit(-1)
+            self.toggle_all_polygons_alpha(is_hide=True)
+            return
+
+        if self.view_state == ViewState.hide_polygons:
+            # ранее они были скрыты - показать
+            self.view_state = state
+            self.toggle_all_polygons_alpha(is_hide=False)
+            return
+
+        self.view_state = ViewState.normal
+
+    def toggle_all_polygons_alpha(self, is_hide=True):
+        for item in self.scene().items():
+            # ищем, не попали ли уже в нарисованный полигон
+            try:
+                pol = item.polygon()
+                if pol:
+                    item.hide_color() if is_hide else item.get_color_back()
+            except:
+                pass
 
     def start_circle_progress(self):
         w = self.scene().width()
@@ -179,6 +222,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         self.remove_items_from_active_group()
         self.active_group.clear()
+        self.polygon_clicked.id_pressed.emit(-1)
 
         self.polygon_end_drawing.on_end_drawing.emit(True)
 
@@ -203,6 +247,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         self.remove_items_from_active_group()
         self.active_group.clear()
+        self.polygon_clicked.id_pressed.emit(-1)
 
         self.polygon_delete.id_delete.emit(delete_ids)
 
@@ -589,6 +634,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
         sp = self.mapToScene(event.pos())
         lp = self.pixmap_item.mapFromScene(sp)
 
+        if self.view_state == ViewState.hide_polygons:
+            return
+
         if self.draw_state == DrawState.rubber_band:
 
             if not self.box_start_point:
@@ -627,6 +675,13 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 self.ruler_points.append(lp)
                 self.draw_ruler_point(lp)
 
+            return
+
+        if self.view_state == ViewState.hand_move:
+            if not self.hand_start_point:
+                self.hand_start_point = event.pos()
+                self.drag_state = DragState.start
+                self.viewport().setCursor(QCursor(QtCore.Qt.ClosedHandCursor))
             return
 
         if self.view_state == ViewState.draw:
@@ -697,6 +752,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
                     else:
                         self.active_group.clear()
+                        self.polygon_clicked.id_pressed.emit(-1)
 
             else:
 
@@ -822,6 +878,13 @@ class GraphicsView(QtWidgets.QGraphicsView):
         lp = self.pixmap_item.mapFromScene(sp)
         self.mouse_move_conn.on_mouse_move.emit(lp.x(), lp.y())
 
+        if self.view_state == ViewState.hide_polygons:
+            return
+
+        if self.view_state == ViewState.hand_move:
+            self.drag_state = DragState.in_process
+            return
+
         if self.draw_state == DrawState.rubber_band:
             if self.drag_state in [DragState.start, DragState.in_process]:
                 width = abs(lp.x() - self.box_start_point.x())
@@ -915,6 +978,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
                 self.remove_items_from_active_group()
                 self.active_group.clear()
+                self.polygon_clicked.id_pressed.emit(-1)
 
                 return points
 
@@ -922,6 +986,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if len(self.active_group) == 1:
             active_item = self.active_group[0]
             self.active_group.clear()
+            self.polygon_clicked.id_pressed.emit(-1)
             points = []
             for p in active_item.polygon():
                 points.append([int(p.x()), int(p.y())])
@@ -983,6 +1048,27 @@ class GraphicsView(QtWidgets.QGraphicsView):
         sp = self.mapToScene(event.pos())
         lp = self.pixmap_item.mapFromScene(sp)
 
+        if self.view_state == ViewState.hide_polygons:
+            return
+
+        if self.view_state == ViewState.hand_move and self.drag_state == DragState.in_process:
+            lp = event.pos()
+            dx = int(lp.x() - self.hand_start_point.x())
+            dy = int(lp.y() - self.hand_start_point.y())
+
+            hpos = self.horizontalScrollBar().value()
+            self.horizontalScrollBar().setValue(hpos - dx)
+
+            vpos = self.verticalScrollBar().value()
+            self.verticalScrollBar().setValue(vpos - dy)
+
+            self.hand_start_point = None
+            self.viewport().setCursor(QCursor(QtCore.Qt.OpenHandCursor))
+
+            self.drag_state = DragState.no
+
+            return
+
         if self.draw_state == DrawState.rubber_band:
             if self.drag_state == DragState.in_process:
 
@@ -990,7 +1076,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
                 if len(self.active_group) == 1:
                     active_item = self.active_group[0]
-                    # self.active_group.clear()
+
                     self.crop_by_pixmap_size(active_item)
 
                     points = []
@@ -999,6 +1085,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
                     self.remove_items_from_active_group()
                     self.active_group.clear()
+                    self.polygon_clicked.id_pressed.emit(-1)
 
                     self.list_of_polygons_conn.list_of_polygons.emit(points)
 
@@ -1042,6 +1129,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 active_item = self.active_group[0]
 
                 self.active_group.clear()
+                self.polygon_clicked.id_pressed.emit(-1)
                 self.remove_item(active_item, is_delete_id=False)
 
                 polygon_new = active_item.convert_to_polygon(points_count=30)
@@ -1070,6 +1158,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
                 if self.draw_state == DrawState.box:
                     self.active_group.clear()  # Только здесь. Иначе AiMask превратится в Бокс !!!
+                    self.polygon_clicked.id_pressed.emit(-1)
                     # Box doesn't have a label
                     text = active_item.text
                     if text:
@@ -1088,7 +1177,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         # draw_state = DrawState.polygon
 
     def reset_draw_state(self):
-        self.view_state = ViewState.normal
+        self.set_view_state(ViewState.normal)
         self.drag_state = DragState.no
         self.draw_state = DrawState.no
 
@@ -1241,12 +1330,11 @@ class GraphicsView(QtWidgets.QGraphicsView):
         #   - сохранить на сцену (они и так сохранятся, поскольку уже добавлены)
         #   - приписать текст
         #   - очистить active_group
-        for item in self.active_group:
+        self.draw_state = DrawState.no
+        self.drag_state = DragState.no
+        self.viewport().setCursor(QCursor(QtCore.Qt.ArrowCursor))
 
-            if item.is_self_intersected():
-                self.info_conn.info_message.emit(
-                    "Polygon self-intersected" if self.lang == 'ENG' else "Полигон не должен содержать самопересечений. Удален")
-                self.remove_item(item, is_delete_id=True)
+        for item in self.active_group:
 
             if check_polygon_item(item):
                 if item.is_self_intersected():
@@ -1342,6 +1430,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         self.remove_items_from_active_group()
         self.active_group.clear()
+        self.polygon_clicked.id_pressed.emit(-1)
 
         self.remove_fat_point_from_scene()
         if self.draw_state == DrawState.ai_points:
@@ -1363,6 +1452,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
             if not check_polygon_item(active_item):
                 self.remove_item(active_item, is_delete_id=True)
                 self.active_group.clear()
+                self.polygon_clicked.id_pressed.emit(-1)
                 return
 
             if active_item.is_self_intersected():
@@ -1370,6 +1460,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     "Polygon self-intersected" if self.lang == 'ENG' else "Полигон не должен содержать самопересечений. Удален")
                 self.remove_item(active_item, is_delete_id=True)
                 self.active_group.clear()
+                self.polygon_clicked.id_pressed.emit(-1)
                 return
 
             self.crop_by_pixmap_size(active_item)
@@ -1384,6 +1475,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     self.scene().addItem(label)
 
             self.active_group.clear()
+            self.polygon_clicked.id_pressed.emit(-1)
 
     def contextMenuEvent(self, event: QtGui.QContextMenuEvent) -> None:
 
