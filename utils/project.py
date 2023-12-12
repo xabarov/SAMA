@@ -109,7 +109,11 @@ class ProjectHandler(QWidget):
     def get_image_status(self, image_name):
         im = self.get_image_data(image_name)  # im = {shapes:[], lrm:float, status:str}
         if im:
-            return im.get("status", None)
+            status = im.get("status", None)
+            if status:
+                return status
+            self.set_image_status(image_name, 'empty')
+            return 'empty'
 
     def get_all_images_info(self):
         res = {}

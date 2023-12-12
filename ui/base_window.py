@@ -199,13 +199,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 ['copy', 'crop', 'del', 'end_drawing', 'fit', 'hand_move', 'image_after', 'image_before',
                  'open_project', 'paste', 'polygon', 'print', 'quit',
                  'save_project', 'settings', 'start_drawing', 'undo', 'zoom_in', 'zoom_out', 'change_polygon_label',
-                 'hide_labels'],
+                 'hide_labels', 'toggle_image_status'],
                 [self.copyAct, self.selectAreaAct, self.deleteLabelAct, self.stopDrawAct, self.fitToWindowAct,
                  self.handMoveWindowAct,
                  self.goNextAct, self.goBeforeAct, self.openProjAct, self.pasteAct, self.polygonAct, self.printAct,
                  self.exitAct,
                  self.saveProjAct, self.settingsAct, self.startDrawAct, self.undoAct, self.zoomInAct, self.zoomOutAct,
-                 self.changePolygonLabelAct, self.hideLabelsAct]):
+                 self.changePolygonLabelAct, self.hideLabelsAct, self.toggleImageStatusAct]):
             shortcut = shortcuts.get(sc, shortcuts_init[sc])
             appearance = shortcut['appearance']
             if appearance == 'Ctrl+Plus':
@@ -375,6 +375,10 @@ class MainWindow(QtWidgets.QMainWindow):
             "Линейка" if self.lang == 'RU' else "Ruler", self,
             enabled=False, triggered=self.ruler_pressed, checkable=True)
 
+        self.toggleImageStatusAct = QAction(
+            "Переключить статус изображения" if self.lang == 'RU' else "Change image status", self,
+            enabled=False, triggered=self.on_toggle_image_status)
+
         self.reset_shortcuts()
 
     def createMenus(self):
@@ -416,19 +420,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.annotatorExportMenu.addAction(self.exportAnnToYoloSegAct)
         self.annotatorExportMenu.addAction(self.exportAnnToCOCOAct)
 
-        self.annotatorMenu.addMenu(self.annotatorExportMenu)
-
         self.annotatorImportMenu = QMenu("Импорт" if self.lang == 'RU' else "Import", self)
         self.annotatorImportMenu.addAction(self.importAnnFromYoloBoxAct)
         self.annotatorImportMenu.addAction(self.importAnnFromYoloSegAct)
         self.annotatorImportMenu.addAction(self.importAnnFromCOCOAct)
 
-        self.annotatorMenu.addMenu(self.annotatorImportMenu)
-
-        self.annotatorMenu.addAction(self.load_lrm_data_act)
         self.annotatorMenu.addAction(self.changePolygonLabelAct)
         self.annotatorMenu.addAction(self.hideLabelsAct)
+        self.annotatorMenu.addAction(self.toggleImageStatusAct)
 
+        # Dataset menu
+        self.datasetMenu = QMenu("Датасет" if self.lang == 'RU' else "Dataset", self)
+        self.datasetMenu.addMenu(self.annotatorImportMenu)
+        self.datasetMenu.addMenu(self.annotatorExportMenu)
+        self.datasetMenu.addAction(self.load_lrm_data_act)
         #
         self.settingsMenu = QMenu("Настройки" if self.lang == 'RU' else "Settings", self)
         self.settingsMenu.addAction(self.settingsAct)
@@ -441,6 +446,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menuBar().addMenu(self.viewMenu)
 
         self.menuBar().addMenu(self.annotatorMenu)
+        self.menuBar().addMenu(self.datasetMenu)
         self.menuBar().addMenu(self.settingsMenu)
         self.menuBar().addMenu(self.helpMenu)
 
@@ -784,6 +790,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
 
     def del_im_from_proj_clicked(self):
+        if self.lang:
+            text = f'Удалить изображение {self.tek_image_name} из проекта?'
+        else:
+            text = f'Delete image {self.tek_image_name} from project?'
+
+        title = 'Удаление изображения' if self.lang == 'RU' else 'Image delete'
+
+        cancel_text = 'Отмена' if self.lang == 'RU' else 'Cancel'
+        ok_text = 'Удалить' if self.lang == 'RU' else 'Delete'
+
+        self.del_im_box = OkCancelDialog(self, title=title, text=text,
+                                         on_ok=self.on_del_im_from_project_ok, ok_text=ok_text, cancel_text=cancel_text)
+        self.del_im_box.setMinimumWidth(300)
+
+    def on_del_im_from_project_ok(self):
+
+        self.del_im_box.hide()
 
         if self.tek_image_name:
 
@@ -820,14 +843,17 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.tek_image_name:
             tek_im_name = self.tek_image_name
 
+            tek_status = self.project_data.get_image_status(self.tek_image_name)
+            variants = [var for var in ['empty', 'in_work', 'approve'] if var != tek_status]
+
             last_user = self.project_data.get_image_last_user(tek_im_name)
             if not last_user:
                 last_user = ""
             else:
                 if self.lang == 'RU':
-                    last_user = f"Последние правки сделаны {last_user}"
+                    last_user = f"Последние правки сделаны: {last_user}. Текущий статус: {tek_status}"
                 else:
-                    last_user = f"Last edit user {last_user}"
+                    last_user = f"Last edit user: {last_user}. Current status: {tek_status}"
 
             if self.lang == 'RU':
                 title = f'Изменение статуса изображения {tek_im_name}'
@@ -835,7 +861,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 title = f'Change image {tek_im_name} status '
 
             text = f'Выберите новый\nстатус изображения: ' if self.lang == 'RU' else f'Choose new image status: '
-            variants = ['empty', 'in_work', 'approve']
 
             theme = self.settings.read_theme()
 
@@ -845,6 +870,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.change_image_status_dialog.setMinimumWidth(500)
 
             self.change_image_status_dialog.okBtn.clicked.connect(self.on_change_image_status_ok)
+            self.change_image_status_dialog.cancelBtn.clicked.connect(self.change_image_status_dialog.close)
             self.change_image_status_dialog.show()
 
     def on_change_image_status_ok(self):
@@ -1275,6 +1301,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.zoomOutAct.setIcon(QIcon(self.icon_folder + "/zoom-out.png"))
         self.fitToWindowAct.setIcon(QIcon(self.icon_folder + "/fit.png"))
         self.handMoveWindowAct.setIcon(QIcon(self.icon_folder + "/open-hand.png"))
+        self.toggleImageStatusAct.setIcon(QIcon(self.icon_folder + "/clipboard.png"))
 
         self.aboutAct.setIcon(QIcon(self.icon_folder + "/info.png"))
         self.settingsAct.setIcon(QIcon(self.icon_folder + "/settings.png"))
@@ -1331,6 +1358,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.fitToWindowAct.setEnabled(is_active)
         self.handMoveWindowAct.setEnabled(is_active)
+        self.toggleImageStatusAct.setEnabled(is_active)
         self.handMoveWindowAct.setChecked(not is_active)
 
         self.zoomInAct.setEnabled(is_active)
@@ -2230,6 +2258,17 @@ class MainWindow(QtWidgets.QMainWindow):
             self.view.set_view_state(ViewState.hide_polygons)
             self.labels_on_tek_image.setEnabled(False)
             self.labels_count_conn.on_labels_count_change.emit(0)
+
+    def on_toggle_image_status(self):
+        variants = ['empty', 'in_work', 'approve']
+        status = self.project_data.get_image_status(self.tek_image_name)
+        index = variants.index(status)
+        next_index = 0 if index == len(variants) - 1 else index + 1
+        new_status = variants[next_index]
+        self.project_data.set_image_status(self.tek_image_name, new_status)
+        self.project_data.set_image_last_user(self.tek_image_name, self.settings.read_username())
+        self.images_list_widget.set_status(status=new_status)
+        self.reset_image_panel_progress_bar()
 
 
 if __name__ == '__main__':

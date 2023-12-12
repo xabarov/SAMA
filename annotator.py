@@ -231,10 +231,11 @@ class Annotator(MainWindow):
         self.classifierMenu.addAction(self.detectAct)
         self.classifierMenu.addAction(self.detectAllImagesAct)
         self.classifierMenu.addAction(self.syncLabelsAct)
-        self.annotatorMenu.addAction(self.balanceAct)
+        self.datasetMenu.addAction(self.balanceAct)
 
         self.menuBar().clear()
-        for menu in [self.fileMenu, self.viewMenu, self.classifierMenu, self.annotatorMenu, self.settingsMenu,
+        for menu in [self.fileMenu, self.viewMenu, self.classifierMenu, self.annotatorMenu, self.datasetMenu,
+                     self.settingsMenu,
                      self.helpMenu]:
             self.menuBar().addMenu(menu)
 

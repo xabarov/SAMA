@@ -1,0 +1,23 @@
+description: Ultralytics YOLOv8x-seg model trained on aes_yolo_seg.yaml
+author: Ultralytics
+license: AGPL-3.0 https://ultralytics.com/license
+version: 8.0.119
+stride: 32
+task: segment
+batch: 1
+imgsz:
+- 1280
+- 1280
+names:
+  0: ro_pf
+  1: ro_sf
+  2: mz_v
+  3: mz_ot
+  4: ru_ot
+  5: bns_ot
+  6: gr_b
+  7: gr_vent_kr
+  8: gr_vent_pr
+  9: gr_b_act
+  10: discharge
+  11: diesel
