@@ -621,6 +621,8 @@ class Annotator(MainWindow):
         img_path - путь к изображению
         """
 
+        self.open_polygons_and_off_hand()
+
         self.started_cnn = self.settings.read_cnn_model()
         self.detected_image = self.tek_image_name
 
@@ -763,6 +765,8 @@ class Annotator(MainWindow):
         """
         Запуск обнаружения объектов по текстовому prompt GroundingDINO
         """
+        self.open_polygons_and_off_hand()
+
         prompt = self.prompt_input_dialog.getPrompt()
         self.prompt_input_dialog.close()
 
@@ -797,6 +801,7 @@ class Annotator(MainWindow):
         """
         Запуск классификации на всех изображениях датасета
         """
+        self.open_polygons_and_off_hand()
 
         self.started_cnn = self.settings.read_cnn_model()
 

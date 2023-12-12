@@ -752,23 +752,28 @@ class MainWindow(QtWidgets.QMainWindow):
 
                 for im in images:
                     im_base_name = os.path.basename(im)
+                    im_folder = os.path.dirname(im)
+                    dataset_folder = os.path.dirname(self.tek_image_name)
 
-                    # Есть изображение с таким именем. Создаем новое уникальное имя
-                    if im_base_name in self.dataset_images:
-                        im_unique = hf.create_unique_image_name(im_base_name)
+                    if im_folder != dataset_folder:
 
-                        if self.lang == 'RU':
-                            message = f"В датасете уже есть изображение с именем {im_base_name}. " \
-                                      f"Будет добавлено как {im_unique}"
-                        else:
-                            message = f"The dataset already has an image with the name {im_base_name}." \
-                                      f" Will be added as {im_unique}"
-                        self.info_message(message)
+                        # Есть изображение с таким именем. Создаем новое уникальное имя
+                        if im_base_name in self.dataset_images:
+                            im_unique = hf.create_unique_image_name(im_base_name)
 
-                        im_base_name = im_unique
+                            if self.lang == 'RU':
+                                message = f"В датасете уже есть изображение с именем {im_base_name}. " \
+                                          f"Будет добавлено как {im_unique}"
+                            else:
+                                message = f"The dataset already has an image with the name {im_base_name}." \
+                                          f" Will be added as {im_unique}"
+                            self.info_message(message)
 
-                    im_new_name = os.path.join(self.dataset_dir, im_base_name)
-                    shutil.copy(im, im_new_name)
+                            im_base_name = im_unique
+
+                        im_new_name = os.path.join(self.dataset_dir, im_base_name)
+                        shutil.copy(im, im_new_name)
+
                     self.dataset_images.append(im_base_name)
 
                 self.fill_images_label(self.dataset_images)
@@ -1782,10 +1787,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def start_view_drawing(self, draw_state):
 
-        self.toggle_act(True)
+        self.open_polygons_and_off_hand()
 
         self.window_state = WindowState.drawing
 
+        if self.window_state == WindowState.rubber_band:
+            self.rubber_band_change_conn.on_rubber_mode_change.emit(False)
         self.set_labels_color()
         cls_txt = self.cls_combo.currentText()
         cls_num = self.cls_combo.currentIndex()
@@ -1909,8 +1916,6 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Старт рисования метки
         """
-        self.toggle_act(True)
-
         if not self.image_set:
             if self.lang == 'RU':
                 message = "Подождите окончания загрузки изображения"
@@ -1919,24 +1924,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.info_message(message)
             return
 
-        self.set_labels_color()
-        cls_txt = self.cls_combo.currentText()
-        cls_num = self.cls_combo.currentIndex()
-
-        label_color = self.project_data.get_label_color(cls_txt)
-
-        alpha_tek = self.settings.read_alpha()
-
-        if self.window_state == WindowState.rubber_band:
-            self.rubber_band_change_conn.on_rubber_mode_change.emit(False)
-        self.window_state = WindowState.drawing
-
-        label_text_params = self.settings.read_label_text_params()
-        if label_text_params['hide']:
-            text = None
-        else:
-            text = cls_txt
-        self.view.start_drawing(self.draw_state, cls_num=cls_num, color=label_color, alpha=alpha_tek, text=text)
+        self.start_view_drawing(self.draw_state)
 
     def break_drawing(self):
 
@@ -2105,7 +2093,24 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.info_message(message)
 
+    def open_polygons_and_off_hand(self):
+        self.toggle_act(True)
+
+        if self.view.view_state == ViewState.hide_polygons:
+            # Открыть полигоны
+            self.view.set_view_state(ViewState.normal)
+            self.labels_on_tek_image.setEnabled(True)
+            self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+
+        if self.view.view_state == ViewState.hand_move:
+            self.view.set_view_state(ViewState.normal)
+            self.labels_on_tek_image.setEnabled(True)
+            self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+
     def ruler_pressed(self):
+
+        self.open_polygons_and_off_hand()
+
         if self.ruler_act.isChecked():
             self.view.on_ruler_mode_on(self.lrm)
         else:

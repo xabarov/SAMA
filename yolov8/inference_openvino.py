@@ -2,12 +2,12 @@ from typing import Tuple, Dict
 import cv2
 import numpy as np
 from PIL import Image
-from ultralytics.yolo.utils.plotting import colors
+from ultralytics.utils.plotting import colors
 
 import torch
 
 from openvino.runtime import Core, Model
-from ultralytics.yolo.utils import ops
+from ultralytics.utils import ops
 
 
 def letterbox(img: np.ndarray, new_shape: Tuple[int, int] = (1280, 1280), color: Tuple[int, int, int] = (114, 114, 114),
