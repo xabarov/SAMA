@@ -4,6 +4,17 @@ Labeling Data for Object Detection and Instance Segmentation with The Segment An
 The project also contains an object detector, a segmenter with SAM, YOLO and GroundingDINO support.
 
 ![alt text](assets/main.png?raw=true)
+### Install requirements
+
+1. Install pytorch from  `https://pytorch.org/get-started/locally/`
+2. Install GroundingDINO and SAM
+   - download repo `https://github.com/IDEA-Research/Grounded-Segment-Anything`
+   - python -m pip install -e segment_anything
+   - python -m pip install -e GroundingDINO
+3. Install GDAL from `https://www.lfd.uci.edu/~gohlke/pythonlibs/#gdal` for your python version. 
+    - download whl from link above (For example: `GDAL‑3.4.3‑cp39‑cp39‑win_amd64.whl`)
+    - `pip install GDAL‑3.4.3‑cp39‑cp39‑win_amd64.whl`
+4. Install requirements from `requirements.txt` as `pip install -r requirements.txt`
 
 ### SAM model
 
@@ -23,9 +34,7 @@ The project also contains an object detector, a segmenter with SAM, YOLO and Gro
    config paths
 2. Replace CLASSES_ENG and CLASSES_RU in `utils/cls_settings.py` for your classes names
 
-### Install requirements
 
-Install requirements from `requirements.txt` as `pip install -r requirements.txt`
 
 ### Usage
 
