@@ -1,6 +1,6 @@
 from collections import namedtuple
 from PIL import Image
-from utils.gdal_translate import get_extent, get_data
+from utils.pil_translate import get_extent, GeoTIFF
 
 import cv2
 import os
@@ -36,7 +36,6 @@ def get_geo_extent(image_filename, from_crs='epsg:3395', to_crs='epsg:4326'):
     ext = get_ext(image_filename)
 
     if ext == 'tif' or ext == 'tiff':
-
         extent = get_extent(image_filename, from_crs=from_crs, to_crs=to_crs)  # [(left_poit lat, lon), (right_point]
         coords_net = []
         coords_net.append(Coords(float(extent[0][1]), float(extent[0][0])))
@@ -45,14 +44,16 @@ def get_geo_extent(image_filename, from_crs='epsg:3395', to_crs='epsg:4326'):
         return get_lat_lon_min_max_coords(coords_net)
 
 
-def lrm_from_gdal_data(image_name, gdal_data, from_crs='epsg:3395', to_crs='epsg:4326'):
-    extent = get_extent(image_name, from_crs=from_crs, to_crs=to_crs) # [left top, bottom right]
+def lrm_from_pil_data(image_name, from_crs='epsg:3395', to_crs='epsg:4326'):
+    extent = get_extent(image_name, from_crs=from_crs, to_crs=to_crs)  # [left top, bottom right]
     max_y = extent[0][1]
     min_y = extent[1][1]
     delta_lat = abs(max_y - min_y)  # в градусах
     meters = delta_lat * 111.32 * 1000
 
-    return meters / gdal_data.RasterYSize
+    tiff = GeoTIFF(image_name)
+
+    return meters / tiff.raster_y_size
 
 
 def find_coords_file(file_name):
@@ -429,6 +430,5 @@ def get_lrm(coords_net, img_height):
 if __name__ == "__main__":
     # Получаем список географических координат углов изображения.
     # Поддерживаемые форматы .map, .kml, .dat
-    img_name ='F:\python\\ai_annotator\projects\geotiff\\byron.tif'
+    img_name = 'F:\python\\ai_annotator\projects\geotiff\\byron.tif'
     print(get_geo_extent(img_name))
-

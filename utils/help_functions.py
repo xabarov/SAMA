@@ -18,7 +18,6 @@ from skimage.morphology import binary_opening, binary_closing, remove_small_obje
 from utils import cls_settings
 from utils import config
 from utils import coords_calc
-from utils.gdal_translate import get_data
 
 
 def save_mask_as_image(mask, save_name):
@@ -121,8 +120,7 @@ def try_read_lrm(image_name, from_crs='epsg:3395', to_crs='epsg:4326'):
             return coords_calc.get_lrm(coords_net, img_height)
 
     if ext == 'tif' or ext == 'tiff':
-        gdal_data = get_data(image_name, print_info=False)
-        return coords_calc.lrm_from_gdal_data(image_name, gdal_data, from_crs=from_crs, to_crs=to_crs)
+        return coords_calc.lrm_from_pil_data(image_name, from_crs=from_crs, to_crs=to_crs)
 
 
 def clear_temp_folder(cwd=None):

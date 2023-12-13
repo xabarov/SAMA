@@ -17,7 +17,7 @@ import cv2
 import os
 
 import numpy as np
-from utils.gdal_translate import convert_geotiff
+from utils.pil_translate import GeoTIFF
 
 
 class Detector(Annotator):
@@ -118,7 +118,8 @@ class Detector(Annotator):
                 jpg_path = os.path.join(temp_folder,
                                         os.path.basename(image_name).split('.')[0] + '.jpg')
 
-                convert_geotiff(image_name, save_path=jpg_path)
+                tiff = GeoTIFF(image_name)
+                tiff.translate(save_path=jpg_path)
 
                 self.map_geotiff_names[image_name] = jpg_path
         else:
@@ -134,6 +135,8 @@ class Detector(Annotator):
             3000)
 
         self.view.setCursor(QCursor(QtCore.Qt.BusyCursor))
+
+        self.lrm = hf.try_read_lrm(image_name)
 
         jpg_path = self.get_jpg_path(image_name)
         super(Detector, self).open_image(jpg_path)

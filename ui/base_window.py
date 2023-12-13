@@ -1569,7 +1569,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.fill_labels_combo_from_project()
 
         if self.dataset_images:
-            self.tek_image_name = self.dataset_images[0]
+            self.fill_images_label(self.dataset_images)
+
+            self.tek_image_name = self.images_list_widget.item(0).text()
+
             self.tek_image_path = os.path.join(self.dataset_dir, self.tek_image_name)
 
             # Открытие изображения
@@ -1581,7 +1584,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.load_image_data(self.tek_image_name)
 
             self.save_view_to_project()
-            self.fill_images_label(self.dataset_images)
 
             self.im_panel_count_conn.on_image_count_change.emit(len(self.dataset_images))
             self.images_list_widget.setCurrentRow(0)

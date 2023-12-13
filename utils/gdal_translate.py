@@ -1,7 +1,7 @@
 from osgeo import gdal
 import os
 import cv2
-
+from PIL import Image
 import geopandas as gpd
 from shapely import Point
 import rasterio
@@ -34,6 +34,12 @@ def get_data(geotiff_path, print_info=True, from_crs='epsg:3395', to_crs='epsg:4
 
     return gdalData
 
+
+def get_pil_data(geotiff_path, print_info=True, from_crs='epsg:3395', to_crs='epsg:4326'):
+    im = Image.open(geotiff_path)
+    print("Dimensions : {}".format(im.size))
+    for id in im.tag:
+        print("{} : {}".format(id, im.tag[id]))
 
 def get_band(gdalData, band=1):
     gdalBand = gdalData.GetRasterBand(band)
@@ -89,8 +95,11 @@ def convert_geotiff(geotiff_path, save_path=None, bands=None):
 
 
 if __name__ == '__main__':
-    geotiff_path = 'F:\python\datasets\канопус\KV4_29208_28116_02_KANOPUS_20230509_082940_083045.SCN15.PMS.L2.tif'
-    save_path = 'F:\python\datasets\канопус\\bands_3.jpg'
+    geotiff_path = 'test_data/test.tif'
+
+    get_pil_data(geotiff_path)
+
+    get_data(geotiff_path)
 
     # im = convert_geotiff(geotiff_path, save_path)
     # convert_geotiff(geotiff_path, save_path, bands=[1, 2, 3])

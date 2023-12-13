@@ -11,10 +11,7 @@ The project also contains an object detector, a segmenter with SAM, YOLO and Gro
    - download repo `https://github.com/IDEA-Research/Grounded-Segment-Anything`
    - python -m pip install -e segment_anything
    - python -m pip install -e GroundingDINO
-3. Install GDAL from `https://www.lfd.uci.edu/~gohlke/pythonlibs/#gdal` for your python version. 
-    - download whl from link above (For example: `GDAL‑3.4.3‑cp39‑cp39‑win_amd64.whl`)
-    - `pip install GDAL‑3.4.3‑cp39‑cp39‑win_amd64.whl`
-4. Install requirements from `requirements.txt` as `pip install -r requirements.txt`
+3. Install requirements from `requirements.txt` as `pip install -r requirements.txt`
 
 ### SAM model
 
