@@ -96,7 +96,6 @@ CNN_DICT = {
     'YOLOv8_openvino': {'weights': 'yolov8//weights//best_openvino_model//best.bin',
                         'config': "yolov8//weights//best_openvino_model//best.xml",
                         "type": "YOLO8_openvino"
-
                         }
     # 'YOLOR': {'weights': 'yolor//weights//best.pt', 'config': "yolor//cfg//yolor_p6.cfg", "type": "YOLOR"},
     # Detectron2 models:
