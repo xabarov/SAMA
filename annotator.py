@@ -161,11 +161,15 @@ class Annotator(MainWindow):
 
         if detection_model == 'YOLOv8_openvino':
             cfg, weights = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8_openvino')
-            with open(cfg, 'r') as f:
-                data = f.read()
-                bs_data = BeautifulSoup(data, "xml")
-                names = bs_data.find('names')  # .find('names')
-                return ast.literal_eval(names.get('value'))
+
+            if os.path.exists(weights):
+                with open(cfg, 'r') as f:
+                    data = f.read()
+                    bs_data = BeautifulSoup(data, "xml")
+                    names = bs_data.find('names')  # .find('names')
+                    return ast.literal_eval(names.get('value'))
+            else:
+                return self.yolo.names
         elif detection_model == 'YOLOv8':
             return self.yolo.names  # dict like {0:name1, 1:name2...}
 
@@ -349,30 +353,56 @@ class Annotator(MainWindow):
             core = Core()
 
             cfg_path, weights_path = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8_openvino')
-            seg_ov_model = core.read_model(cfg_path)
 
-            if self.settings.read_platform() == "cuda":
-                device = "GPU"
-                seg_ov_model.reshape({0: [1, 3, 1280, 1280]})
+            if os.path.exists(weights_path):
+                # Обнаружены веса модели
+                print(f"YOLOv8 OepnVINO weights {weights_path} found")
+                seg_ov_model = core.read_model(cfg_path)
+
+                if self.settings.read_platform() == "cuda":
+                    device = "GPU"
+                    seg_ov_model.reshape({0: [1, 3, 1280, 1280]})
+                else:
+                    device = 'CPU'
+
+                self.yolo = core.compile_model(seg_ov_model, device)
             else:
-                device = 'CPU'
+                print(f"YOLOv8 weights {weights_path} not found. Start downloading weight for COCO...")
 
-            self.yolo = core.compile_model(seg_ov_model, device)
+                self.yolo = YOLO("yolov8x-seg.pt")
+                dev_set = 'cpu'
+                # if self.settings.read_platform() == "cuda":
+                #     dev_set = 0
+
+                self.yolo.to(dev_set)
 
         elif cnn_model == "YOLOv8":
             cfg_path, weights_path = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8')
             config_path = os.path.join(os.getcwd(), cfg_path)
             model_path = os.path.join(os.getcwd(), weights_path)
 
-            self.yolo = YOLO(model_path)
-            self.yolo.data = config_path
+            if os.path.exists(model_path):
+                # Обнаружены веса модели
+                print(f"YOLOv8 weights {model_path} found")
 
-            dev_set = 'cpu'
-            # if self.settings.read_platform() == "cuda":
-            #     dev_set = 0
+                self.yolo = YOLO(model_path)
+                self.yolo.data = config_path
 
-            self.yolo.to(dev_set)
-            self.yolo.overrides['data'] = config_path
+                dev_set = 'cpu'
+                # if self.settings.read_platform() == "cuda":
+                #     dev_set = 0
+
+                self.yolo.to(dev_set)
+                self.yolo.overrides['data'] = config_path
+            else:
+                print(f"YOLOv8 weights {model_path} not found. Start downloading weight for COCO...")
+
+                self.yolo = YOLO("yolov8x-seg.pt")
+                dev_set = 'cpu'
+                # if self.settings.read_platform() == "cuda":
+                #     dev_set = 0
+
+                self.yolo.to(dev_set)
 
         else:
             print("Unknown detection model")
@@ -818,7 +848,7 @@ class Annotator(MainWindow):
         names = self.read_detection_model_names()
 
         self.CNN_worker = CNN_worker(model=self.yolo, conf_thres=conf_thres_set, iou_thres=iou_thres_set,
-                                     img_name=None, img_path=None,
+                                     img_name=None, img_path=None, simplify_factor=self.settings.read_simplify_factor(),
                                      images_list=images_list, model_name=self.settings.read_cnn_model(),
                                      scanning=None, nc=len(names.keys()))
 
@@ -878,6 +908,13 @@ class Annotator(MainWindow):
 if __name__ == '__main__':
     import sys
     from qt_material import apply_stylesheet
+    from utils.download_models import download_sam, download_gd
+
+    from utils.settings_handler import AppSettings
+
+    app_settings = AppSettings()
+    download_sam(app_settings.read_sam_hq())
+    download_gd()
 
     app = QtWidgets.QApplication(sys.argv)
     extra = {'density_scale': hf.density_slider_to_value(config.DENSITY_SCALE),

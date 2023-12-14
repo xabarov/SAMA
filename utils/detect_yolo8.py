@@ -112,7 +112,7 @@ def predict_and_return_masks(model, source, conf=0.25, iou=0.7, save_txt=False):
     # images_dir = 'F:\python\OD_on_graph_view\images'
     # source = [os.path.join(images_dir, im) for im in os.listdir(images_dir)]
 
-    results = model.predict(source=source, save_conf=True, conf=float(conf), iou=float(iou), save_txt=save_txt)
+    results = model.predict(source=source, save_conf=True, conf=float(conf), iou=float(iou), save_txt=save_txt, save=True)
 
     mask_results = []
     for res in results:  # res for each image

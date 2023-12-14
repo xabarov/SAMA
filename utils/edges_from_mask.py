@@ -245,7 +245,7 @@ def mask_results_to_yolo_txt(mask_results, image_path, yolo_txt_file_name, with_
             for p in points:
                 x = p[0]
                 y = p[1]
-                line += f"{x/img_width} {y/img_height} "
+                line += f"{x / img_width} {y / img_height} "
             if with_conf:
                 line += res["conf"]
             f.write(f"{line}\n")
@@ -263,22 +263,24 @@ def yolo8masks2points(yolo_mask, simplify_factor=0.4, width=1280, height=1280):
 
     polygons = mask_to_polygons_layer(img_data)
 
-    polygon = polygons[0].simplify(simplify_factor, preserve_topology=False)
+    results = []
+    for pol in polygons:
+        pol_simplified = pol.simplify(simplify_factor, preserve_topology=False)
 
-    try:
-        xy = np.asarray(polygon.boundary.xy, dtype="float")
-        x_mass = xy[0].tolist()
-        y_mass = xy[1].tolist()
-        for x, y in zip(x_mass, y_mass):
-            points.append([x * width / mask_width, y * height / mask_height])
-        return points
+        try:
+            xy = np.asarray(pol_simplified.boundary.xy, dtype="float")
+            x_mass = xy[0].tolist()
+            y_mass = xy[1].tolist()
+            for x, y in zip(x_mass, y_mass):
+                points.append([x * width / mask_width, y * height / mask_height])
+            results.append(points)
+        except:
+            pass
 
-    except:
-
-        return None
+    return results
 
 
-def mask2seg(mask_filename, simpify_factor=3, cls_num=None):
+def mask2seg(mask_filename, simplify_factor=3, cls_num=None):
     img_data = cv2.imread(mask_filename)
 
     if not cls_num:
@@ -295,7 +297,7 @@ def mask2seg(mask_filename, simpify_factor=3, cls_num=None):
     results = []
     for pol in polygons:
         seg = {}  # pairs of x,y pixels
-        pol_simplified = pol.simplify(simpify_factor, preserve_topology=False)
+        pol_simplified = pol.simplify(simplify_factor, preserve_topology=False)
 
         try:
             xy = np.asarray(pol_simplified.boundary.xy, dtype="int32")

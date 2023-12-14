@@ -80,7 +80,7 @@ class CNN_worker(QtCore.QThread):
                 for idx, (*xyxy, conf, lbl) in enumerate(boxes):
                     shapes.append({'cls_num': int(lbl), 'points': masks[idx].astype(int), 'conf': conf})
 
-                im_blank = create_blank_image() # return  {"shapes": [], "lrm": None, 'status': 'empty'}
+                im_blank = create_blank_image()  # return  {"shapes": [], "lrm": None, 'status': 'empty'}
                 im_blank['shapes'] = shapes
                 self.all_images_results[filename] = im_blank
 
@@ -92,15 +92,14 @@ class CNN_worker(QtCore.QThread):
                 shapes = []
                 for res in results:
                     for i, mask in enumerate(res['masks']):
-                        points = yolo8masks2points(mask, simplify_factor=self.simplify_factor, width=image_width,
+                        points_mass = yolo8masks2points(mask, simplify_factor=self.simplify_factor, width=image_width,
                                                    height=image_height)
-                        if not points:
-                            continue
-                        cls_num = res['classes'][i]
+                        for points in points_mass:
+                            cls_num = res['classes'][i]
 
-                        shape = {'id': id_tek, 'cls_num': cls_num, 'points': points}
-                        id_tek += 1
-                        shapes.append(shape)
+                            shape = {'id': id_tek, 'cls_num': cls_num, 'points': points}
+                            id_tek += 1
+                            shapes.append(shape)
 
                 im_blank = create_blank_image()  # return  {"shapes": [], "lrm": None, 'status': 'empty'}
                 im_blank['shapes'] = shapes
@@ -169,16 +168,16 @@ class CNN_worker(QtCore.QThread):
 
                     for res in part_mask_results:
                         for i, mask in enumerate(res['masks']):
-                            points = yolo8masks2points(mask, simplify_factor=self.simplify_factor, width=x_max - x_min,
-                                                       height=y_max - y_min)
-                            if not points:
-                                continue
-                            points_shifted = []
-                            for x, y in points:
-                                points_shifted.append([x + x_min, y + y_min])
-                            cls_num = res['classes'][i]
-                            conf = res['confs'][i]
-                            scanning_results.append({'cls_num': cls_num, 'points': points_shifted, 'conf': conf})
+                            points_mass = yolo8masks2points(mask, simplify_factor=self.simplify_factor,
+                                                            width=x_max - x_min,
+                                                            height=y_max - y_min)
+                            for points in points_mass:
+                                points_shifted = []
+                                for x, y in points:
+                                    points_shifted.append([x + x_min, y + y_min])
+                                cls_num = res['classes'][i]
+                                conf = res['confs'][i]
+                                scanning_results.append({'cls_num': cls_num, 'points': points_shifted, 'conf': conf})
 
                 part_tek += 1
                 if is_progress_show:
@@ -218,13 +217,12 @@ class CNN_worker(QtCore.QThread):
                 mask_results = []
                 for res in results:
                     for i, mask in enumerate(res['masks']):
-                        points = yolo8masks2points(mask, simplify_factor=self.simplify_factor, width=shape[1],
-                                                   height=shape[0])
-                        if not points:
-                            continue
-                        cls_num = res['classes'][i]
-                        conf = res['confs'][i]
-                        mask_results.append({'cls_num': cls_num, 'points': points, 'conf': conf})
+                        points_mass = yolo8masks2points(mask, simplify_factor=self.simplify_factor, width=shape[1],
+                                                        height=shape[0])
+                        for points in points_mass:
+                            cls_num = res['classes'][i]
+                            conf = res['confs'][i]
+                            mask_results.append({'cls_num': cls_num, 'points': points, 'conf': conf})
 
                 self.mask_results = mask_results
 
