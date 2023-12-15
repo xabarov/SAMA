@@ -7,6 +7,8 @@ from rasterio import features
 import shapely
 from shapely.geometry import Point, Polygon
 from PIL import Image
+from utils import help_functions as hf
+from skimage.measure._find_contours import find_contours
 
 # from skimage.draw import line, polygon, ellipse
 
@@ -252,7 +254,7 @@ def mask_results_to_yolo_txt(mask_results, image_path, yolo_txt_file_name, with_
 
 
 def yolo8masks2points(yolo_mask, simplify_factor=0.4, width=1280, height=1280):
-    points = []
+
     img_data = yolo_mask[0] > 128
     shape = img_data.shape
 
@@ -265,8 +267,8 @@ def yolo8masks2points(yolo_mask, simplify_factor=0.4, width=1280, height=1280):
 
     results = []
     for pol in polygons:
-        pol_simplified = pol.simplify(simplify_factor, preserve_topology=False)
-
+        pol_simplified = pol.simplify(simplify_factor, preserve_topology=True)
+        points = []
         try:
             xy = np.asarray(pol_simplified.boundary.xy, dtype="float")
             x_mass = xy[0].tolist()
@@ -310,15 +312,6 @@ def mask2seg(mask_filename, simplify_factor=3, cls_num=None):
             pass
 
     return results
-
-
-def mask_to_polygons_layer(mask):
-    shapes = []
-    for shape, value in features.shapes(mask.astype(np.int16), mask=(mask > 0),
-                                        transform=rasterio.Affine(1.0, 0, 0, 0, 1.0, 0)):
-        shapes.append(shapely.geometry.shape(shape))
-
-    return shapes
 
 
 def mask_folder2seg_results(folder, simpify_factor=3):
@@ -410,16 +403,77 @@ def create_png(dataset_path):
         create_seg_annotations_from_yolo_seg(images_path, labels_path, mask_path)
 
 
-if __name__ == '__main__':
+def test_cv2():
+    image_path = "F:\\python\\datasets\\aes_buildings\\argentina_atucha_1.jpg"
+    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
 
+    thresh, BW = cv2.threshold(img, 50, 255, cv2.THRESH_BINARY)
+    print(BW.shape)
+    contours, _ = cv2.findContours(BW, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    polygons = []
+    shapes = []
+    for obj in contours:
+        coords = []
+        for point in obj:
+            coords.append([int(point[0][0]), int(point[0][1])])
+        polygons.append(coords)
+        if len(coords) > 2:
+            shapes.append(Polygon(coords))
+
+
+def mask_to_polygons_layer(mask, method='cv2', is_clear=True, min_size=80):
+    """
+    Преобразует маску в набор полигонов Shapely Polygon
+    mask - бинарное изображение- маска, numpy array
+    method - метод для преобразования:
+            'rasterio' - библиотекой rasterio
+            'cv2' - библиотекой cv2
+            'skimage' - библиотекой skimage
+    is_clear - нужно ли очищать маски меньше, чем min_size пикелей
+    """
+    shapes = []
+    if is_clear:
+        mask = hf.clean_mask(mask, type='remove', min_size=min_size, connectivity=1)
+    if method == 'rasterio':
+        for shape, value in features.shapes(mask.astype(np.int16), mask=(mask > 0),
+                                            transform=rasterio.Affine(1.0, 0, 0, 0, 1.0, 0)):
+            shapes.append(shapely.geometry.shape(shape))
+    elif method == 'cv2':
+        polygons = []
+        mask = mask * 255
+        mask = mask.astype(np.uint8)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        for obj in contours:
+            coords = []
+            for point in obj:
+                coords.append([int(point[0][0]), int(point[0][1])])
+            polygons.append(coords)
+            if len(coords) > 2:
+                shapes.append(Polygon(coords))
+
+    elif method == 'skimage':
+        contours = find_contours(mask)
+        for contour in contours:
+            contour = np.flip(contour, axis=1)
+
+            if len(contour) > 2:
+                shapes.append(Polygon(contour))
+    else:
+        print('Unknown method for create masks.')
+
+    return shapes
+
+
+if __name__ == '__main__':
     # train_folder= 'D:\python\datasets\\aes_seg\images\\train'
     # val_folder = 'D:\python\datasets\\aes_seg\images\\val'
     # big_folder = 'D:\python\datasets\\aes_2200_copy'
     #
     # print(get_images_not_match(train_folder, val_folder, big_folder))
+    test_cv2()
 
-    for folder in ['train', 'val']:
-        images_path = f'D:\python\datasets\\aes_seg\images\\{folder}'
-        labels_path = f'D:\python\datasets\\aes_seg\labels\\{folder}'
-        mask_path = f'D:\python\datasets\\aes_seg\\annotations\\{folder}'
-        create_seg_annotations_from_yolo_seg(images_path, labels_path, mask_path)
+    # for folder in ['train', 'val']:
+    #     images_path = f'D:\python\datasets\\aes_seg\images\\{folder}'
+    #     labels_path = f'D:\python\datasets\\aes_seg\labels\\{folder}'
+    #     mask_path = f'D:\python\datasets\\aes_seg\\annotations\\{folder}'
+    #     create_seg_annotations_from_yolo_seg(images_path, labels_path, mask_path)

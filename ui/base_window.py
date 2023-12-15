@@ -5,7 +5,7 @@ import sys
 import cv2
 import numpy as np
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtGui import QMovie, QIcon, QKeySequence, QColor, QPainter, QCursor
+from PyQt5.QtGui import QMovie, QIcon, QKeySequence, QColor, QPainter
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, QToolButton, QLabel, \
     QColorDialog, QProgressBar, QApplication

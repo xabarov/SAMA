@@ -93,6 +93,8 @@ CNN_DICT = {
     #              "type": "YOLO5"},
     'YOLOv8': {'weights': 'yolov8//weights//best.pt', 'config': "yolov8//aes_yolo_seg.yaml",
                "type": "YOLO8"},
+    # 'YOLOv8': {'weights': 'yolov8//weights//yolov8x-seg.pt', 'config': "yolov8//yolov8-seg.yaml",
+    #            "type": "YOLO8"},
     'YOLOv8_openvino': {'weights': 'yolov8//weights//best_openvino_model//best.bin',
                         'config': "yolov8//weights//best_openvino_model//best.xml",
                         "type": "YOLO8_openvino"

@@ -166,11 +166,6 @@ class Detector(Annotator):
             self.view.add_segment_pixmap(QtGui.QPixmap(segment_name), opacity=0.5, z_value=100 + cls_num)
 
         self.view.stop_circle_progress()
-        # for points in points_mass:
-        #     cls_num = self.project_data.get_label_num(cls_name)
-        #     if cls_num == -1:
-        #         cls_num = 0
-        #     self.add_segment_polygon_to_scene(points, cls_num)
 
     def add_segment_polygon_to_scene(self, points, cls_num):
 

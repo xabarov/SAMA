@@ -371,8 +371,8 @@ class Annotator(MainWindow):
 
                 self.yolo = YOLO("yolov8x-seg.pt")
                 dev_set = 'cpu'
-                # if self.settings.read_platform() == "cuda":
-                #     dev_set = 0
+                if self.settings.read_platform() == "cuda":
+                    dev_set = 0
 
                 self.yolo.to(dev_set)
 
@@ -386,11 +386,13 @@ class Annotator(MainWindow):
                 print(f"YOLOv8 weights {model_path} found")
 
                 self.yolo = YOLO(model_path)
-                self.yolo.data = config_path
+
+                if os.path.exists(config_path):
+                    self.yolo.data = config_path
 
                 dev_set = 'cpu'
-                # if self.settings.read_platform() == "cuda":
-                #     dev_set = 0
+                if self.settings.read_platform() == "cuda":
+                    dev_set = 0
 
                 self.yolo.to(dev_set)
                 self.yolo.overrides['data'] = config_path
@@ -399,8 +401,8 @@ class Annotator(MainWindow):
 
                 self.yolo = YOLO("yolov8x-seg.pt")
                 dev_set = 'cpu'
-                # if self.settings.read_platform() == "cuda":
-                #     dev_set = 0
+                if self.settings.read_platform() == "cuda":
+                    dev_set = 0
 
                 self.yolo.to(dev_set)
 
