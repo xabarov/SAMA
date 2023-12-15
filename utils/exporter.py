@@ -37,7 +37,7 @@ class Exporter(QtCore.QThread):
         elif self.format == 'yolo_box':
             self.exportToYOLOBox(self.export_dir, self.export_map)
         else:
-            self.exportToCOCO(export_сoco_name=self.export_dir, export_map=self.export_map)
+            self.exportToCOCO(export_coco_name=self.export_dir, export_map=self.export_map)
 
     def get_labels(self):
         return self.data["labels"]
