@@ -937,39 +937,40 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def exportToYOLOBox(self):
         self.save_project()
-        theme = self.settings.read_theme()
-        self.export_dialog = ExportDialog(self, on_ok_clicked=self.on_export_dialog_ok,
-                                          label_names=self.project_data.get_labels(), export_format='yolo',
-                                          theme=theme)
+
         self.export_format = 'yolo_box'
-        self.export_dialog.show()
+        self.show_export_dialog()
 
     def exportToYOLOSeg(self):
         self.save_project()
-        theme = self.settings.read_theme()
-        self.export_dialog = ExportDialog(self, on_ok_clicked=self.on_export_dialog_ok,
-                                          label_names=self.project_data.get_labels(), export_format='yolo',
-                                          theme=theme)
+
         self.export_format = 'yolo_seg'
+        self.show_export_dialog()
+
+    def exportToCOCO(self):
+        self.save_project()
+
+        self.export_format = 'coco'
+        self.show_export_dialog()
+
+    def show_export_dialog(self):
+        theme = self.settings.read_theme()
+        self.export_dialog = ExportDialog(on_ok_clicked=self.on_export_dialog_ok,
+                                          label_names=self.project_data.get_labels(), export_format=self.export_format,
+                                          theme=theme)
+
         self.export_dialog.show()
 
     def on_export_dialog_ok(self):
         export_dir = self.export_dialog.get_export_path()
         export_map = self.export_dialog.get_labels_map()
         if export_dir:
+            splits = self.export_dialog.get_splits()
+            is_use_test = self.export_dialog.is_use_test()
             self.project_data.export_percent_conn.percent.connect(self.export_dialog.set_progress)
             self.project_data.export_finished.on_finished.connect(self.on_project_export)
-            self.project_data.export(export_dir, export_map=export_map, format=self.export_format)
-
-    def exportToCOCO(self):
-        self.save_project()
-        theme = self.settings.read_theme()
-        self.export_dialog = ExportDialog(self, on_ok_clicked=self.on_export_dialog_ok,
-                                          label_names=self.project_data.get_labels(), export_format='coco',
-                                          theme=theme)
-        self.export_format = 'coco'
-
-        self.export_dialog.show()
+            self.project_data.export(export_dir, export_map=export_map, format=self.export_format, use_test=is_use_test,
+                                     splits=splits)
 
     def importFromYOLOBox(self):
 

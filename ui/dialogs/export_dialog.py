@@ -1,21 +1,22 @@
 import sys
 
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QCheckBox, \
-    QProgressBar, QApplication, QLabel
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QProgressBar, QApplication, QMessageBox
 
-from ui.edit_with_button import EditWithButton
-from ui.export_labels_list_view import ExportLabelsList
+from ui.custom_widgets.enumerate_card import EnumerateCard
+from ui.dialogs.export_steps.preprocess_step import PreprocessStep
+from ui.dialogs.export_steps.set_export_path_widget import SetPathWidget
+from ui.dialogs.export_steps.train_test_splitter import TrainTestSplitter
 from utils.settings_handler import AppSettings
 
 
 class ExportDialog(QWidget):
-    def __init__(self, parent, width=800, height=200, on_ok_clicked=None, label_names=None,
+    def __init__(self, width=800, height=200, on_ok_clicked=None, label_names=None,
                  theme='dark_blue.xml', export_format='yolo'):
         """
         Экспорт разметки
         """
-        super().__init__(parent)
+        super().__init__(None)
         self.settings = AppSettings()
         self.lang = self.settings.read_lang()
         self.setWindowTitle("Экспорт разметки" if self.lang == 'RU' else "Export labeling")
@@ -23,41 +24,27 @@ class ExportDialog(QWidget):
         self.set_width = width
         self.set_height = height
 
-        # Export dir layout:
-        if export_format == 'yolo':
-            placeholder = "Директория экспорта YOLO" if self.lang == 'RU' else 'Path to export YOLO'
+        self.cards = []
 
-            self.export_edit_with_button = EditWithButton(None, theme=theme,
-                                                          on_button_clicked_callback=self.on_export_button_clicked,
-                                                          is_dir=True,
-                                                          dialog_text=placeholder,
-                                                          placeholder=placeholder)
-        elif export_format == 'coco':
-            placeholder = "Имя экспортируемого файла COCO" if self.lang == 'RU' else 'Export filename'
+        # STEP 1. Path
 
-            self.export_edit_with_button = EditWithButton(None, theme=theme,
-                                                          on_button_clicked_callback=self.on_export_button_clicked,
-                                                          is_dir=False, file_type='json',
-                                                          dialog_text=placeholder,
-                                                          placeholder=placeholder, is_existing_file_only=False)
-        # Выбор меток
-        # Чекбокс
-        self.choose_labels_layout = QVBoxLayout()
-        checkbox_text = 'Выбрать имена классов для экспорта' if self.lang == 'RU' else 'Choose labels for export'
-        self.choose_labels_checkbox = QCheckBox(text=checkbox_text)
-        self.choose_labels_checkbox.clicked.connect(self.on_choose_labels_checkbox_clicked)
-        self.choose_labels_layout.addWidget(self.choose_labels_checkbox)
+        self.export_path_step = SetPathWidget(None, theme, export_format)
 
-        del_name = 'Удалить' if self.lang == 'RU' else 'Delete'
-        blur_name = 'Размыть' if self.lang == 'RU' else 'Blur'
-        headers = ('Метка', 'Заменить на') if self.lang == 'RU' else ('Label', 'Replace to')
-        self.export_labels_list = ExportLabelsList(labels=label_names, theme=theme, del_name=del_name,
-                                                   blur_name=blur_name, headers=headers)
-        self.export_labels_list.setVisible(False)
-        self.choose_labels_layout.addWidget(self.export_labels_list)
-        self.message = QLabel()
-        self.choose_labels_layout.addWidget(self.message)
+        export_path_title = "Папка для экспорта" if self.lang == 'RU' else "Path to export"
+        export_card = EnumerateCard(widget=self.export_path_step, num=1, text=export_path_title, is_number_flat=True)
+        self.cards.append(export_card)
+        # STEP 2. Splitter
 
+        self.labels_splitter = TrainTestSplitter(None)
+        splitter_title = "Train/Val/Test"
+        splitter_card = EnumerateCard(widget=self.labels_splitter, num=2, text=splitter_title, is_number_flat=True)
+        self.cards.append(splitter_card)
+
+        # STEP 3. Preprocess
+        self.preprocess_step = PreprocessStep(None, label_names=label_names, theme=theme)
+        preprocess_title = "Предобработка" if self.lang == 'RU' else "Preprocess"
+        preprocess_card = EnumerateCard(widget=self.preprocess_step, num=3, text=preprocess_title, is_number_flat=True)
+        self.cards.append(preprocess_card)
         # Разбиение на train, val
 
         self.progress_bar = QProgressBar()
@@ -66,35 +53,39 @@ class ExportDialog(QWidget):
         self.progress_bar.setVisible(False)
 
         # Buttons layout:
-        btnLayout = QHBoxLayout()
-
         self.okBtn = QPushButton('Экспортировать' if self.lang == 'RU' else "Export", self)
         self.on_ok_clicked = on_ok_clicked
         if on_ok_clicked:
             self.okBtn.clicked.connect(self.on_ok)
 
         self.cancelBtn = QPushButton('Отменить' if self.lang == 'RU' else 'Cancel', self)
-
         self.cancelBtn.clicked.connect(self.on_cancel_clicked)
 
-        btnLayout.addWidget(self.okBtn)
-        btnLayout.addWidget(self.cancelBtn)
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.okBtn)
+        button_layout.addWidget(self.cancelBtn)
 
         # Stack layers
 
-        self.mainLayout = QVBoxLayout()
-        self.mainLayout.addWidget(self.export_edit_with_button)
-        self.mainLayout.addLayout(self.choose_labels_layout)
+        self.layout = QVBoxLayout()
 
-        self.mainLayout.addLayout(btnLayout)
+        self.layout.addWidget(export_card)
+        self.layout.addWidget(splitter_card)
+        self.layout.addWidget(preprocess_card)
+        self.layout.addLayout(button_layout)
+        self.layout.addWidget(self.progress_bar)
 
-        self.mainLayout.addWidget(self.progress_bar)
-
-        self.setLayout(self.mainLayout)
+        self.setLayout(self.layout)
 
         self.data = {}
 
         self.resize(int(width), int(height))
+
+    def get_splits(self):
+        return self.labels_splitter.get_splits()
+
+    def is_use_test(self):
+        return self.labels_splitter.use_test.isChecked()
 
     def on_choose_labels_checkbox_clicked(self):
         is_checked = self.choose_labels_checkbox.isChecked()
@@ -104,48 +95,40 @@ class ExportDialog(QWidget):
         self.setMinimumWidth(self.set_width)
 
     def get_export_path(self):
-        return self.export_edit_with_button.getEditText()
-
-    def get_export_filename(self):
-        return self.export_edit_with_button.getEditText()
+        return self.export_path_step.get_export_path()
 
     def get_labels_map(self):
+        return self.preprocess_step.export_labels_list.get_labels_map()
 
-        return self.export_labels_list.get_labels_map()
+    def show_empty_path_message(self):
+        msgbox = QMessageBox()
+        msgbox.setIcon(QMessageBox.Information)
+
+        if self.lang == 'RU':
+            text = "Укажите имя директории для экспорта"
+        else:
+            text = "Please set export folder name"
+
+        msgbox.setText(text)
+        msgbox.setWindowTitle("Внимание!" if self.lang == 'RU' else "Attention!")
+        msgbox.exec()
 
     def on_ok(self):
         if self.get_export_path() != "":
-            self.export_edit_with_button.setEnabled(False)
-            self.cancelBtn.setVisible(False)
-
-            self.okBtn.setVisible(False)
-            self.message.setText("")
-
-            print(self.export_labels_list.get_labels_map())
-
-            self.export_labels_list.setVisible(False)
-            self.choose_labels_checkbox.setVisible(False)
-            # self.set_progress(10)
+            for card in self.cards:
+                card.setEnabled(False)
 
             self.adjustSize()
             self.setMinimumWidth(self.set_width)
 
             self.on_ok_clicked()
         else:
-            self.message.setText(
-                "Укажите имя директории для экспорта" if self.lang == 'RU' else "Please set export folder name")
+            self.show_empty_path_message()
 
     def on_cancel_clicked(self):
         self.progress_bar.setVisible(False)
         self.progress_bar.setValue(0)
         self.hide()
-
-    def on_export_button_clicked(self):
-        if self.get_export_path() == "":
-            self.message.setText(
-                "Укажите имя директории для экспорта" if self.lang == 'RU' else "Please set export folder name")
-        else:
-            self.message.setText("")
 
     def set_progress(self, progress_value):
         if progress_value != 100:
@@ -160,8 +143,12 @@ if __name__ == '__main__':
         print("Ok!")
 
 
-    app = QApplication(sys.argv)
+    from qt_material import apply_stylesheet
+
+    app = QApplication([])
+    apply_stylesheet(app, theme='dark_blue.xml')
+
     labels = ['F-16', 'F-35', 'C-130', 'C-17']
-    dialog = ExportDialog(None, label_names=labels, on_ok_clicked=on_ok)
+    dialog = ExportDialog(label_names=labels, on_ok_clicked=on_ok, theme='dark_blue.xml')
     dialog.show()
     sys.exit(app.exec_())

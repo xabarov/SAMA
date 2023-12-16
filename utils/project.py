@@ -433,7 +433,6 @@ class ProjectHandler(QWidget):
             new_num = new_name_to_num[new_name]
             num_to_num[old_num] = new_num
 
-
         for im_name, image in self.data["images"].items():  # image = {shapes:[], lrm:float, status:str}
             new_shapes = []
             for shape in image["shapes"]:
@@ -445,7 +444,6 @@ class ProjectHandler(QWidget):
 
             image["shapes"] = new_shapes
             self.data["images"][im_name] = image
-
 
         self.set_labels(new_labels)
 
@@ -469,9 +467,10 @@ class ProjectHandler(QWidget):
 
         return images_dir, labels_dir
 
-    def export(self, export_dir, export_map=None, format='yolo_seg'):
+    def export(self, export_dir, export_map=None, format='yolo_seg', use_test=False, splits=None):
 
-        self.exporter = Exporter(self.data, export_dir=export_dir, format=format, export_map=export_map)
+        self.exporter = Exporter(self.data, export_dir=export_dir, format=format, export_map=export_map,
+                                 use_test=use_test, splits=splits)
 
         self.exporter.export_percent_conn.percent.connect(self.on_exporter_percent_change)
         self.exporter.info_conn.info_message.connect(self.on_exporter_message)

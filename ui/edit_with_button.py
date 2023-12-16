@@ -8,7 +8,7 @@ import os
 class EditWithButton(QWidget):
     def __init__(self, parent, in_separate_window=False, theme='dark_blue.xml', on_button_clicked_callback=None,
                  is_dir=False, file_type='txt',
-                 dialog_text='Открытие файла', start_folder='projects', placeholder=None, title=None,
+                 dialog_text='Открытие файла', placeholder=None, title=None,
                  is_existing_file_only=True):
         """
         Поле Edit с кнопкой
@@ -39,9 +39,10 @@ class EditWithButton(QWidget):
 
         theme_type = theme.split('.')[0]
 
-        self.icon_folder = "ui/icons/" + theme_type
+        self.icon_folder = os.path.join(os.path.dirname(__file__), "icons", theme_type, "folder.png")
+        print(self.icon_folder)
 
-        self.button.setIcon(QIcon(self.icon_folder + "/folder.png"))
+        self.button.setIcon(QIcon(self.icon_folder))
 
         self.button.clicked.connect(self.on_button_clicked)
 

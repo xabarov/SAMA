@@ -71,7 +71,6 @@ class PostProcessingWorker(QtCore.QThread):
         im = Image.open(self.tek_image_path)
 
         for i, im in enumerate(bns_zones['Imgs']):
-
             crop_name = os.path.join(self.save_folder, f'crop{i}.jpg')
             crop_names.append(crop_name)
             im.save(crop_name)

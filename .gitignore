@@ -163,3 +163,4 @@ gd/GroundingDINO/models--bert-base-uncased/*
 
 # some project folders
 export/
+test_projects/

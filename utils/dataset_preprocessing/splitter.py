@@ -3,6 +3,9 @@ import shutil
 import cv2
 from PIL import Image
 from utils.help_functions import split_into_fragments, calc_parts
+from utils.dataset_preprocessing.sentence_sim import get_images_names_similarity
+from utils.help_functions import is_im_path
+import math
 
 Image.MAX_IMAGE_PIXELS = 933120000
 
@@ -75,7 +78,8 @@ def create_labels_from_crop(crop, image_label_path, crop_label_txt_path, image_w
     return False
 
 
-def split_image_and_label(image_path, label_path, save_images_path, save_labels_path, part_size=1280, convert_tif_to_jpg=True):
+def split_image_and_label(image_path, label_path, save_images_path, save_labels_path, part_size=1280,
+                          convert_tif_to_jpg=True):
     img = Image.open(image_path)
 
     if not os.path.exists(save_labels_path):
@@ -92,7 +96,7 @@ def split_image_and_label(image_path, label_path, save_images_path, save_labels_
 
         if convert_tif_to_jpg:
             cv2_im = cv2.imread(image_path)
-            jpg_name = os.path.basename(image_path).split('.tif')[0]+'.jpg'
+            jpg_name = os.path.basename(image_path).split('.tif')[0] + '.jpg'
             cv2.imwrite(os.path.join(save_images_path, jpg_name), cv2_im)
 
         else:
@@ -153,6 +157,131 @@ def split_yolo_dataset(dataset_folder, splitted_dataset_folder, part_size=1280):
                                   part_size=part_size)
 
 
+def train_test_val_splitter(images_path, train=80.0, val=20.0, test=None, sim_method='names', sim_thresh=0.8):
+    """
+    Сортирует имена изображений на 3 (2) части - Train/Val/Test. Если Test = None, то Train/Val
+    sim_method - способ определения близости
+        names - по именам
+        clip - по эмбеддингам
+    """
+    if not test:
+        "Split in 2 groups - train/val"
+        assert math.fabs(train + val - 100) < 1
+
+        if sim_method == 'names':
+            images = [im for im in os.listdir(images_path) if is_im_path(im)]
+
+            sim = get_images_names_similarity(images_path)
+            train_names = []
+            val_names = []
+            train_indices = []
+            val_indices = []
+
+            val_percent = 0.0
+
+            N = len(images)
+
+            for i in range(N - 1):
+                if val_percent >= val:
+                    break
+                if i in val_indices:
+                    continue
+
+                val_indices.append(i)
+                val_names.append(images[i])
+                val_percent += 100.0 / N
+                n = i + 1
+                while sim[i, n] > sim_thresh:
+                    if n == N - 1:
+                        break
+                    if n not in val_indices:
+                        val_indices.append(n)
+                        val_names.append(images[n])
+                        val_percent += 100.0 / N
+                        if val_percent > val:
+                            break
+                    n += 1
+
+            # all other - in val
+            for i in range(N - 1):
+                if i not in val_indices:
+                    train_indices.append(i)
+                    train_names.append(images[i])
+
+            return train_names, val_names
+
+
+    else:
+        "Split in 3 groups - train/val/test"
+        assert math.fabs(train + val + test - 100) < 1
+
+        if sim_method == 'names':
+            images = [im for im in os.listdir(images_path) if is_im_path(im)]
+
+            sim = get_images_names_similarity(images_path)
+            train_names = []
+            val_names = []
+            test_names = []
+            train_indices = []
+            val_indices = []
+            test_indices = []
+
+            test_percent = 0.0
+            val_percent = 0.0
+
+            N = len(images)
+
+            for i in range(N - 1):
+                if test_percent >= test:
+                    break
+                if i in test_indices:
+                    continue
+
+                test_indices.append(i)
+                test_names.append(images[i])
+                test_percent += 100.0 / N
+                n = i + 1
+                while sim[i, n] > sim_thresh:
+                    if n == N - 1:
+                        break
+                    if n not in test_indices:
+                        test_indices.append(n)
+                        test_names.append(images[n])
+                        test_percent += 100.0 / N
+                        if test_percent > test:
+                            break
+                    n += 1
+
+            for i in range(N - 1):
+                if val_percent >= val:
+                    break
+                if i in test_indices or i in val_indices:
+                    continue
+
+                val_indices.append(i)
+                val_names.append(images[i])
+                val_percent += 100.0 / N
+                n = i + 1
+                while sim[i, n] > sim_thresh:
+                    if n == N - 1:
+                        break
+                    if n not in test_indices and n not in val_indices:
+                        val_indices.append(n)
+                        val_names.append(images[n])
+                        val_percent += 100.0 / N
+                        if val_percent > val:
+                            break
+                    n += 1
+
+            # all other - in val
+            for i in range(N - 1):
+                if i not in test_indices and i not in val_indices:
+                    train_indices.append(i)
+                    train_names.append(images[i])
+
+            return train_names, val_names, test_names
+
+
 if __name__ == '__main__':
     # image_path = "F:\python\datasets\\airplanes_FAIR1M\images\\train\\4640.tif"
     # label_path = "F:\python\datasets\\airplanes_FAIR1M\labels\\train\\4640.txt"
@@ -160,7 +289,10 @@ if __name__ == '__main__':
     # save_images_path = "images"
     #
     # split_image_and_label(image_path, label_path, save_images_path, save_labels_path, part_size=1280)
-    fair1m_datset_folder = "F:\python\datasets\\airplanes_FAIR1M"
-    splitted_folder = "F:\python\datasets\splitted_aiplanes_FAIR1M"
+    path = "D:\python\\aia_git\\ai_annotator\\projects\\aes_test"
 
-    split_yolo_dataset(fair1m_datset_folder, splitted_folder, part_size=1280)
+    train, val, test = train_test_val_splitter(path, 80, 10, 10)
+
+    print(len(train))
+    print(len(val))
+    print(len(test))

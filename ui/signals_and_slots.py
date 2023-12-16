@@ -58,6 +58,10 @@ class RubberBandModeConnection(Ps2Core.QObject):
     on_rubber_mode_change = Signal(bool)
 
 
+class SliderSplitsConnection(Ps2Core.QObject):
+    splits = Signal(list)
+
+
 class ViewMouseCoordsConnection(Ps2Core.QObject):
     on_mouse_move = Signal(float, float)
 
