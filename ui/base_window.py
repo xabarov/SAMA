@@ -966,10 +966,11 @@ class MainWindow(QtWidgets.QMainWindow):
         if export_dir:
             splits = self.export_dialog.get_splits()
             idx, variant = self.export_dialog.get_idx_text_variant()
+            sim_idx, sim_text = self.export_dialog.get_idx_text_sim()
             self.project_data.export_percent_conn.percent.connect(self.export_dialog.set_progress)
             self.project_data.export_finished.on_finished.connect(self.on_project_export)
             self.project_data.export(export_dir, export_map=export_map, format=self.export_format, variant_idx=idx,
-                                     splits=splits)
+                                     splits=splits, sim=sim_idx)
 
     def importFromYOLOBox(self):
 

@@ -30,6 +30,17 @@ class TrainTestSplitter(QWidget):
         self.variants_combo.addItems(self.variants)
         self.variants_combo.currentIndexChanged.connect(self.on_variant_change)
 
+        # способ группировки
+        self.group_combo = StyledComboBox(theme=theme)
+        if self.lang == 'RU':
+            self.group_variants = np.array(
+                ["случайно", "по близости имен", "по близости изображений"])
+        else:
+            self.group_variants = np.array(["random", "by names similarity", "by images similarity"])
+
+        self.group_combo.addItems(self.group_variants)
+        self.group_combo.currentIndexChanged.connect(self.on_group_combo_change)
+
         self.splitter1 = QSlider(Qt.Orientation.Horizontal)
         self.splitter1.setValue(80)
         self.splitter1.valueChanged.connect(self.on_splitter1_changed)
@@ -58,7 +69,11 @@ class TrainTestSplitter(QWidget):
 
         self.mainLayout = QVBoxLayout()
 
-        self.mainLayout.addWidget(self.variants_combo)
+        combo_lay = QHBoxLayout()
+        combo_lay.addWidget(self.variants_combo)
+        combo_lay.addWidget(self.group_combo)
+        self.mainLayout.addLayout(combo_lay)
+
         self.mainLayout.addLayout(self.label_layout)
         self.mainLayout.addWidget(self.splitter1)
         self.mainLayout.addWidget(self.splitter2)
@@ -90,10 +105,15 @@ class TrainTestSplitter(QWidget):
             self.splitter1.hide()
             self.splitter2.hide()
 
-        print(self.get_splits())
+    def on_group_combo_change(self):
+        print(f"Similarity {self.group_combo.currentText()}")
 
     def get_idx_text_variant(self):
         return self.variants_combo.currentIndex(), self.variants_combo.currentText()
+
+    def get_idx_text_sim(self):
+        """Idx and name of similarity"""
+        return self.group_combo.currentIndex(), self.group_combo.currentText()
 
     def get_splits(self):
         idx = self.variants_combo.currentIndex()

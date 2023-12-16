@@ -87,6 +87,9 @@ class ExportDialog(QWidget):
     def get_idx_text_variant(self):
         return self.labels_splitter.get_idx_text_variant()
 
+    def get_idx_text_sim(self):
+        return self.labels_splitter.get_idx_text_sim()
+
     def on_choose_labels_checkbox_clicked(self):
         is_checked = self.choose_labels_checkbox.isChecked()
         self.export_labels_list.setVisible(is_checked)
@@ -117,6 +120,10 @@ class ExportDialog(QWidget):
         if self.get_export_path() != "":
             for card in self.cards:
                 card.setEnabled(False)
+                card.setVisible(False)
+
+            self.okBtn.setVisible(False)
+            self.cancelBtn.setVisible(False)
 
             self.adjustSize()
             self.setMinimumWidth(self.set_width)

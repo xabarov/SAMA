@@ -165,3 +165,5 @@ gd/GroundingDINO/models--bert-base-uncased/*
 export/
 test_projects/
 sentence-transformers_all-distilroberta-v1/
+models--openai--clip-vit-large-patch14/
+utils/test_data

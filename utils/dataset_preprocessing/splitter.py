@@ -1,16 +1,19 @@
 import math
 import os
 import shutil
+from random import shuffle
 
 import cv2
 from PIL import Image
 
-from utils.config import PATH_TO_SENTENCE_TRANSFORMER
+from utils.config import PATH_TO_SENTENCE_TRANSFORMER, PATH_TO_IMAGES_TRANSFORMER
+from utils.dataset_preprocessing.images_similarity import get_images_similarity
 from utils.dataset_preprocessing.sentence_sim import get_images_names_similarity
 from utils.help_functions import is_im_path
 from utils.help_functions import split_into_fragments, calc_parts
 
 Image.MAX_IMAGE_PIXELS = 933120000
+
 
 
 def handle_out_of_image_border(x_px, y_px, w_px, h_px, im_width, im_height):
@@ -160,22 +163,30 @@ def split_yolo_dataset(dataset_folder, splitted_dataset_folder, part_size=1280):
                                   part_size=part_size)
 
 
-def train_test_val_splitter(images_path, train=80.0, val=20.0, test=None, sim_method='names', sim_thresh=0.8):
+def train_test_val_splitter(images_path, train=80.0, val=20.0, test=None, sim_method='names', sim_thresh=0.8,
+                            percent_hook=None):
     """
     Сортирует имена изображений на 3 (2) части - Train/Val/Test. Если Test = None, то Train/Val
     sim_method - способ определения близости
         names - по именам
         clip - по эмбеддингам
     """
-    model_path = os.path.join(os.path.dirname(__file__), "..", "..", PATH_TO_SENTENCE_TRANSFORMER)
+
+
+    sentence_model_path = os.path.join(os.path.dirname(__file__), "..", "..", PATH_TO_SENTENCE_TRANSFORMER)
+    images_model_path = os.path.join(os.path.dirname(__file__), "..", "..", PATH_TO_IMAGES_TRANSFORMER)
     if not test:
         "Split in 2 groups - train/val"
         assert math.fabs(train + val - 100) < 1
 
-        if sim_method == 'names':
+        if sim_method == 'names' or sim_method == 'images':
             images = [im for im in os.listdir(images_path) if is_im_path(im)]
 
-            sim = get_images_names_similarity(images_path, model=model_path)
+            if sim_method == 'names':
+                sim = get_images_names_similarity(images_path, model=sentence_model_path, percent_hook=percent_hook)
+            else:
+                sim = get_images_similarity(images_path, model_path=images_model_path, percent_hook=percent_hook)
+
             train_names = []
             val_names = []
             train_indices = []
@@ -214,15 +225,28 @@ def train_test_val_splitter(images_path, train=80.0, val=20.0, test=None, sim_me
 
             return train_names, val_names
 
+        elif sim_method == "random":
+            images = [im for im in os.listdir(images_path) if is_im_path(im)]
+            shuffle(images)
+            train_idx_max = int(len(images) * train / 100.0)
+            train_names, val_names = images[:train_idx_max], images[train_idx_max:]
 
+            return train_names, val_names
+
+        else:
+            print(f"Wrong similarity method {sim_method}")
     else:
         "Split in 3 groups - train/val/test"
         assert math.fabs(train + val + test - 100) < 1
 
-        if sim_method == 'names':
+        if sim_method == 'names' or sim_method == 'images':
             images = [im for im in os.listdir(images_path) if is_im_path(im)]
 
-            sim = get_images_names_similarity(images_path, model=model_path)
+            if sim_method == 'names':
+                sim = get_images_names_similarity(images_path, model=sentence_model_path, percent_hook=percent_hook)
+            else:
+                sim = get_images_similarity(images_path, model_path=images_model_path, percent_hook=percent_hook)
+
             train_names = []
             val_names = []
             test_names = []
@@ -285,6 +309,20 @@ def train_test_val_splitter(images_path, train=80.0, val=20.0, test=None, sim_me
 
             return train_names, val_names, test_names
 
+        elif sim_method == "random":
+            imgs = [im for im in os.listdir(images_path) if is_im_path(im)]
+            shuffle(imgs)
+            train_idx = int(len(imgs) * train / 100.0)
+            val_idx = int(len(imgs) * (train + val) / 100.0)
+            train_names, val_names, test_names = imgs[:train_idx], imgs[train_idx:val_idx], imgs[val_idx:]
+
+            return train_names, val_names, test_names
+
+        elif sim_method == "images":
+            pass
+        else:
+            print(f"Wrong similarity method {sim_method}")
+
 
 if __name__ == '__main__':
     # image_path = "F:\python\datasets\\airplanes_FAIR1M\images\\train\\4640.tif"
@@ -293,9 +331,12 @@ if __name__ == '__main__':
     # save_images_path = "images"
     #
     # split_image_and_label(image_path, label_path, save_images_path, save_labels_path, part_size=1280)
-    path = "D:\python\\aia_git\\ai_annotator\\projects\\aes_test"
+    path = "D:\python\\aia_git\\ai_annotator\projects\\airplanes"
 
-    train, val, test = train_test_val_splitter(path, 80, 10, 10)
+    def print_value(value):
+        print(value)
+
+    train, val, test = train_test_val_splitter(path, 80, 10, 10, sim_method='images', percent_hook=print_value)
 
     print(len(train))
     print(len(val))
