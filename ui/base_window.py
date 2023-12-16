@@ -461,7 +461,6 @@ class MainWindow(QtWidgets.QMainWindow):
         toolBar.addAction(self.fitToWindowAct)
         toolBar.addAction(self.handMoveWindowAct)
         toolBar.addSeparator()
-        # toolBar.mouseMoveEvent = lambda e: print(e.x(), e.y())
         toolBar.setMovable(True)
 
         self.annotatorToolButton = QToolButton(self)
@@ -966,10 +965,10 @@ class MainWindow(QtWidgets.QMainWindow):
         export_map = self.export_dialog.get_labels_map()
         if export_dir:
             splits = self.export_dialog.get_splits()
-            is_use_test = self.export_dialog.is_use_test()
+            idx, variant = self.export_dialog.get_idx_text_variant()
             self.project_data.export_percent_conn.percent.connect(self.export_dialog.set_progress)
             self.project_data.export_finished.on_finished.connect(self.on_project_export)
-            self.project_data.export(export_dir, export_map=export_map, format=self.export_format, use_test=is_use_test,
+            self.project_data.export(export_dir, export_map=export_map, format=self.export_format, variant_idx=idx,
                                      splits=splits)
 
     def importFromYOLOBox(self):
@@ -1243,7 +1242,6 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
         rgba = (rgb[0], rgb[1], rgb[2], self.settings.read_alpha())
-        # print(rgba)
 
         self.project_data.set_label_color(cls_txt, color=rgba)
 
@@ -1518,7 +1516,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progress_toolbar.hide_progressbar()
 
     def progress_bar_changed(self, percent):
-        # print(percent)
         if self.progress_bar.isVisible():
             self.progress_bar.set_progress(percent)
             if percent == 100:
@@ -1988,7 +1985,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.shortcuts_window.show()
 
     def undo(self):
-        # print('Undo')
         self.view.remove_last_changes()
         self.save_view_to_project()
         self.window_state = WindowState.normal

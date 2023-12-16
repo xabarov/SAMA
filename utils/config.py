@@ -95,7 +95,10 @@ MAX_DENSITY_VALUE = 7
 
 PATH_TO_GROUNDING_DINO_CONFIG = 'gd/GroundingDINO/groundingdino/config/GroundingDINO_SwinB.py'  # 'gd\GroundingDINO\groundingdino\config\GroundingDINO_SwinT_OGC.py'
 PATH_TO_GROUNDING_DINO_CHECKPOINT = 'gd/groundingdino_swinb_cogcoor.pth'  # 'gd\groundingdino_swint_ogc.pth'
+
 PATH_TO_SAM_CHECKPOINT = 'sam_models/sam_vit_h_4b8939.pth'
 PATH_TO_SAM_HQ_CHECKPOINT = 'sam_models/sam_hq_vit_h.pth'
+
+PATH_TO_SENTENCE_TRANSFORMER = "sentence-transformers_all-distilroberta-v1"
 
 DOMEN_NAME = 'http://127.0.0.1:8000'

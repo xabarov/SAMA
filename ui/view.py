@@ -793,8 +793,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def add_fat_point_to_polygon_vertex(self, vertex):
         circle_width = self.fat_width * math.exp(-self._zoom * 0.3) + 1  # self._zoom / 5.0 + 1
-        # print(
-        #     f"Fat point zoom: {self._zoom}, circle_width: {circle_width}, fat_width: {self.fat_width}")
         self.fat_point = FatPoint(None)
         self.fat_point.setRect(vertex.x() - circle_width / 2,
                                vertex.y() - circle_width / 2,
@@ -1037,8 +1035,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     # 4. Перемещаем подсветку узла
                     if self.fat_point:
                         circle_width = self.fat_width * math.exp(-self._zoom * 0.25) + 1  # self._zoom / 5.0 + 1
-                        # print(
-                        #     f"Fat point zoom: {self._zoom}, circle_width: {circle_width}, fat_width: {self.fat_width}")
                         self.fat_point.setRect(lp.x() - circle_width / 2,
                                                lp.y() - circle_width / 2,
                                                circle_width, circle_width)

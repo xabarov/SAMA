@@ -1,8 +1,10 @@
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLineEdit, QFileDialog
-from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt
-from utils.settings_handler import AppSettings
 import os
+
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLineEdit, QFileDialog
+
+from utils.settings_handler import AppSettings
 
 
 class EditWithButton(QWidget):
@@ -40,7 +42,6 @@ class EditWithButton(QWidget):
         theme_type = theme.split('.')[0]
 
         self.icon_folder = os.path.join(os.path.dirname(__file__), "icons", theme_type, "folder.png")
-        print(self.icon_folder)
 
         self.button.setIcon(QIcon(self.icon_folder))
 

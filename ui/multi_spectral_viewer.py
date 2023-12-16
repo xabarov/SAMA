@@ -318,7 +318,6 @@ class MultiSpectralViewer(QtWidgets.QMainWindow):
 
     def clear_temp_folder(self):
         temp_folder = os.path.join(os.getcwd(), 'temp')
-        # print(temp_folder)
         if os.path.exists(temp_folder):
             shutil.rmtree(temp_folder)
 

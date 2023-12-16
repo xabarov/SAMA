@@ -144,11 +144,9 @@ class Detector(Annotator):
         self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
 
     def on_segment_start(self):
-        print('Started')
         self.view.start_circle_progress()
 
     def on_segment_finished(self):
-        print('Finished')
         predictions = self.seg_worker.results['predictions']
         shape = predictions.shape
 

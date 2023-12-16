@@ -467,10 +467,10 @@ class ProjectHandler(QWidget):
 
         return images_dir, labels_dir
 
-    def export(self, export_dir, export_map=None, format='yolo_seg', use_test=False, splits=None):
+    def export(self, export_dir, export_map=None, format='yolo_seg', variant_idx=0, splits=None):
 
         self.exporter = Exporter(self.data, export_dir=export_dir, format=format, export_map=export_map,
-                                 use_test=use_test, splits=splits)
+                                 variant_idx=variant_idx, splits=splits)
 
         self.exporter.export_percent_conn.percent.connect(self.on_exporter_percent_change)
         self.exporter.info_conn.info_message.connect(self.on_exporter_message)

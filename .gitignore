@@ -164,3 +164,4 @@ gd/GroundingDINO/models--bert-base-uncased/*
 # some project folders
 export/
 test_projects/
+sentence-transformers_all-distilroberta-v1/

@@ -14,12 +14,12 @@ class ExportDialog(QWidget):
     def __init__(self, width=800, height=200, on_ok_clicked=None, label_names=None,
                  theme='dark_blue.xml', export_format='yolo'):
         """
-        Экспорт разметки
+        Экспорт датасета
         """
         super().__init__(None)
         self.settings = AppSettings()
         self.lang = self.settings.read_lang()
-        self.setWindowTitle("Экспорт разметки" if self.lang == 'RU' else "Export labeling")
+        self.setWindowTitle("Экспорт датасета" if self.lang == 'RU' else "Export dataset")
         self.setWindowFlag(Qt.Tool)
         self.set_width = width
         self.set_height = height
@@ -84,8 +84,8 @@ class ExportDialog(QWidget):
     def get_splits(self):
         return self.labels_splitter.get_splits()
 
-    def is_use_test(self):
-        return self.labels_splitter.use_test.isChecked()
+    def get_idx_text_variant(self):
+        return self.labels_splitter.get_idx_text_variant()
 
     def on_choose_labels_checkbox_clicked(self):
         is_checked = self.choose_labels_checkbox.isChecked()

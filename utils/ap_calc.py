@@ -52,12 +52,10 @@ def calc_AP(P, R, approx_points_num=11):
 
 def print_P_R_table(tp_fp_mass, total_num, confs=None, col_size=15):
     header = f"{'Preds.':^{col_size}}|{'Conf.':^{col_size}}|{'Matches':^{col_size}}|{'Cumulative TP':^{col_size}}|{'Cumulative FP':^{col_size}}|{'P':^{col_size}}|{'R':^{col_size}}"
-    print(header)
     tp_cum = 0
     fp_cum = 0
 
     for i, pred in enumerate(tp_fp_mass):
-        print("-" * (7 * (col_size + 1)))
 
         if pred == 1:
             tp_cum += 1
@@ -72,7 +70,6 @@ def print_P_R_table(tp_fp_mass, total_num, confs=None, col_size=15):
         else:
             conf = "-"
         line = f"{i + 1:^{col_size}}|{conf:^{col_size}}|{matches:^{col_size}}|{tp_cum:^{col_size}}|{fp_cum:^{col_size}}|{P:^{col_size}.3}|{R:^{col_size}.3}"
-        print(line)
 
 
 def AP_plot(P, R, approx_points_num=11):

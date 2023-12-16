@@ -67,8 +67,6 @@ shortcuts = {'change_polygon_label': {'appearance': 'Ctrl+E', 'modifier': ['Ctrl
                           'name_ru': 'Уменьшить масштаб', 'shortcut_key_eng': 16777239, 'shortcut_key_ru': 16777239}}
 
 
-# print(list(shortcuts.keys()))
-
 class AppSettings:
     def __init__(self, app_name=None):
         if not app_name:

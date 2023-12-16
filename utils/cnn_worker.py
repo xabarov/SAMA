@@ -136,7 +136,6 @@ class CNN_worker(QtCore.QThread):
             crop_x_y_sizes, x_parts_num, y_parts_num = hf.calc_parts(shape[1], shape[0], frag_size)
 
             print(f'Crop image into {x_parts_num}x{y_parts_num}')
-            # print(crop_x_y_sizes)
 
             part_tek = 0
             for part, part_size in zip(parts, crop_x_y_sizes):

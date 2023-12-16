@@ -1,11 +1,14 @@
+import math
 import os
 import shutil
+
 import cv2
 from PIL import Image
-from utils.help_functions import split_into_fragments, calc_parts
+
+from utils.config import PATH_TO_SENTENCE_TRANSFORMER
 from utils.dataset_preprocessing.sentence_sim import get_images_names_similarity
 from utils.help_functions import is_im_path
-import math
+from utils.help_functions import split_into_fragments, calc_parts
 
 Image.MAX_IMAGE_PIXELS = 933120000
 
@@ -164,6 +167,7 @@ def train_test_val_splitter(images_path, train=80.0, val=20.0, test=None, sim_me
         names - по именам
         clip - по эмбеддингам
     """
+    model_path = os.path.join(os.path.dirname(__file__), "..", "..", PATH_TO_SENTENCE_TRANSFORMER)
     if not test:
         "Split in 2 groups - train/val"
         assert math.fabs(train + val - 100) < 1
@@ -171,7 +175,7 @@ def train_test_val_splitter(images_path, train=80.0, val=20.0, test=None, sim_me
         if sim_method == 'names':
             images = [im for im in os.listdir(images_path) if is_im_path(im)]
 
-            sim = get_images_names_similarity(images_path)
+            sim = get_images_names_similarity(images_path, model=model_path)
             train_names = []
             val_names = []
             train_indices = []
@@ -218,7 +222,7 @@ def train_test_val_splitter(images_path, train=80.0, val=20.0, test=None, sim_me
         if sim_method == 'names':
             images = [im for im in os.listdir(images_path) if is_im_path(im)]
 
-            sim = get_images_names_similarity(images_path)
+            sim = get_images_names_similarity(images_path, model=model_path)
             train_names = []
             val_names = []
             test_names = []

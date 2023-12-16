@@ -18,7 +18,14 @@ from utils.dataset_preprocessing.splitter import train_test_val_splitter
 class Exporter(QtCore.QThread):
 
     def __init__(self, project_data, export_dir, format='yolo_seg', export_map=None, dataset_name='dataset',
-                 use_test=False, splits=None, split_method='names'):
+                 variant_idx=0, splits=None, split_method='names'):
+        """
+        variant_idx = 0 Train/Val/Test
+        1 - Train/Val
+        2 - Only Train
+        3 - Only Val
+        4 - Only Test
+        """
         super(Exporter, self).__init__()
 
         # SIGNALS
@@ -31,7 +38,7 @@ class Exporter(QtCore.QThread):
         self.export_map = export_map
         self.dataset_name = dataset_name
 
-        self.use_test = use_test
+        self.variant_idx = variant_idx
         self.splits = splits
         self.split_method = split_method
 
@@ -109,17 +116,37 @@ class Exporter(QtCore.QThread):
     def get_split_image_names(self):
         """
         Возвращает списки изображений, разбитых по категориям
-        if self.use_test: Train/Val/Test
-        else: Train/Val
+        if idx == 0: Train/Val/Test
+        1: Train/Val
+        2: Train
+        3: Val
+        4: Test
         """
-        if self.use_test:
+        if self.variant_idx == 0:
             train_names, val_names, test_names = train_test_val_splitter(self.data["path_to_images"], self.splits[0],
                                                                          self.splits[1],
                                                                          self.splits[2])
             return {"train": train_names, "val": val_names, "test": test_names}
-        train_names, val_names = train_test_val_splitter(self.data["path_to_images"], self.splits[0], self.splits[1])
+        if self.variant_idx == 1:
+            train_names, val_names = train_test_val_splitter(self.data["path_to_images"], self.splits[0],
+                                                             self.splits[1])
 
-        return {"train": train_names, "val": val_names}
+            return {"train": train_names, "val": val_names}
+
+        if self.variant_idx == 2:
+            train_names = [im for im in os.listdir(self.data["path_to_images"]) if hf.is_im_path(im)]
+
+            return {"train": train_names}
+
+        if self.variant_idx == 3:
+            val_names = [im for im in os.listdir(self.data["path_to_images"]) if hf.is_im_path(im)]
+
+            return {"val": val_names}
+
+        if self.variant_idx == 4:
+            test_names = [im for im in os.listdir(self.data["path_to_images"]) if hf.is_im_path(im)]
+
+            return {"test": test_names}
 
     def write_yolo_box_line(self, shape, im_shape, f, cls_num):
         points = shape["points"]
@@ -163,12 +190,16 @@ class Exporter(QtCore.QThread):
         if not export_map:
             export_map = self.get_export_map(labels_names)
 
-        export_label_names = sorted(
-            list(set([cls_num for cls_num in export_map.values() if cls_num != 'del' and cls_num != 'blur'])))
-        export_label_names = {labels_names[k]: k for k in export_label_names}
+        export_label_names = {}
+        unique_values = []
+        for k, v in export_map.items():
+            if v != 'del' and v != 'blur' and v not in unique_values:
+                export_label_names[k] = v
+                unique_values.append(v)
 
+        use_test = True if self.variant_idx == 0 else False
         create_yaml(f"{self.dataset_name}.yaml", export_dir, list(export_label_names.keys()),
-                    dataset_name=self.dataset_name, use_test=self.use_test)
+                    dataset_name=self.dataset_name, use_test=use_test)
 
         split_names = self.get_split_image_names()
         im_num = 0
@@ -247,11 +278,16 @@ class Exporter(QtCore.QThread):
         if not export_map:
             export_map = self.get_export_map(labels_names)
 
-        export_label_names = sorted(
-            list(set([cls_num for cls_num in export_map.values() if cls_num != 'del' and cls_num != 'blur'])))
-        export_label_names = {labels_names[k]: k for k in export_label_names}
+        export_label_names = {}
+        unique_values = []
+        for k, v in export_map.items():
+            if v != 'del' and v != 'blur' and v not in unique_values:
+                export_label_names[k] = v
+                unique_values.append(v)
+
+        use_test = True if self.variant_idx == 0 else False
         create_yaml(f"{self.dataset_name}.yaml", export_dir, list(export_label_names.keys()),
-                    dataset_name=self.dataset_name, use_test=self.use_test)
+                    dataset_name=self.dataset_name, use_test=use_test)
 
         split_names = self.get_split_image_names()
         im_num = 0
