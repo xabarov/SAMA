@@ -41,7 +41,7 @@ class ExportDialog(QWidget):
         self.cards.append(splitter_card)
 
         # STEP 3. Preprocess
-        self.preprocess_step = PreprocessStep(None, label_names=label_names, theme=theme)
+        self.preprocess_step = PreprocessStep(None, labels=label_names, theme=theme)
         preprocess_title = "Предобработка" if self.lang == 'RU' else "Preprocess"
         preprocess_card = EnumerateCard(widget=self.preprocess_step, num=3, text=preprocess_title, is_number_flat=True)
         self.cards.append(preprocess_card)
@@ -101,7 +101,9 @@ class ExportDialog(QWidget):
         return self.export_path_step.get_export_path()
 
     def get_labels_map(self):
-        return self.preprocess_step.export_labels_list.get_labels_map()
+        params = self.preprocess_step.get_params()
+        if "modify_classes" in params:
+            return params["modify_classes"]
 
     def show_empty_path_message(self):
         msgbox = QMessageBox()

@@ -539,6 +539,14 @@ def convert_image_name_to_txt_name(image_name):
     return txt_name + ".txt"
 
 
+def calc_rows_cols(size):
+    rows = min(1, math.ceil(math.sqrt(size)))
+    cols = int(size / rows)
+    assert rows * cols == size
+
+    return rows, cols
+
+
 def convert_text_name_to_image_name(text_name):
     splitted_name = text_name.split('.')
     img_name = ""

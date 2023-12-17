@@ -191,14 +191,14 @@ class Exporter(QtCore.QThread):
         self.clear_not_existing_images()
         labels_names = self.get_labels()
 
+        if not export_map:
+            export_map = self.get_export_map(labels_names)
+
         images_dir, labels_dir = self.create_images_labels_subdirs(export_dir)
         is_blur = self.is_blurred_classes(export_map)
 
         if is_blur:
             blur_dir = self.create_blur_dir(export_dir)
-
-        if not export_map:
-            export_map = self.get_export_map(labels_names)
 
         export_label_names = {}
         unique_values = []
@@ -282,14 +282,14 @@ class Exporter(QtCore.QThread):
         self.clear_not_existing_images()
         labels_names = self.get_labels()
 
+        if not export_map:
+            export_map = self.get_export_map(labels_names)
+
         images_dir, labels_dir = self.create_images_labels_subdirs(export_dir)
         is_blur = self.is_blurred_classes(export_map)
 
         if is_blur:
             blur_dir = self.create_blur_dir(export_dir)
-
-        if not export_map:
-            export_map = self.get_export_map(labels_names)
 
         export_label_names = {}
         unique_values = []
@@ -365,14 +365,14 @@ class Exporter(QtCore.QThread):
         self.clear_not_existing_images()
         labels_names = self.get_labels()
 
+        if not export_map:
+            export_map = self.get_export_map(labels_names)
+
         images_dir = self.create_images_labels_subdirs(export_dir, is_labels_need=False)
         is_blur = self.is_blurred_classes(export_map)
 
         if is_blur:
             blur_dir = self.create_blur_dir(export_dir)
-
-        if not export_map:
-            export_map = self.get_export_map(labels_names)
 
         split_names = self.get_split_image_names()
 
