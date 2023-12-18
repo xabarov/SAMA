@@ -1,8 +1,8 @@
-from PyQt5.QtWidgets import QLabel, QGroupBox, QFormLayout, QVBoxLayout, QDoubleSpinBox, QCheckBox, QTabWidget
+from PyQt5.QtWidgets import QLabel, QGroupBox, QFormLayout, QCheckBox
 
 from utils import cls_settings
 from ui.settings_window_base import SettingsWindowBase
-from ui.combo_box_styled import StyledComboBox, StyledDoubleSpinBox, StyledSpinBox
+from ui.custom_widgets.styled_widgets import StyledComboBox, StyledDoubleSpinBox, StyledSpinBox
 import numpy as np
 from PyQt5 import QtWidgets
 import sys

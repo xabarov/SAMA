@@ -377,7 +377,10 @@ def read_yolo_yaml(yolo_yaml):
 
 
 def convert_percent_to_alpha(percent, alpha_min=15, alpha_max=200):
-    return alpha_min + int(percent * (alpha_max - alpha_min) / 100.0)
+    if percent:
+        return alpha_min + int(percent * (alpha_max - alpha_min) / 100.0)
+
+    return alpha_max
 
 
 def set_alpha_to_max(rgba):

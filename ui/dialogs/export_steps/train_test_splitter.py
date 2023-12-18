@@ -1,9 +1,9 @@
 import numpy as np
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QLabel, QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QSlider
-from qtpy.QtWidgets import QApplication
+from PyQt5.QtWidgets import QLabel, QWidget, QVBoxLayout, QHBoxLayout, QSlider
+from PyQt5.QtWidgets import QApplication
 
-from ui.combo_box_styled import StyledComboBox
+from ui.custom_widgets.styled_widgets import StyledComboBox
 from ui.custom_widgets.two_handle_splitter import TwoHandleSplitter, part_colors
 from utils.settings_handler import AppSettings
 

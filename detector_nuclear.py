@@ -32,7 +32,6 @@ class DetectorNuclear(Detector):
         self.settings.write_sam_hq(1)
         super().hide()
 
-
     def on_post_finished(self):
 
         # Back models
@@ -40,6 +39,10 @@ class DetectorNuclear(Detector):
         self.gd_model = self.load_gd_model()
 
         polygons = self.post_worker.polygons
+
+        alpha_tek = self.settings.read_alpha()
+        alpha_edge = self.settings.read_edges_alpha()
+
         for pol in polygons:
             cls_num = pol['cls_num']  # bns
 
@@ -58,7 +61,8 @@ class DetectorNuclear(Detector):
             else:
                 text = f"{cls_name} {1.00}"
 
-            shape_id = self.view.add_polygon_to_scene(cls_num, pol['points'], color=color, text=text)
+            shape_id = self.view.add_polygon_to_scene(cls_num, pol['points'], color=color, text=text, alpha=alpha_tek,
+                                                      alpha_edge=alpha_edge)
 
             shape = {'id': shape_id, 'cls_num': cls_num, 'points': pol['points'], 'conf': 1.0}
             self.detected_shapes.append(shape)
@@ -97,7 +101,8 @@ class DetectorNuclear(Detector):
             self.progress_toolbar.show_progressbar()
             self.block_geo_coords_message = True
 
-            yolo_txt_name = os.path.join(hf.handle_temp_folder(os.getcwd()), f'{self.tek_image_name.split(".jpg")[0]}.txt')
+            yolo_txt_name = os.path.join(hf.handle_temp_folder(os.getcwd()),
+                                         f'{self.tek_image_name.split(".jpg")[0]}.txt')
 
             if self.tek_image_name in self.map_geotiff_names:
                 tek_image_path = self.map_geotiff_names[self.tek_image_name]

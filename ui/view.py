@@ -8,7 +8,6 @@ from PyQt5.QtWidgets import QAction, QMenu, QGraphicsItem, QGraphicsSimpleTextIt
 from PyQt5.QtWidgets import QApplication
 from shapely import Polygon, Point
 
-from ui.grapic_group import GrGroup
 from ui.polygons import GrPolygonLabel, GrEllipsLabel, ActiveHandler, AiPoint, FatPoint, RulerPoint, RulerLine, \
     set_item_label, check_polygon_item
 from ui.signals_and_slots import PolygonDeleteConnection, ViewMouseCoordsConnection, PolygonPressedConnection, \
@@ -160,7 +159,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
             try:
                 pol = item.polygon()
                 if pol:
-                    item.hide_color() if is_hide else item.get_color_back()
+                    item.hide_color() if is_hide else item.get_color_back(self.line_width)
             except:
                 pass
 
@@ -216,9 +215,10 @@ class GraphicsView(QtWidgets.QGraphicsView):
             cls_num = self.active_group[0].cls_num
             color = self.active_group[0].color
             alpha = self.active_group[0].alpha_percent
+            alpha_edge = self.active_group[0].alpha_edge
             text = self.active_group[0].text
 
-            self.add_polygon_to_scene(cls_num, point_mass, color, alpha, text=text)
+            self.add_polygon_to_scene(cls_num, point_mass, color, alpha=alpha, text=text, alpha_edge=alpha_edge)
 
         self.remove_items_from_active_group()
         self.active_group.clear()
@@ -338,12 +338,14 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.fat_width = fat_scale * scale * 12 + 1
         self.line_width = int(self.fat_width / 8) + 1
 
-        self._zoom = 0
-
         return self.fat_width
 
     def set_pens(self):
-        self.active_pen = QPen(QColor(*hf.set_alpha_to_max(self.active_color)), self.line_width, QtCore.Qt.SolidLine)
+        alpha_edge = self.settings.read_edges_alpha()
+        alpha_edge = hf.convert_percent_to_alpha(alpha_edge)
+        pen_color = list(self.active_color)
+        pen_color[-1] = alpha_edge
+        self.active_pen = QPen(QColor(*pen_color), self.line_width, QtCore.Qt.SolidLine)
         self.fat_point_pen = QPen(QColor(*self.fat_point_color), self.line_width, QtCore.Qt.SolidLine)
 
     def is_close_to_fat_point(self, lp):
@@ -464,15 +466,17 @@ class GraphicsView(QtWidgets.QGraphicsView):
             self.remove_shape_by_id(item_id)
         self.last_added = []
 
-    def add_polygons_group_to_scene(self, cls_num, point_of_points_mass, color=None, alpha=50, text=None):
+    def add_polygons_group_to_scene(self, cls_num, point_of_points_mass, color=None, alpha=50, text=None,
+                                    alpha_edge=None):
         self.last_added = []
         for points_mass in point_of_points_mass:
             id = self.labels_ids_handler.get_unique_label_id()
             self.last_added.append(id)
             self.add_polygon_to_scene(cls_num, points_mass, color=color, alpha=alpha, id=id, is_save_last=False,
-                                      text=text)
+                                      text=text, alpha_edge=alpha_edge)
 
-    def add_polygon_to_scene(self, cls_num, point_mass, color=None, alpha=50, id=None, is_save_last=True, text=None):
+    def add_polygon_to_scene(self, cls_num, point_mass, color=None, alpha=50, id=None,
+                             is_save_last=True, text=None, alpha_edge=None):
         """
         Добавление полигона на сцену
         color - цвет. Если None - будет выбран цвет, соответствующий номеру класса из config.COLORS
@@ -489,10 +493,10 @@ class GraphicsView(QtWidgets.QGraphicsView):
                 self.last_added.append(id)
 
         polygon_new = GrPolygonLabel(None, color=color, cls_num=cls_num, alpha_percent=alpha, id=id, text=text,
-                                     text_pos=hf.calc_label_pos(point_mass))
+                                     text_pos=hf.calc_label_pos(point_mass), alpha_edge=alpha_edge)
 
         polygon_new.setBrush(QtGui.QBrush(QColor(*polygon_new.color), QtCore.Qt.SolidPattern))
-        polygon_new.setPen(QPen(QColor(*hf.set_alpha_to_max(polygon_new.color)), self.line_width, QtCore.Qt.SolidLine))
+        polygon_new.setPen(QPen(QColor(*polygon_new.edge_color), self.line_width, QtCore.Qt.SolidLine))
 
         poly = QPolygonF()
 
@@ -567,13 +571,15 @@ class GraphicsView(QtWidgets.QGraphicsView):
             active_cls_num = active_item.cls_num
             active_alpha = active_item.alpha_percent
             active_color = active_item.color
+            alpha_edge = active_item.alpha_edge
             text = active_item.text
             text_pos = active_item.text_pos
 
             copy_id = self.labels_ids_handler.get_unique_label_id()
 
             polygon_new = GrPolygonLabel(None, color=active_color, cls_num=active_cls_num,
-                                         alpha_percent=active_alpha, id=copy_id, text=text, text_pos=text_pos)
+                                         alpha_percent=active_alpha, id=copy_id, text=text, text_pos=text_pos,
+                                         alpha_edge=alpha_edge)
             polygon_new.setPen(self.active_pen)
             polygon_new.setBrush(self.active_brush)
             poly = QPolygonF()
@@ -605,7 +611,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
                     pol_new.append(QtCore.QPointF(point.x() + w / 2, point.y() + h / 2))
 
                 new_item = GrPolygonLabel(None, color=item.color, cls_num=item.cls_num,
-                                          alpha_percent=item.alpha_percent,
+                                          alpha_percent=item.alpha_percent, alpha_edge=item.alpha_edge,
                                           id=self.labels_ids_handler.get_unique_label_id(), text=item.text)
 
                 new_item.setPolygon(pol_new)
@@ -792,7 +798,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         return None
 
     def add_fat_point_to_polygon_vertex(self, vertex):
-        circle_width = self.fat_width * math.exp(-self._zoom * 0.3) + 1  # self._zoom / 5.0 + 1
+        circle_width = max(1.0, self.fat_width * math.exp(-self._zoom * 0.3) + 1)  # self._zoom / 5.0 + 1
         self.fat_point = FatPoint(None)
         self.fat_point.setRect(vertex.x() - circle_width / 2,
                                vertex.y() - circle_width / 2,
@@ -1034,7 +1040,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
                     # 4. Перемещаем подсветку узла
                     if self.fat_point:
-                        circle_width = self.fat_width * math.exp(-self._zoom * 0.25) + 1  # self._zoom / 5.0 + 1
+                        circle_width = max(1.0,
+                                           self.fat_width * math.exp(-self._zoom * 0.25) + 1)  # self._zoom / 5.0 + 1
                         self.fat_point.setRect(lp.x() - circle_width / 2,
                                                lp.y() - circle_width / 2,
                                                circle_width, circle_width)
@@ -1315,7 +1322,8 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.active_group.append(item)
         self.scene().addItem(item)
 
-    def start_drawing(self, draw_type=DrawState.polygon, cls_num=0, color=None, alpha=50, id=None, text=None):
+    def start_drawing(self, draw_type=DrawState.polygon, cls_num=0, color=None, alpha=50, id=None, text=None,
+                      alpha_edge=None):
         """
         Старт отрисовки фигуры, по умолчанию - полигона
 
@@ -1360,10 +1368,10 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
             if draw_type == DrawState.polygon or draw_type == DrawState.box:
                 active_item = GrPolygonLabel(self._pixmap_item, color=color, cls_num=cls_num, alpha_percent=alpha,
-                                             id=id, text=text)
+                                             id=id, text=text, alpha_edge=alpha_edge)
             elif draw_type == DrawState.ellipse:
                 active_item = GrEllipsLabel(self._pixmap_item, color=color, cls_num=cls_num, alpha_percent=alpha,
-                                            id=id, text=text)
+                                            id=id, text=text, alpha_edge=alpha_edge)
 
             self.add_item_to_scene_as_active(active_item)
 
@@ -1376,13 +1384,13 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
         elif draw_type == DrawState.ai_mask:
 
-            active_item = GrPolygonLabel(None, color=color, cls_num=cls_num, alpha_percent=alpha,
+            active_item = GrPolygonLabel(None, color=color, cls_num=cls_num, alpha_percent=alpha, alpha_edge=alpha_edge,
                                          id=-1)
 
             self.add_item_to_scene_as_active(active_item)
 
         elif draw_type == DrawState.rubber_band:
-            active_item = GrPolygonLabel(None, color=color, cls_num=-1, alpha_percent=alpha,
+            active_item = GrPolygonLabel(None, color=color, cls_num=-1, alpha_percent=alpha, alpha_edge=alpha_edge,
                                          id=-1)
             self.add_item_to_scene_as_active(active_item)
 
@@ -1435,7 +1443,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if self.draw_state == DrawState.ai_points:
             self.clear_ai_points()
 
-    def end_drawing(self, text=None, cls_num=-1, color=None):
+    def end_drawing(self, text=None, cls_num=-1, color=None, alpha_percent=None):
         self.view_state = ViewState.normal
 
         self.remove_fat_point_from_scene()
@@ -1466,7 +1474,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
             if text and cls_num != -1:
 
-                active_item.set_color(color)
+                active_item.set_color(color=color, alpha_percent=alpha_percent)
                 active_item.set_cls_num(cls_num)
 
                 label = set_item_label(active_item, text, color)
@@ -1523,18 +1531,6 @@ class GraphicsView(QtWidgets.QGraphicsView):
             for item in self.active_group:
                 if item.cls_num == -1:
                     self.remove_item(item)
-
-    def add_group_of_points(self, points, cls_name, color, alpha):
-
-        self.groups = []
-        group = GrGroup(cls_name=cls_name, alpha_percent=alpha, color=color, group_id=len(self.groups) + 1)
-        group.add_points(points)
-
-        # group.setZValue(1)
-        group.setOpacity(alpha)
-        group.setFlag(QGraphicsItem.ItemIsMovable)
-        self.groups.append(group)
-        self.scene().addItem(group)
 
     def on_ruler_mode_on(self, ruler_lrm=None):
         self.view_state = ViewState.ruler

@@ -1,14 +1,17 @@
-from PyQt5.QtWidgets import QLabel, QFormLayout, QVBoxLayout, QLineEdit
+from PyQt5.QtWidgets import QLabel, QFormLayout, QVBoxLayout
 
+from ui.custom_widgets.styled_widgets import StyledEdit
 from ui.settings_window import SettingsWindow
+from utils.settings_handler import AppSettings
 
 
 class SettingsWindowClient(SettingsWindow):
     def __init__(self, parent):
         super().__init__(parent)
+        self.settings = AppSettings()
 
     def create_connection_layout(self):
-        self.server_adress_edit = QLineEdit()
+        self.server_adress_edit = StyledEdit(self.settings.read_theme())
         self.server_adress_edit.setText(self.settings.read_server_name())
         # Настройки обнаружения
 

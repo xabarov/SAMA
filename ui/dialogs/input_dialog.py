@@ -1,10 +1,9 @@
 import numpy as np
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QLabel
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QFormLayout, QProgressBar
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFormLayout, QProgressBar
 
-from ui.combo_box_styled import StyledComboBox
-from ui.combo_box_styled import StyledDoubleSpinBox
+from ui.custom_widgets.styled_widgets import StyledDoubleSpinBox, StyledEdit, StyledComboBox
 from utils.settings_handler import AppSettings
 
 
@@ -18,7 +17,7 @@ class CustomInputDialog(QWidget):
         self.lang = self.settings.read_lang()
 
         self.label = QLabel(f"{question_name}")
-        self.edit = QLineEdit()
+        self.edit = StyledEdit(theme=self.settings.read_theme())
         self.edit.setPlaceholderText(placeholder)
 
         btnLayout = QVBoxLayout()

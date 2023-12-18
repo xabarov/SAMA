@@ -14,7 +14,7 @@ from shapely import Polygon
 
 import utils.help_functions as hf
 from ui.base_window import MainWindow
-from ui.edit_with_button import EditWithButton
+from ui.custom_widgets.edit_with_button import EditWithButton
 from ui.settings_window_client import SettingsWindowClient
 from ui.show_image_widget import ShowImgWindow
 from utils import cls_settings
@@ -170,6 +170,10 @@ class DetectorClient(MainWindow):
             self.scanning_mode = False
 
         self.detected_shapes = []
+
+        alpha_tek = self.settings.read_alpha()
+        alpha_edge = self.settings.read_edges_alpha()
+
         for res in self.CNN_worker.mask_results:
 
             cls_num = res['cls_num']
@@ -182,7 +186,8 @@ class DetectorClient(MainWindow):
             if not color:
                 color = cls_settings.PALETTE[cls_num]
 
-            shape_id = self.view.add_polygon_to_scene(cls_num, points, color=color)
+            shape_id = self.view.add_polygon_to_scene(cls_num, points, color=color, alpha=alpha_tek,
+                                                      alpha_edge=alpha_edge)
 
             shape = {'id': shape_id, 'cls_num': cls_num, 'points': points, 'conf': res['conf']}
             self.detected_shapes.append(shape)
@@ -441,8 +446,10 @@ class DetectorClient(MainWindow):
         label_color = self.project_data.get_label_color(cls_txt)
 
         alpha_tek = self.settings.read_alpha()
+        alpha_edge = self.settings.read_edges_alpha()
 
-        self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
+        self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek,
+                                alpha_edge=alpha_edge)
 
     def ai_mask_pressed(self):
 
@@ -454,7 +461,9 @@ class DetectorClient(MainWindow):
         label_color = self.project_data.get_label_color(cls_txt)
 
         alpha_tek = self.settings.read_alpha()
-        self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek)
+        alpha_edge = self.settings.read_edges_alpha()
+        self.view.start_drawing(self.ann_type, color=label_color, cls_num=cls_num, alpha=alpha_tek,
+                                alpha_edge=alpha_edge)
 
     def start_drawing(self):
         super(DetectorClient, self).start_drawing()

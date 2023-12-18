@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QLabel, QWidget, QGroupBox, QFormLayout, QVBoxLayout
 from qt_material import apply_stylesheet
 
 from utils.settings_handler import AppSettings
-from ui.combo_box_styled import StyledComboBox
+from ui.custom_widgets.styled_widgets import StyledComboBox
 
 
 class SettingsWindowBase(QWidget):
@@ -156,6 +156,15 @@ class SettingsWindowBase(QWidget):
         alpha_slider_layout.addWidget(self.alpha_slider)
 
         layout.addLayout(alpha_slider_layout)
+
+        alpha_edges_slider_layout = QHBoxLayout()
+        self.alpha_edges_slider = QSlider(Qt.Orientation.Horizontal)
+        self.alpha_edges_slider.setValue(self.settings.read_edges_alpha())
+        alpha_edges_slider_layout.addWidget(
+            QLabel("Степень непрозрачности граней" if self.lang == 'RU' else 'Label edges opaque'))
+        alpha_edges_slider_layout.addWidget(self.alpha_edges_slider)
+
+        layout.addLayout(alpha_edges_slider_layout)
 
         fat_slider_layout = QHBoxLayout()
         self.fat_width_slider = QSlider(Qt.Orientation.Horizontal)
@@ -320,6 +329,7 @@ class SettingsWindowBase(QWidget):
         self.settings.write_lang(str(lang))
 
         self.settings.write_alpha(self.alpha_slider.value())  # Transparancy = 1 - alpha
+        self.settings.write_edges_alpha(self.alpha_edges_slider.value())  # Transparancy = 1 - alpha
         self.settings.write_fat_width(self.fat_width_slider.value())
         self.settings.write_density(self.density_slider.value())
 

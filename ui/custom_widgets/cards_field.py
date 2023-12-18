@@ -2,8 +2,8 @@ import os
 
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QWidget, QPushButton, QHBoxLayout, QLabel
-from qtpy.QtWidgets import QApplication
+from PyQt5.QtWidgets import QWidget, QPushButton, QHBoxLayout, QLabel, QSizePolicy
+from PyQt5.QtWidgets import QApplication
 
 from utils.settings_handler import AppSettings
 from ui.custom_widgets.card import Card
@@ -28,8 +28,8 @@ class CardsField(QWidget):
 
         self.block_height = block_height
         self.block_width = block_width
-        self.add_button.setMinimumWidth(block_width)
-        self.add_button.setMinimumHeight(block_height)
+        self.add_button.setMaximumWidth(block_width)
+        self.add_button.setMaximumHeight(block_height)
         if on_add_clicked:
             self.add_button.clicked.connect(on_add_clicked)
 
@@ -38,7 +38,7 @@ class CardsField(QWidget):
         if label_text:
             # Добавить еще текст. Будет скрыт, если есть хотя бы один элемент
             self.text_label = QLabel(label_text)
-            self.text_label.setAlignment(Qt.AlignHCenter)
+            self.text_label.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
             self.layout.addWidget(self.text_label, stretch=1)
         else:
             self.text_label = None
@@ -54,12 +54,12 @@ class CardsField(QWidget):
         self.settings = AppSettings()
         self.lang = self.settings.read_lang()
 
-    def add_card(self, title, path_to_img, min_width=100, min_height=100, on_edit=None):
+    def add_card(self, title, path_to_img, min_width=100, min_height=150, on_edit=None, max_width=350):
         card = Card(None, text=title, path_to_img=path_to_img, min_width=min_width, min_height=min_height,
-                    theme=self.theme,
+                    theme=self.theme, max_width=max_width,
                     on_edit_clicked=on_edit)
         self.cards.append(card)
-        self.layout.addWidget(card)
+        self.layout.addWidget(card, stretch=1)
         self.adjustSize()
         if self.text_label:
             self.text_label.hide()

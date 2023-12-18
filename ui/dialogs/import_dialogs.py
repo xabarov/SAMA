@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QLabel, QWidget, QVBoxLayout, QHBoxLayout, QFormLayo
     QProgressBar, \
     QComboBox
 
-from ui.edit_with_button import EditWithButton
+from ui.custom_widgets.edit_with_button import EditWithButton
 from utils.settings_handler import AppSettings
 
 

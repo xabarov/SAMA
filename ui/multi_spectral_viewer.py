@@ -15,7 +15,7 @@ from ui.dialogs.ok_cancel_dialog import OkCancelDialog
 from ui.signals_and_slots import ThemeChangeConnection
 from ui.simple_view import SimpleView
 from ui.splash_screen import MovieSplashScreen
-from ui.toolbars import ProgressBarToolbar
+from ui.custom_widgets.toolbars import ProgressBarToolbar
 from utils import config
 from utils import help_functions as hf
 from utils.gdal_translate_worker import GdalWorker

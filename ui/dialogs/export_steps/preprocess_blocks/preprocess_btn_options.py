@@ -18,8 +18,8 @@ class PreprocessBtnOptions(ButtonOptions):
 
         self.option_names = ["modify_classes", "resize", "filter_null", "tile", "auto_contrast", "grayscale"]
         if self.lang == 'RU':
-            txt = ["Изменить классы", "Изменить размер изображений", "Удалить неразмеченные", "Разбить на фрагменты",
-                   "Авто контраст", "Преобразовать в серые тона"]
+            txt = ["Изменить классы", "Изменить размер\nизображений", "Удалить\nнеразмеченные", "Разбить на фрагменты",
+                   "Автоконтраст", "Преобразовать\nв серые тона"]
         else:
             txt = ["Modify Classes", "Resize", "Filter Null", "Tile", "Auto Contrast", "GrayScale"]
 
@@ -35,7 +35,7 @@ class PreprocessBtnOptions(ButtonOptions):
 
 if __name__ == '__main__':
     from qt_material import apply_stylesheet
-    from qtpy.QtWidgets import QApplication
+    from PyQt5.QtWidgets import QApplication
 
 
     def print_options():

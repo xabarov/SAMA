@@ -5,7 +5,7 @@ from PyQt5.QtGui import QIcon, QCursor
 from annotator import Annotator
 from utils import config
 
-from ui.edit_with_button import EditWithButton
+from ui.custom_widgets.edit_with_button import EditWithButton
 
 from utils import cls_settings
 from utils.segmenter_worker import SegmenterWorker
@@ -66,7 +66,7 @@ class Detector(Annotator):
 
         self.classifierMenu.addAction(self.segmentImage)
 
-        self.annotatorExportMenu.addAction(self.exportToESRIAct)
+        self.datasetMenu.addAction(self.exportToESRIAct)
 
     def createToolbar(self):
 
@@ -174,9 +174,10 @@ class Detector(Annotator):
 
                 cls_name = self.cls_combo.itemText(cls_num)
                 alpha_tek = self.settings.read_alpha()
+                alpha_edge = self.settings.read_edges_alpha()
                 color = self.project_data.get_label_color(cls_name)
 
-                self.view.add_polygon_to_scene(cls_num, points, color, alpha_tek)
+                self.view.add_polygon_to_scene(cls_num, points, color, alpha=alpha_tek, alpha_edge=alpha_edge)
                 self.save_view_to_project()
 
             else:

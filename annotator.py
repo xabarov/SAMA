@@ -501,6 +501,7 @@ class Annotator(MainWindow):
                 cls_num = self.cls_combo.currentIndex()
             cls_name = self.cls_combo.itemText(cls_num)
             alpha_tek = self.settings.read_alpha()
+            alpha_egde = self.settings.read_edges_alpha()
             color = self.project_data.get_label_color(cls_name)
 
             label_text_params = self.settings.read_label_text_params()
@@ -509,7 +510,8 @@ class Annotator(MainWindow):
             else:
                 text = cls_name
 
-            self.view.add_polygons_group_to_scene(cls_num, filtered_points_mass, color, alpha_tek, text=text)
+            self.view.add_polygons_group_to_scene(cls_num, filtered_points_mass, color, alpha_tek, text=text,
+                                                  alpha_edge=alpha_egde)
 
             self.save_view_to_project()
 
@@ -711,6 +713,10 @@ class Annotator(MainWindow):
             self.images_list_widget.move_to_image_name(self.detected_image)
 
         self.detected_shapes = []
+
+        alpha_tek = self.settings.read_alpha()
+        alpha_edge = self.settings.read_edges_alpha()
+
         for res in self.CNN_worker.mask_results:
 
             cls_num = res['cls_num']
@@ -731,7 +737,8 @@ class Annotator(MainWindow):
             else:
                 text = f"{cls_name} {res['conf']:0.2f}"
 
-            shape_id = self.view.add_polygon_to_scene(cls_num, points, color=color, text=text)
+            shape_id = self.view.add_polygon_to_scene(cls_num, points, color=color, text=text, alpha=alpha_tek,
+                                                      alpha_edge=alpha_edge)
 
             shape = {'id': shape_id, 'cls_num': cls_num, 'points': points, 'conf': res['conf']}
             self.detected_shapes.append(shape)

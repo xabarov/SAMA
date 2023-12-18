@@ -1,7 +1,7 @@
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
-from qtpy.QtCore import Qt
-from qtpy.QtWidgets import QApplication, QSlider
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication, QSlider
 
 from utils.settings_handler import AppSettings
 from ui.signals_and_slots import SliderSplitsConnection

@@ -2,8 +2,9 @@ import os
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QPushButton, QLineEdit, QFileDialog
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QPushButton, QFileDialog
 
+from ui.custom_widgets.styled_widgets import StyledEdit
 from utils.settings_handler import AppSettings
 
 
@@ -34,28 +35,32 @@ class EditWithButton(QWidget):
 
         layout = QHBoxLayout()
 
-        self.edit = QLineEdit()
+        self.edit = StyledEdit(theme=self.settings.read_theme())
         if placeholder:
             self.edit.setPlaceholderText(placeholder)
         self.button = QPushButton()
 
         theme_type = theme.split('.')[0]
 
-        self.icon_folder = os.path.join(os.path.dirname(__file__), "icons", theme_type, "folder.png")
+        self.icon_folder = os.path.join(os.path.dirname(__file__), "..", "icons", theme_type, "folder.png")
 
         self.button.setIcon(QIcon(self.icon_folder))
 
         self.button.clicked.connect(self.on_button_clicked)
 
         layout.addWidget(self.edit)
+        self.edit_height = self.edit.height()
         layout.addWidget(self.button)
         self.setLayout(layout)
+
+    def setPlaceholderText(self, placeholder):
+        self.edit.setPlaceholderText(placeholder)
 
     def getEditText(self):
         return self.edit.text()
 
     def showEvent(self, event):
-        self.button.setMaximumHeight(self.edit.height())
+        self.button.setMaximumHeight(max(self.edit_height, self.edit.height()))
 
     def on_button_clicked(self):
 

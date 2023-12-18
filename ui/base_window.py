@@ -12,13 +12,13 @@ from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, 
 from qt_material import apply_stylesheet
 
 from ui.ask_del_polygon import AskDelWindow
-from ui.combo_box_styled import StyledComboBox
+from ui.custom_widgets.styled_widgets import StyledComboBox
 from ui.dialogs.create_project_dialog import CreateProjectDialog
 from ui.dialogs.export_dialog import ExportDialog
 from ui.dialogs.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog, ImportLRMSDialog
 from ui.dialogs.input_dialog import CustomInputDialog, CustomComboDialog
 from ui.dialogs.ok_cancel_dialog import OkCancelDialog
-from ui.edit_with_button import EditWithButton
+from ui.custom_widgets.edit_with_button import EditWithButton
 from ui.list_widgets.images_widget import ImagesWidget
 from ui.list_widgets.labels_widget import LabelsWidget
 from ui.panels import ImagesPanel, LabelsPanel
@@ -27,7 +27,7 @@ from ui.shortcuts_editor import ShortCutsEditor
 from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection, ThemeChangeConnection, \
     RubberBandModeConnection
 from ui.splash_screen import MovieSplashScreen
-from ui.toolbars import ProgressBarToolbar
+from ui.custom_widgets.toolbars import ProgressBarToolbar
 from ui.view import GraphicsView
 from utils import config
 from utils import help_functions as hf
@@ -310,17 +310,10 @@ class MainWindow(QtWidgets.QMainWindow):
             triggered=self.delete_user)
 
         # Export
-        self.exportAnnToYoloBoxAct = QAction(
-            "YOLO (Box)" if self.lang == 'RU' else "YOLO (Boxes)", self,
+        self.exportAnnAct = QAction(
+            "Экспортировать" if self.lang == 'RU' else "Export", self,
             enabled=False,
-            triggered=self.exportToYOLOBox)
-        self.exportAnnToYoloSegAct = QAction(
-            "YOLO (Seg)" if self.lang == 'RU' else "YOLO (Seg)", self,
-            enabled=False,
-            triggered=self.exportToYOLOSeg)
-        self.exportAnnToCOCOAct = QAction(
-            "COCO" if self.lang == 'RU' else "COCO", self, enabled=False,
-            triggered=self.exportToCOCO)
+            triggered=self.exportDataset)
 
         # Import
         self.importAnnFromYoloBoxAct = QAction(
@@ -415,11 +408,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.annotatorMenu.addMenu(self.AnnotatorMethodMenu)
 
-        self.annotatorExportMenu = QMenu("Экспорт" if self.lang == 'RU' else "Export", self)
-        self.annotatorExportMenu.addAction(self.exportAnnToYoloBoxAct)
-        self.annotatorExportMenu.addAction(self.exportAnnToYoloSegAct)
-        self.annotatorExportMenu.addAction(self.exportAnnToCOCOAct)
-
         self.annotatorImportMenu = QMenu("Импорт" if self.lang == 'RU' else "Import", self)
         self.annotatorImportMenu.addAction(self.importAnnFromYoloBoxAct)
         self.annotatorImportMenu.addAction(self.importAnnFromYoloSegAct)
@@ -432,7 +420,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Dataset menu
         self.datasetMenu = QMenu("Датасет" if self.lang == 'RU' else "Dataset", self)
         self.datasetMenu.addMenu(self.annotatorImportMenu)
-        self.datasetMenu.addMenu(self.annotatorExportMenu)
+        self.datasetMenu.addAction(self.exportAnnAct)
         self.datasetMenu.addAction(self.load_lrm_data_act)
         #
         self.settingsMenu = QMenu("Настройки" if self.lang == 'RU' else "Settings", self)
@@ -934,28 +922,15 @@ class MainWindow(QtWidgets.QMainWindow):
         items = self.labels_on_tek_image.selectedItems()
         self.selected_count_conn.on_labels_count_change.emit(len(items))
 
-    def exportToYOLOBox(self):
+    def exportDataset(self):
         self.save_project()
 
-        self.export_format = 'yolo_box'
-        self.show_export_dialog()
-
-    def exportToYOLOSeg(self):
-        self.save_project()
-
-        self.export_format = 'yolo_seg'
-        self.show_export_dialog()
-
-    def exportToCOCO(self):
-        self.save_project()
-
-        self.export_format = 'coco'
         self.show_export_dialog()
 
     def show_export_dialog(self):
         theme = self.settings.read_theme()
         self.export_dialog = ExportDialog(on_ok_clicked=self.on_export_dialog_ok,
-                                          label_names=self.project_data.get_labels(), export_format=self.export_format,
+                                          label_names=self.project_data.get_labels(),
                                           theme=theme)
 
         self.export_dialog.show()
@@ -967,9 +942,10 @@ class MainWindow(QtWidgets.QMainWindow):
             splits = self.export_dialog.get_splits()
             idx, variant = self.export_dialog.get_idx_text_variant()
             sim_idx, sim_text = self.export_dialog.get_idx_text_sim()
+            export_format = self.export_dialog.get_export_format()
             self.project_data.export_percent_conn.percent.connect(self.export_dialog.set_progress)
             self.project_data.export_finished.on_finished.connect(self.on_project_export)
-            self.project_data.export(export_dir, export_map=export_map, format=self.export_format, variant_idx=idx,
+            self.project_data.export(export_dir, export_map=export_map, format=export_format, variant_idx=idx,
                                      splits=splits, sim=sim_idx)
 
     def importFromYOLOBox(self):
@@ -1055,14 +1031,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.project_data.set_label_color(cls_name, alpha=self.settings.read_alpha())
 
     def on_project_export(self):
+
+        export_format = self.export_dialog.get_export_format()
         self.export_dialog.hide()
         msgbox = QMessageBox()
         msgbox.setIcon(QMessageBox.Information)
 
         if self.lang == 'RU':
-            text = f"Экспорт в формат {self.export_format} завершен успешно"
+            text = f"Экспорт в формат {export_format} завершен успешно"
         else:
-            text = f"Export to {self.export_format} was successful"
+            text = f"Export to {export_format} was successful"
 
         msgbox.setText(text)
         msgbox.setWindowTitle("Экспорт завершен")
@@ -1316,9 +1294,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.saveSelectedPolygonAsImage.setIcon(QIcon(self.icon_folder + "/polygon_image.png"))
 
         # export
-        self.exportAnnToYoloBoxAct.setIcon(QIcon(self.icon_folder + "/yolo.png"))
-        self.exportAnnToYoloSegAct.setIcon(QIcon(self.icon_folder + "/yolo_white.png"))
-        self.exportAnnToCOCOAct.setIcon(QIcon(self.icon_folder + "/coco.png"))
+        self.exportAnnAct.setIcon(QIcon(self.icon_folder + "/export.png"))
 
         # import
         self.importAnnFromYoloBoxAct.setIcon(QIcon(self.icon_folder + "/yolo.png"))
@@ -1348,7 +1324,6 @@ class MainWindow(QtWidgets.QMainWindow):
         # menus
 
         self.AnnotatorMethodMenu.setIcon(QIcon(self.icon_folder + "/label.png"))
-        self.annotatorExportMenu.setIcon(QIcon(self.icon_folder + "/export.png"))
         self.annotatorImportMenu.setIcon(QIcon(self.icon_folder + "/import.png"))
 
         self.load_lrm_data_act.setIcon(QIcon(self.icon_folder + "/json.png"))
@@ -1378,9 +1353,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.hideLabelsAct.setEnabled(is_active)
         self.hideLabelsAct.setChecked(not is_active)
 
-        self.exportAnnToYoloBoxAct.setEnabled(is_active)
-        self.exportAnnToYoloSegAct.setEnabled(is_active)
-        self.exportAnnToCOCOAct.setEnabled(is_active)
+        self.exportAnnAct.setEnabled(is_active)
         self.cls_combo.setEnabled(is_active)
         self.load_lrm_data_act.setEnabled(is_active)
 
@@ -1829,13 +1802,15 @@ class MainWindow(QtWidgets.QMainWindow):
         label_color = self.project_data.get_label_color(cls_txt)
 
         alpha_tek = self.settings.read_alpha()
+        alpha_edge = self.settings.read_edges_alpha()
 
         label_text_params = self.settings.read_label_text_params()
         if label_text_params['hide']:
             text = None
         else:
             text = cls_txt
-        self.view.start_drawing(draw_state, cls_num, color=label_color, alpha=alpha_tek, text=text)
+        self.view.start_drawing(draw_state, cls_num, color=label_color, alpha=alpha_tek, text=text,
+                                alpha_edge=alpha_edge)
 
     def polygon_pressed(self, pressed_id):
         self.window_state = WindowState.normal
@@ -1893,6 +1868,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 cls_name = self.cls_combo.itemText(cls_num)
                 points = shape["points"]
                 alpha_tek = self.settings.read_alpha()
+                alpha_edge = self.settings.read_edges_alpha()
 
                 color = self.project_data.get_label_color(cls_name)
 
@@ -1901,7 +1877,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     text = None
                 else:
                     text = cls_name
-                self.view.add_polygon_to_scene(cls_num, points, color=color, alpha=alpha_tek, id=shape["id"], text=text)
+                self.view.add_polygon_to_scene(cls_num, points, color=color, alpha=alpha_tek, id=shape["id"], text=text,
+                                               alpha_edge=alpha_edge)
 
     def load_image_data(self, image_name):
         # Проверка наличия записи о цветах полигонов
@@ -1932,7 +1909,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 cls_txt = self.cls_combo.currentText()
                 cls_num = self.cls_combo.currentIndex()
                 label_color = self.project_data.get_label_color(cls_txt)
-                self.view.end_drawing(cls_num=cls_num, text=cls_txt, color=label_color)  # save it to
+                alpha_tek = self.settings.read_alpha()
+
+                self.view.end_drawing(cls_num=cls_num, text=cls_txt, color=label_color,
+                                      alpha_percent=alpha_tek)  # save it to
                 self.window_state = WindowState.normal
                 self.save_view_to_project()
 

@@ -187,6 +187,12 @@ class AppSettings:
     def read_alpha(self):
         return self.qt_settings.value("main/alpha", 50)
 
+    def write_edges_alpha(self, alpha):
+        self.qt_settings.setValue("main/alpha_edges", alpha)
+
+    def read_edges_alpha(self):
+        return self.qt_settings.value("main/alpha_edges", 100)
+
     def write_fat_width(self, fat_width):
         self.qt_settings.setValue("main/fat_width", fat_width)
 

@@ -3,7 +3,7 @@ import os
 from PyQt5.QtGui import QPixmap, QIcon
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QLabel, QHBoxLayout
-from qtpy.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication
 
 from utils.settings_handler import AppSettings
 
@@ -11,7 +11,7 @@ from utils.settings_handler import AppSettings
 class Card(QWidget):
 
     def __init__(self, parent, text="", sub_text="", path_to_img=None, min_width=100, min_height=100,
-                 theme='dark_blue.xml',
+                 theme='dark_blue.xml', max_width=100,
                  on_edit_clicked=None, is_del_button=True, is_edit_button=True, on_del=None):
         """
         Поле с текстом + Картинкой + Кнопками Правка и Удалить
@@ -65,7 +65,7 @@ class Card(QWidget):
             self.buttons_lay.addWidget(self.edit_button, stretch=1)
 
         self.main_lay = QHBoxLayout()
-        self.main_lay.addLayout(self.image_text_lay, stretch=4)
+        self.main_lay.addLayout(self.image_text_lay, stretch=5)
         self.main_lay.addLayout(self.buttons_lay, stretch=1)
 
         self.setLayout(self.main_lay)
@@ -75,6 +75,7 @@ class Card(QWidget):
 
         self.setMinimumWidth(min_width)
         self.setMinimumHeight(min_height)
+        self.setMaximumWidth(max_width)
 
     def set_sub_text(self, sub_text):
         if not self.sub_text_label:

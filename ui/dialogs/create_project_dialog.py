@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 
 from PyQt5.QtCore import Qt
 
-from ui.edit_with_button import EditWithButton
+from ui.custom_widgets.edit_with_button import EditWithButton
 from utils.settings_handler import AppSettings
 
 class CreateProjectDialog(QWidget):

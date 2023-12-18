@@ -4,8 +4,10 @@ from PyQt5 import QtCore, QtGui
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, \
-    QLineEdit, QLabel, QMessageBox, QHeaderView
+    QLabel, QMessageBox, QHeaderView
 from qt_material import apply_stylesheet
+
+from ui.custom_widgets.styled_widgets import StyledEdit
 
 from utils.settings_handler import AppSettings
 
@@ -30,9 +32,9 @@ def show_message(title, text):
     msgbox.exec()
 
 
-class ShortCutEdit(QLineEdit):
-    def __init__(self):
-        super(ShortCutEdit, self).__init__()
+class ShortCutEdit(StyledEdit):
+    def __init__(self, theme):
+        super(ShortCutEdit, self).__init__(theme=theme)
         self.keymap = {}
         for key, value in vars(QtCore.Qt).items():
             if isinstance(value, QtCore.Qt.Key):
@@ -114,7 +116,7 @@ class ShortCutInputDialog(QWidget):
         self.lang = self.settings.read_lang()
 
         self.label = QLabel(f"{question_name}")
-        self.edit = ShortCutEdit()
+        self.edit = ShortCutEdit(theme=self.settings.read_theme())
         self.edit.setPlaceholderText(placeholder)
 
         btnLayout = QVBoxLayout()

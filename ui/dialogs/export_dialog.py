@@ -8,11 +8,11 @@ from ui.dialogs.export_steps.preprocess_step import PreprocessStep
 from ui.dialogs.export_steps.set_export_path_widget import SetPathWidget
 from ui.dialogs.export_steps.train_test_splitter import TrainTestSplitter
 from utils.settings_handler import AppSettings
-
+from ui.custom_widgets.accordion import Accordion
 
 class ExportDialog(QWidget):
     def __init__(self, width=800, height=200, on_ok_clicked=None, label_names=None,
-                 theme='dark_blue.xml', export_format='yolo'):
+                 theme='dark_blue.xml'):
         """
         Экспорт датасета
         """
@@ -28,24 +28,26 @@ class ExportDialog(QWidget):
 
         # STEP 1. Path
 
-        self.export_path_step = SetPathWidget(None, theme, export_format)
+        self.export_path_step = SetPathWidget(None, theme)
 
-        export_path_title = "Папка для экспорта" if self.lang == 'RU' else "Path to export"
-        export_card = EnumerateCard(widget=self.export_path_step, num=1, text=export_path_title, is_number_flat=True)
+        export_path_title = "Формат/Путь" if self.lang == 'RU' else "Format/Path"
+        export_card = EnumerateCard(body=self.export_path_step, num=1, text=export_path_title, is_number_flat=True)
         self.cards.append(export_card)
         # STEP 2. Splitter
 
         self.labels_splitter = TrainTestSplitter(None)
         splitter_title = "Train/Val/Test"
-        splitter_card = EnumerateCard(widget=self.labels_splitter, num=2, text=splitter_title, is_number_flat=True)
+        splitter_card = EnumerateCard(body=self.labels_splitter, num=2, text=splitter_title, is_number_flat=True)
         self.cards.append(splitter_card)
 
         # STEP 3. Preprocess
         self.preprocess_step = PreprocessStep(None, labels=label_names, theme=theme)
         preprocess_title = "Предобработка" if self.lang == 'RU' else "Preprocess"
-        preprocess_card = EnumerateCard(widget=self.preprocess_step, num=3, text=preprocess_title, is_number_flat=True)
+        preprocess_card = EnumerateCard(body=self.preprocess_step, num=3, text=preprocess_title, is_number_flat=True)
         self.cards.append(preprocess_card)
         # Разбиение на train, val
+
+        self.accordion = Accordion(self.cards)
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setMinimum(0)
@@ -69,11 +71,9 @@ class ExportDialog(QWidget):
 
         self.layout = QVBoxLayout()
 
-        self.layout.addWidget(export_card)
-        self.layout.addWidget(splitter_card)
-        self.layout.addWidget(preprocess_card)
-        self.layout.addLayout(button_layout)
+        self.layout.addWidget(self.accordion)
         self.layout.addWidget(self.progress_bar)
+        self.layout.addLayout(button_layout)
 
         self.setLayout(self.layout)
 
@@ -89,6 +89,9 @@ class ExportDialog(QWidget):
 
     def get_idx_text_sim(self):
         return self.labels_splitter.get_idx_text_sim()
+
+    def get_export_format(self):
+        return self.export_path_step.get_export_format()
 
     def on_choose_labels_checkbox_clicked(self):
         is_checked = self.choose_labels_checkbox.isChecked()

@@ -24,7 +24,7 @@ class ExportLabelsList(QWidget):
         super(ExportLabelsList, self).__init__()
         mainlayout = QVBoxLayout()
         self.labels = labels
-        self.export_labels = self.labels
+        self.export_labels = labels
         self.del_name = del_name
         self.blur_name = blur_name
         self.headers = headers
@@ -49,6 +49,7 @@ class ExportLabelsList(QWidget):
         self.table.setColumnWidth(0, self.col_width)
         self.table.setColumnWidth(1, self.col_width)
         self.table.setHorizontalHeaderLabels(list(self.headers))
+        # self.table.cellClicked.connect(self.cell_clicked)
         self.table.cellChanged.connect(self.cell_changed)
 
     def cell_clicked(self, row, col):
@@ -64,26 +65,24 @@ class ExportLabelsList(QWidget):
 
     def get_labels_map(self):
         labels_map = {}
-        export_labels = []
+        cls_num = 0
         for i, label in enumerate(self.labels):
-
-            item = self.table.cellWidget(i, 1)
-            cell_text = item.currentText()
-            if cell_text == self.del_name:
-                labels_map[label] = 'del'
-            elif cell_text == self.blur_name:
-                labels_map[label] = 'blur'
-            elif cell_text == "":
-                export_labels.append(label)
-
-        for i, label in enumerate(export_labels):
-            labels_map[label] = i
+            if label in self.export_labels:
+                labels_map[label] = cls_num
+                cls_num += 1
+            else:
+                item = self.table.cellWidget(i, 1)
+                cell_text = item.currentText()
+                if cell_text == self.del_name:
+                    labels_map[label] = 'del'
+                elif cell_text == self.blur_name:
+                    labels_map[label] = 'blur'
 
         for i, label in enumerate(self.labels):
             item = self.table.cellWidget(i, 1)
             cell_text = item.currentText()
-            if label not in export_labels and cell_text != self.del_name and cell_text != self.blur_name:
-                labels_map[label] = export_labels.index(cell_text)
+            if label not in self.export_labels and cell_text != self.del_name and cell_text != self.blur_name:
+                labels_map[label] = labels_map[cell_text]
 
         return labels_map
 

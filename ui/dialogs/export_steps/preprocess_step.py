@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QCheckBox, QPushButton
-from qtpy.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication
 
 from ui.dialogs.export_steps.export_labels_list_view import ExportLabelsList
 from utils.settings_handler import AppSettings
@@ -12,7 +12,7 @@ from ui.dialogs.export_steps.preprocess_blocks.modify_classes import ModifyClass
 
 class PreprocessStep(CardsField):
     def __init__(self, parent, labels, cards=None, theme='dark_blue.xml', block_width=150,
-                 block_height=150):
+                 block_height=150, min_height=260):
 
         settings = AppSettings()
         lang = settings.read_lang()
@@ -25,7 +25,7 @@ class PreprocessStep(CardsField):
         super(PreprocessStep, self).__init__(parent, cards=cards, theme=theme, block_width=block_width,
                                              block_height=block_height, label_text=label_text)
 
-        self.labels = labels
+        self.labels = labels  # Имена меток
         self.icons_path = os.path.join(os.path.dirname(__file__), 'preprocess_blocks', 'preprocess_icons')
 
         self.add_button.clicked.connect(self.on_add)
@@ -37,6 +37,8 @@ class PreprocessStep(CardsField):
         self.option_parameters = {}
         self.num_of_options = 0
 
+        self.setMinimumHeight(min_height)
+
     def on_add(self):
         self.preprocess_options.reset()
         for op in self.option_parameters.keys():
@@ -45,9 +47,9 @@ class PreprocessStep(CardsField):
 
     def add_modify_card(self):
         if self.lang == "RU":
-            sub_text = "Отредактируйте экспортируемые классы"
+            sub_text = "Отредактируйте\nклассы"
         else:
-            sub_text = "Press edit button to change export labels"
+            sub_text = "Change\nexport labels"
 
         self.modify_card = Card(None, text="Modify Classes", path_to_img=os.path.join(self.icons_path, 'list.png'),
                                 min_width=250, min_height=150, theme=self.theme,

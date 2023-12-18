@@ -1,16 +1,11 @@
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter
-from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, QCheckBox, \
-    QComboBox, \
-    qApp, QMenuBar, QToolBar, QWidget, QGroupBox, QFileDialog, QFormLayout, QLineEdit, QComboBox, QSpinBox, QVBoxLayout, \
-    QHBoxLayout, QPushButton, QDoubleSpinBox
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QImage, QFont
+from PyQt5.QtGui import QIcon, QPalette
+from PyQt5.QtGui import QImage
+from PyQt5.QtGui import QPixmap, QPainter
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
-from PyQt5.QtGui import QIcon, QPalette, QColor
 from PyQt5.QtWidgets import QApplication
-import os
-import json
+from PyQt5.QtWidgets import QLabel, QSizePolicy, QScrollArea, QMessageBox, QMenu, QAction, QMenuBar, QToolBar, QWidget, \
+    QVBoxLayout
 
 
 class ShowImgWindow(QWidget):

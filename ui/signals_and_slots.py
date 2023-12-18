@@ -66,5 +66,9 @@ class ViewMouseCoordsConnection(Ps2Core.QObject):
     on_mouse_move = Signal(float, float)
 
 
+class MouseClicked(Ps2Core.QObject):
+    on_mouse_clicked = Signal(bool)
+
+
 class ProjectSaveLoadConn(Ps2Core.QObject):
     on_finished = Signal(bool)

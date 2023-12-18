@@ -1,7 +1,7 @@
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QGridLayout, QFrame, QHBoxLayout, QPushButton
-from qtpy.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication
 
 from ui.signals_and_slots import InfoConnection
 from utils.help_functions import calc_rows_cols

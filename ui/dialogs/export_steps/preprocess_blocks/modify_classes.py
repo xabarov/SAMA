@@ -65,7 +65,7 @@ class ModifyClassesStep(QWidget):
 
 if __name__ == '__main__':
     from qt_material import apply_stylesheet
-    from qtpy.QtWidgets import QApplication
+    from PyQt5.QtWidgets import QApplication
 
 
     def on_ok_test():

@@ -147,13 +147,18 @@ class GrEllipsLabel(QtWidgets.QGraphicsEllipseItem):
     Эллипс с поддержкой номера класса, цветов и т.д.
     """
 
-    def __init__(self, parent=None, cls_num=0, color=None, alpha_percent=50, id=-1, text=None, text_pos=None):
+    def __init__(self, parent=None, cls_num=0, color=None, alpha_percent=50, id=-1, text=None, text_pos=None,
+                 alpha_edge=None):
 
         super().__init__(parent)
         self.cls_num = cls_num
         self.id = id
         self.alpha_percent = alpha_percent
         self.color = get_color(color, cls_num, alpha_percent)
+
+        self.alpha_edge = alpha_edge
+        self.edge_color = get_color(color, cls_num, alpha_edge)
+
         self.label = None
 
         self.old_color = None
@@ -191,7 +196,7 @@ class GrEllipsLabel(QtWidgets.QGraphicsEllipseItem):
         if self.old_color:
             self.color = self.old_color
             self.setBrush(QtGui.QBrush(QColor(*self.color), QtCore.Qt.SolidPattern))
-            self.setPen(QPen(QColor(*self.color), line_width, QtCore.Qt.SolidLine))
+            self.setPen(QPen(QColor(*self.edge_color), line_width, QtCore.Qt.SolidLine))
             if self.label:
                 self.label.setDefaultTextColor(QColor(*self.old_label_text_color))
 
@@ -245,10 +250,10 @@ class GrEllipsLabel(QtWidgets.QGraphicsEllipseItem):
         text_pos = hf.calc_label_pos(point_mass)
 
         grpol = GrPolygonLabel(parent, color=self.color, cls_num=self.cls_num, alpha_percent=self.alpha_percent,
-                               id=self.id, text=text, text_pos=text_pos)
+                               id=self.id, text=text, text_pos=text_pos, alpha_edge=self.alpha_edge)
 
         grpol.setBrush(QtGui.QBrush(QColor(*self.color), QtCore.Qt.SolidPattern))
-        grpol.setPen(QPen(QColor(*hf.set_alpha_to_max(self.color)), 5, QtCore.Qt.SolidLine))
+        grpol.setPen(QPen(QColor(*self.edge_color), 5, QtCore.Qt.SolidLine))
         grpol.setPolygon(polygon)
 
         return grpol
@@ -279,13 +284,18 @@ class GrPolygonLabel(QtWidgets.QGraphicsPolygonItem):
     Полигон с поддержкой номера класса, цветов и т.д.
     """
 
-    def __init__(self, parent=None, cls_num=0, color=None, alpha_percent=50, id=0, text=None, text_pos=None):
+    def __init__(self, parent=None, cls_num=0, color=None, alpha_percent=50, id=0, text=None, text_pos=None,
+                 alpha_edge=None):
 
         super().__init__(parent)
         self.cls_num = cls_num
         self.id = id
         self.alpha_percent = alpha_percent
         self.color = get_color(color, cls_num, alpha_percent)
+
+        self.alpha_edge = alpha_edge
+        self.edge_color = get_color(color, cls_num, alpha_edge)
+
         self.label = None
         self.old_color = None
         self.old_label_text_color = None
@@ -318,7 +328,7 @@ class GrPolygonLabel(QtWidgets.QGraphicsPolygonItem):
         if self.old_color:
             self.color = self.old_color
             self.setBrush(QtGui.QBrush(QColor(*self.color), QtCore.Qt.SolidPattern))
-            self.setPen(QPen(QColor(*self.color), line_width, QtCore.Qt.SolidLine))
+            self.setPen(QPen(QColor(*self.edge_color), line_width, QtCore.Qt.SolidLine))
             if self.label:
                 self.label.show()
 
@@ -368,13 +378,13 @@ class ActiveHandler(list):
 
     def remove(self, item):
         item.setBrush(QtGui.QBrush(QColor(*item.color), QtCore.Qt.SolidPattern))
-        item.setPen(QPen(QColor(*hf.set_alpha_to_max(item.color)), self.line_width, QtCore.Qt.SolidLine))
+        item.setPen(QPen(QColor(*item.edge_color), self.line_width, QtCore.Qt.SolidLine))
         super().remove(item)
 
     def clear(self):
         for item in self:
             item.setBrush(QtGui.QBrush(QColor(*item.color), QtCore.Qt.SolidPattern))
-            item.setPen(QPen(QColor(*hf.set_alpha_to_max(item.color)), self.line_width, QtCore.Qt.SolidLine))
+            item.setPen(QPen(QColor(*item.edge_color), self.line_width, QtCore.Qt.SolidLine))
         super().clear()
 
     def reset_clicked_item(self, item_clicked, is_shift):
