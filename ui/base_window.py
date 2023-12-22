@@ -928,25 +928,29 @@ class MainWindow(QtWidgets.QMainWindow):
         self.show_export_dialog()
 
     def show_export_dialog(self):
-        theme = self.settings.read_theme()
-        self.export_dialog = ExportDialog(on_ok_clicked=self.on_export_dialog_ok,
-                                          label_names=self.project_data.get_labels(),
-                                          theme=theme)
+        test_image_path = os.path.join(self.dataset_dir, self.dataset_images[0])
+        self.export_dialog = ExportDialog(test_image_path=test_image_path, on_ok_clicked=self.on_export_dialog_ok,
+                                          label_names=self.project_data.get_labels())
 
         self.export_dialog.show()
 
     def on_export_dialog_ok(self):
         export_dir = self.export_dialog.get_export_path()
         export_map = self.export_dialog.get_labels_map()
+        is_filter_null = self.export_dialog.is_filter_null()
+
         if export_dir:
             splits = self.export_dialog.get_splits()
             idx, variant = self.export_dialog.get_idx_text_variant()
             sim_idx, sim_text = self.export_dialog.get_idx_text_sim()
             export_format = self.export_dialog.get_export_format()
+            new_image_size = self.export_dialog.get_new_image_size()  # None - if no changes
+
             self.project_data.export_percent_conn.percent.connect(self.export_dialog.set_progress)
             self.project_data.export_finished.on_finished.connect(self.on_project_export)
             self.project_data.export(export_dir, export_map=export_map, format=export_format, variant_idx=idx,
-                                     splits=splits, sim=sim_idx)
+                                     splits=splits, sim=sim_idx, is_filter_null=is_filter_null,
+                                     new_image_size=new_image_size)
 
     def importFromYOLOBox(self):
 

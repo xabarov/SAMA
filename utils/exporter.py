@@ -18,7 +18,8 @@ from utils.dataset_preprocessing.splitter import train_test_val_splitter
 class Exporter(QtCore.QThread):
 
     def __init__(self, project_data, export_dir, format='yolo_seg', export_map=None, dataset_name='dataset',
-                 variant_idx=0, splits=None, split_method='names', sim=0):
+                 variant_idx=0, splits=None, split_method='names', sim=0,
+                 is_filter_null=False, new_image_size=None):
         """
         variant_idx = 0 Train/Val/Test
         1 - Train/Val
@@ -42,6 +43,12 @@ class Exporter(QtCore.QThread):
         self.splits = splits
         self.split_method = split_method
         self.sim = sim
+        self.is_filter_null = is_filter_null
+
+        self.new_image_size = new_image_size  # None - no resize
+        # Изменение разметки YOLO не требуется - она в относительных координатах
+        # COCO - требуется.
+        # Также требуется resize изображений
 
         self.data = project_data
 
@@ -107,6 +114,10 @@ class Exporter(QtCore.QThread):
         return blur_dir
 
     def write_yolo_seg_line(self, shape, im_shape, f, cls_num):
+        """
+        Пишет одну запись в txt YOLO
+        shape - [ [x1, y1], ... ] в абс координатах
+        """
         points = shape["points"]
         line = f"{cls_num}"
         for point in points:
@@ -221,7 +232,7 @@ class Exporter(QtCore.QThread):
                 if filename not in image_names:
                     continue
 
-                if not len(image["shapes"]):  # чтобы не создавать пустых файлов
+                if not len(image["shapes"]) and self.is_filter_null:  # чтобы не создавать пустых файлов
                     continue
 
                 fullname = os.path.join(self.data["path_to_images"], filename)
@@ -240,7 +251,7 @@ class Exporter(QtCore.QThread):
 
                 with open(os.path.join(labels_dir, split_folder, txt_yolo_name), 'w') as f:
                     for shape in image["shapes"]:
-                        cls_num = shape["cls_num"]
+                        cls_num = shape["cls_num"]  # Shape - в абсолютных координатах
 
                         if cls_num == -1 or cls_num > len(labels_names) - 1:
                             continue
@@ -312,7 +323,7 @@ class Exporter(QtCore.QThread):
                 if filename not in image_names:
                     continue
 
-                if not len(image["shapes"]):  # чтобы не создавать пустых файлов
+                if not len(image["shapes"]) and self.is_filter_null:  # чтобы не создавать пустых файлов
                     continue
 
                 fullname = os.path.join(self.data["path_to_images"], filename)
@@ -395,6 +406,9 @@ class Exporter(QtCore.QThread):
                 if filename not in image_names:
                     continue
 
+                if not len(image["shapes"]) and self.is_filter_null:  # чтобы не создавать пустых файлов
+                    continue
+
                 id_map[filename] = id_tek
                 im_full_path = os.path.join(self.data["path_to_images"], filename)
                 im_save_path = os.path.join(images_dir, split_folder, filename)
@@ -420,6 +434,9 @@ class Exporter(QtCore.QThread):
             for filename, image in self.data["images"].items():
 
                 if filename not in image_names:
+                    continue
+
+                if not len(image["shapes"]) and self.is_filter_null:  # чтобы не создавать пустых файлов
                     continue
 
                 fullname = os.path.join(self.data["path_to_images"], filename)

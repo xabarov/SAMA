@@ -14,16 +14,18 @@ class CardsField(QWidget):
         Поле для размещения карточек
     """
 
-    def __init__(self, parent, cards=None, theme='dark_blue.xml', on_add_clicked=None, block_width=150,
+    def __init__(self, cards=None, on_add_clicked=None, block_width=150,
                  block_height=150, label_text=None):
-        super().__init__(parent)
+        super().__init__(None)
 
         self.layout = QHBoxLayout()
-        self.theme = theme
+        self.settings = AppSettings()
+        self.lang = self.settings.read_lang()
+        self.theme = self.settings.read_theme()
 
         # ADD Card button:
         self.add_button = QPushButton()
-        path_to_icons = os.path.join(os.path.dirname(__file__), "..", "icons", theme.split('.')[0])
+        path_to_icons = os.path.join(os.path.dirname(__file__), "..", "icons", self.theme.split('.')[0])
         self.add_button.setIcon(QIcon(os.path.join(path_to_icons, 'add.png')))
 
         self.block_height = block_height
@@ -51,12 +53,9 @@ class CardsField(QWidget):
 
         self.setLayout(self.layout)
 
-        self.settings = AppSettings()
-        self.lang = self.settings.read_lang()
-
     def add_card(self, title, path_to_img, min_width=100, min_height=150, on_edit=None, max_width=350):
         card = Card(None, text=title, path_to_img=path_to_img, min_width=min_width, min_height=min_height,
-                    theme=self.theme, max_width=max_width,
+                    max_width=max_width,
                     on_edit_clicked=on_edit)
         self.cards.append(card)
         self.layout.addWidget(card, stretch=1)

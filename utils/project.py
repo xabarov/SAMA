@@ -467,14 +467,16 @@ class ProjectHandler(QWidget):
 
         return images_dir, labels_dir
 
-    def export(self, export_dir, export_map=None, format='yolo_seg', variant_idx=0, splits=None, sim=0):
+    def export(self, export_dir, export_map=None, format='yolo_seg', variant_idx=0, splits=None, sim=0,
+               is_filter_null=False, new_image_size=None):
 
         """
         sim - тип объединения Train/Val/Test
             0 - случайно, 1 - по имени, 2 - CLIP
         """
         self.exporter = Exporter(self.data, export_dir=export_dir, format=format, export_map=export_map,
-                                 variant_idx=variant_idx, splits=splits, sim=sim)
+                                 variant_idx=variant_idx, splits=splits, sim=sim, is_filter_null=is_filter_null,
+                                 new_image_size=new_image_size)
 
         self.exporter.export_percent_conn.percent.connect(self.on_exporter_percent_change)
         self.exporter.info_conn.info_message.connect(self.on_exporter_message)

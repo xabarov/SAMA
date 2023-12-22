@@ -3,16 +3,16 @@ import sys
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QProgressBar, QApplication, QMessageBox
 
+from ui.custom_widgets.accordion import Accordion
 from ui.custom_widgets.enumerate_card import EnumerateCard
 from ui.dialogs.export_steps.preprocess_step import PreprocessStep
 from ui.dialogs.export_steps.set_export_path_widget import SetPathWidget
 from ui.dialogs.export_steps.train_test_splitter import TrainTestSplitter
 from utils.settings_handler import AppSettings
-from ui.custom_widgets.accordion import Accordion
+
 
 class ExportDialog(QWidget):
-    def __init__(self, width=800, height=200, on_ok_clicked=None, label_names=None,
-                 theme='dark_blue.xml'):
+    def __init__(self, test_image_path, width=800, height=200, on_ok_clicked=None, label_names=None):
         """
         Экспорт датасета
         """
@@ -28,7 +28,7 @@ class ExportDialog(QWidget):
 
         # STEP 1. Path
 
-        self.export_path_step = SetPathWidget(None, theme)
+        self.export_path_step = SetPathWidget(None, self.settings.read_theme())
 
         export_path_title = "Формат/Путь" if self.lang == 'RU' else "Format/Path"
         export_card = EnumerateCard(body=self.export_path_step, num=1, text=export_path_title, is_number_flat=True)
@@ -41,7 +41,7 @@ class ExportDialog(QWidget):
         self.cards.append(splitter_card)
 
         # STEP 3. Preprocess
-        self.preprocess_step = PreprocessStep(None, labels=label_names, theme=theme)
+        self.preprocess_step = PreprocessStep(labels=label_names, test_image_path=test_image_path)
         preprocess_title = "Предобработка" if self.lang == 'RU' else "Preprocess"
         preprocess_card = EnumerateCard(body=self.preprocess_step, num=3, text=preprocess_title, is_number_flat=True)
         self.cards.append(preprocess_card)
@@ -93,6 +93,11 @@ class ExportDialog(QWidget):
     def get_export_format(self):
         return self.export_path_step.get_export_format()
 
+    def get_new_image_size(self):
+        params = self.preprocess_step.get_params()
+        if "resize" in params:
+            return params["resize"]
+
     def on_choose_labels_checkbox_clicked(self):
         is_checked = self.choose_labels_checkbox.isChecked()
         self.export_labels_list.setVisible(is_checked)
@@ -107,6 +112,11 @@ class ExportDialog(QWidget):
         params = self.preprocess_step.get_params()
         if "modify_classes" in params:
             return params["modify_classes"]
+
+    def is_filter_null(self):
+        params = self.preprocess_step.get_params()
+        if "filter_null" in params:
+            return True
 
     def show_empty_path_message(self):
         msgbox = QMessageBox()

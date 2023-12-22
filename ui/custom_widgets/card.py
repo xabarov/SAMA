@@ -11,12 +11,16 @@ from utils.settings_handler import AppSettings
 class Card(QWidget):
 
     def __init__(self, parent, text="", sub_text="", path_to_img=None, min_width=100, min_height=100,
-                 theme='dark_blue.xml', max_width=100,
+                 max_width=100,
                  on_edit_clicked=None, is_del_button=True, is_edit_button=True, on_del=None):
         """
         Поле с текстом + Картинкой + Кнопками Правка и Удалить
         """
         super().__init__(parent)
+
+        self.settings = AppSettings()
+        self.lang = self.settings.read_lang()
+        self.theme = self.settings.read_theme()
 
         self.layout = QHBoxLayout()
 
@@ -41,7 +45,7 @@ class Card(QWidget):
             self.sub_text_label = None
 
         # right = buttons
-        path_to_icons = os.path.join(os.path.dirname(__file__), "..", "icons", theme.split('.')[0])
+        path_to_icons = os.path.join(os.path.dirname(__file__), "..", "icons", self.theme.split('.')[0])
 
         self.buttons_lay = QVBoxLayout()
 
@@ -69,9 +73,6 @@ class Card(QWidget):
         self.main_lay.addLayout(self.buttons_lay, stretch=1)
 
         self.setLayout(self.main_lay)
-
-        self.settings = AppSettings()
-        self.lang = self.settings.read_lang()
 
         self.setMinimumWidth(min_width)
         self.setMinimumHeight(min_height)
