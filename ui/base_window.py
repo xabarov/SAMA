@@ -1006,8 +1006,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         proj_data = self.import_dialog.getData()
         if proj_data:
-            label_names = self.import_dialog.get_label_names()
-            self.importer = Importer(coco_data=proj_data, alpha=self.settings.read_alpha(), label_names=label_names,
+            self.importer = Importer(coco_data=proj_data, alpha=self.settings.read_alpha(),
                                      copy_images_path=self.import_dialog.get_copy_images_path(),
                                      coco_name=self.import_dialog.get_coco_name(), is_coco=True)
 
@@ -1020,12 +1019,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def on_import_finished(self):
         self.project_data.set_data(self.importer.get_project())
 
-        if self.loaded_proj_name:
-            self.project_data.save(self.loaded_proj_name)
-
-        else:
-            self.fill_labels_combo_from_project()
-            self.save_project_as()
+        self.fill_labels_combo_from_project()
+        self.save_project_as()
 
         self.reload_project()
         self.import_dialog.hide()

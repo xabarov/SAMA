@@ -898,6 +898,8 @@ class Annotator(MainWindow):
         """
         yaml_data = self.import_dialog.getData()
 
+
+
         if self.sam and not self.is_seg_import:
             convert_to_masks = self.import_dialog.convert_to_mask_checkbox.isChecked()
         else:

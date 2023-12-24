@@ -54,9 +54,9 @@ class Exporter(QtCore.QThread):
 
     def run(self):
         if self.format == 'yolo_seg':
-            self.exportToYOLOSeg()
+            self.exportToYOLO(type="seg")
         elif self.format == 'yolo_box':
-            self.exportToYOLOBox()
+            self.exportToYOLO(type="box")
         else:
             self.exportToCOCO()
 
@@ -189,8 +189,9 @@ class Exporter(QtCore.QThread):
         f.write(
             f"{cls_num} {x_center / im_shape[1]} {y_center / im_shape[0]} {w / im_shape[1]} {h / im_shape[0]}\n")
 
-    def exportToYOLOSeg(self):
+    def exportToYOLO(self, type):
         """
+        type "seg" / "box"
         export_map - {label_name: cls_num или 'del' или 'blur' , ... } Экспортируемых меток может быть меньше
         """
         export_dir = self.export_dir
@@ -263,110 +264,39 @@ class Exporter(QtCore.QThread):
                             continue
 
                         elif export_cls_num == 'blur':
-                            self.write_yolo_seg_line(shape, im_shape, blur_f, 0)
+                            if type == "seg":
+                                self.write_yolo_seg_line(shape, im_shape, blur_f, 0)
+                            elif type == "box":
+                                self.write_yolo_box_line(shape, im_shape, blur_f, 0)
 
                         else:
-                            self.write_yolo_seg_line(shape, im_shape, f, export_cls_num)
+                            if type == "seg":
+                                self.write_yolo_seg_line(shape, im_shape, f, export_cls_num)
+                            elif type == "box":
+                                self.write_yolo_box_line(shape, im_shape, f, export_cls_num)
 
                 if is_blur:
                     blur_f.close()
                     mask = get_mask_from_yolo_txt(fullname, blur_txt_name, [0])
                     blurred_image_cv2 = blur_image_by_mask(fullname, mask)
+                    if self.new_image_size:
+                        blurred_image_cv2 = cv2.resize(blurred_image_cv2, self.new_image_size)
+
                     cv2.imwrite(os.path.join(images_dir, split_folder, filename), blurred_image_cv2)
                 else:
-                    shutil.copy(fullname, os.path.join(images_dir, split_folder, filename))
+
+                    if self.new_image_size:
+                        img = cv2.imread(fullname)
+                        new_img = cv2.resize(img, self.new_image_size)
+                        cv2.imwrite(os.path.join(images_dir, split_folder, filename), new_img)
+                    else:
+                        shutil.copy(fullname, os.path.join(images_dir, split_folder, filename))
 
                 im_num += 1
                 self.export_percent_conn.percent.emit(int(100 * im_num / (len(self.data['images']))))
 
     def emit_percent(self, value):
         self.export_percent_conn.percent.emit(value)
-
-    def exportToYOLOBox(self):
-
-        export_dir = self.export_dir
-        export_map = self.export_map
-
-        if not os.path.isdir(export_dir):
-            return
-
-        self.clear_not_existing_images()
-        labels_names = self.get_labels()
-
-        if not export_map:
-            export_map = self.get_export_map(labels_names)
-
-        images_dir, labels_dir = self.create_images_labels_subdirs(export_dir)
-        is_blur = self.is_blurred_classes(export_map)
-
-        if is_blur:
-            blur_dir = self.create_blur_dir(export_dir)
-
-        export_label_names = {}
-        unique_values = []
-        for k, v in export_map.items():
-            if v != 'del' and v != 'blur' and v not in unique_values:
-                export_label_names[k] = v
-                unique_values.append(v)
-
-        use_test = True if self.variant_idx == 0 else False
-        create_yaml(f"{self.dataset_name}.yaml", export_dir, list(export_label_names.keys()),
-                    dataset_name=self.dataset_name, use_test=use_test)
-
-        split_names = self.get_split_image_names()
-        im_num = 0
-
-        for split_folder, image_names in split_names.items():
-
-            for filename, image in self.data["images"].items():
-
-                if filename not in image_names:
-                    continue
-
-                if not len(image["shapes"]) and self.is_filter_null:  # чтобы не создавать пустых файлов
-                    continue
-
-                fullname = os.path.join(self.data["path_to_images"], filename)
-                txt_yolo_name = hf.convert_image_name_to_txt_name(filename)
-
-                width, height = Image.open(fullname).size
-                im_shape = [height, width]
-
-                if is_blur:
-                    blur_txt_name = os.path.join(blur_dir, txt_yolo_name)
-                    blur_f = open(blur_txt_name, 'w')
-
-                with open(os.path.join(labels_dir, split_folder, txt_yolo_name), 'w') as f:
-                    for shape in image["shapes"]:
-                        cls_num = shape["cls_num"]
-
-                        if cls_num == -1 or cls_num > len(labels_names) - 1:
-                            continue
-
-                        label_name = labels_names[cls_num]
-
-                        export_cls_num = export_map[label_name]
-
-                        if export_cls_num == 'del':
-
-                            continue
-
-                        elif export_cls_num == 'blur':
-                            self.write_yolo_box_line(shape, im_shape, blur_f, 0)
-
-                        else:
-                            self.write_yolo_box_line(shape, im_shape, f, export_cls_num)
-                if is_blur:
-                    blur_f.close()
-                    mask = get_mask_from_yolo_txt(fullname, blur_txt_name, [0])
-                    blurred_image_cv2 = blur_image_by_mask(fullname, mask)
-                    cv2.imwrite(os.path.join(images_dir, split_folder, filename), blurred_image_cv2)
-
-                else:
-                    shutil.copy(fullname, os.path.join(images_dir, split_folder, filename))
-
-                im_num += 1
-                self.export_percent_conn.percent.emit(int(100 * im_num / (len(self.data['images']))))
 
     def exportToCOCO(self):
 
@@ -445,6 +375,9 @@ class Exporter(QtCore.QThread):
                 if not os.path.exists(fullname):
                     continue
 
+                width, height = Image.open(fullname).size
+                im_shape = [height, width]
+
                 if is_blur:
                     blur_txt_name = os.path.join(blur_dir, txt_yolo_name)
                     blur_f = open(blur_txt_name, 'w')
@@ -470,11 +403,22 @@ class Exporter(QtCore.QThread):
                         xs = []
                         ys = []
                         all_points = [[]]
+
                         for point in points:
-                            xs.append(point[0])
-                            ys.append(point[1])
-                            all_points[0].append(int(point[0]))
-                            all_points[0].append(int(point[1]))
+                            if self.new_image_size:
+                                x_scale = 1.0 * self.new_image_size[0] / width
+                                y_scale = 1.0 * self.new_image_size[1] / height
+                                x = int(point[0] * x_scale)
+                                y = int(point[1] * y_scale)
+                                xs.append(x)
+                                ys.append(y)
+                                all_points[0].append(x)
+                                all_points[0].append(y)
+                            else:
+                                xs.append(point[0])
+                                ys.append(point[1])
+                                all_points[0].append(int(point[0]))
+                                all_points[0].append(int(point[1]))
 
                         seg = np.array(all_points[0])
 
@@ -503,10 +447,18 @@ class Exporter(QtCore.QThread):
                     blur_f.close()
                     mask = get_mask_from_yolo_txt(fullname, blur_txt_name, [0])
                     blurred_image_cv2 = blur_image_by_mask(fullname, mask)
-                    cv2.imwrite(os.path.join(images_dir, filename), blurred_image_cv2)
+                    if self.new_image_size:
+                        blurred_image_cv2 = cv2.resize(blurred_image_cv2, self.new_image_size)
 
+                    cv2.imwrite(os.path.join(images_dir, split_folder, filename), blurred_image_cv2)
                 else:
-                    shutil.copy(fullname, os.path.join(images_dir, split_folder, filename))
+
+                    if self.new_image_size:
+                        img = cv2.imread(fullname)
+                        new_img = cv2.resize(img, self.new_image_size)
+                        cv2.imwrite(os.path.join(images_dir, split_folder, filename), new_img)
+                    else:
+                        shutil.copy(fullname, os.path.join(images_dir, split_folder, filename))
 
                 im_num += 1
                 self.export_percent_conn.percent.emit(int(100 * im_num / (len(self.data['images']))))

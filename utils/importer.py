@@ -13,7 +13,7 @@ from utils.sam_predictor import mask_to_seg, predict_by_box
 
 class Importer(QtCore.QThread):
 
-    def __init__(self, coco_data=None, alpha=120, yaml_data=None, is_seg=False, copy_images_path=None, label_names=None,
+    def __init__(self, coco_data=None, alpha=120, yaml_data=None, is_seg=False, copy_images_path=None,
                  is_coco=True, dataset="train", coco_name=None, convert_to_masks=False,
                  sam_predictor=None):
         super(Importer, self).__init__()
@@ -27,7 +27,6 @@ class Importer(QtCore.QThread):
         self.project = None
         self.alpha = alpha
         self.dataset = dataset
-        self.label_names = label_names
         self.yaml_data = yaml_data
         self.is_coco = is_coco
         self.is_seg = is_seg
@@ -53,9 +52,6 @@ class Importer(QtCore.QThread):
 
     def set_alpha(self, alpha):
         self.alpha = alpha
-
-    def set_labels(self, labels_names):
-        self.label_names = labels_names
 
     def set_dataset_type(self, dataset_type):
         self.dataset = dataset_type
@@ -83,23 +79,12 @@ class Importer(QtCore.QThread):
         self.info_conn.info_message.emit(f"Start import data from {self.coco_name}")
         data = self.coco_data
         alpha = self.alpha
-        label_names = self.label_names
 
-        if not label_names:
-            label_names = [d["name"] for d in data["categories"]]
-            id_name = 0
-            label_names_new = []
-            for name in label_names:
-                if name == "":
-                    label_names_new.append(f'label {id_name}')
-                    id_name += 1
-            label_names = label_names_new
+        label_names = [d["name"] for d in data["categories"]]
 
         data["annotations"] = self.filter_data_annotations_by_cls_size(data["annotations"], len(label_names))
 
         label_colors = hf.get_label_colors(label_names, alpha=alpha)
-
-        coco_url = None
 
         if self.copy_images_path:
             # change paths
@@ -120,25 +105,13 @@ class Importer(QtCore.QThread):
 
                 im_copy['flickr_url'] = os.path.join(save_images_folder, im["file_name"])
                 im_copy['coco_url'] = os.path.join(save_images_folder, im["file_name"])
-                if not coco_url:
-                    coco_url = im_copy['coco_url']
                 images[im["file_name"]] = im_copy
 
                 self.load_percent_conn.percent.emit(int(i * 100.0 / len(data["images"])))
 
             data["images"] = images
 
-        project_path = os.path.dirname(coco_url)
-        if not os.path.exists(project_path):
-            self.info_conn.info_message.emit(
-                f"Can't find images in {project_path} Try to find images in {os.path.dirname(self.coco_name)} ")
-            project_path = os.path.dirname(self.coco_name)
-            first_im_name = os.path.basename(coco_url)
-            if not os.path.exists(os.path.join(project_path, first_im_name)):
-                self.project = {}
-                self.err_conn.error_message.emit(
-                    f"Can't find images in {project_path}")
-                return
+        project_path = os.path.dirname(self.coco_name)
 
         project = {'path_to_images': project_path,
                    "images":  {}, 'labels': label_names, 'labels_color': label_colors}
