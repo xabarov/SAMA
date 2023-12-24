@@ -897,7 +897,7 @@ class Annotator(MainWindow):
         При нажатии импорта из проекта YOLO
         """
         yaml_data = self.import_dialog.getData()
-
+        self.new_import_project_name = yaml_data['import_project_path']
 
 
         if self.sam and not self.is_seg_import:

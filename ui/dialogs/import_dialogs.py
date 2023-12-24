@@ -1,15 +1,24 @@
 import os
+import sys
 
 import numpy as np
 import ujson
 import yaml
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QLabel, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QPushButton, QCheckBox, \
-    QProgressBar, \
-    QComboBox
+from PyQt5.QtWidgets import QLabel, QFormLayout, QCheckBox, QMessageBox
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QProgressBar, QApplication
 
 from ui.custom_widgets.edit_with_button import EditWithButton
+from ui.custom_widgets.styled_widgets import StyledComboBox
 from utils.settings_handler import AppSettings
+
+
+def show_message(text, title):
+    msgbox = QMessageBox()
+    msgbox.setIcon(QMessageBox.Information)
+    msgbox.setText(text)
+    msgbox.setWindowTitle(title)
+    msgbox.exec()
 
 
 class ImportLRMSDialog(QWidget):
@@ -87,29 +96,35 @@ class ImportFromYOLODialog(QWidget):
         placeholder = "Путь к YAML файлу" if self.lang == 'RU' else 'Path to YAML file'
         dialog_text = 'Открытие файла в формате YAML' if self.lang == 'RU' else 'Open file in YAML format'
 
+        self.form_layout = QFormLayout()
+
         self.yaml_edit_with_button = EditWithButton(None, theme=theme,
                                                     on_button_clicked_callback=self.on_yaml_button_clicked,
                                                     file_type='yaml',
                                                     dialog_text=dialog_text,
                                                     placeholder=placeholder)
+        self.yaml_label = QLabel(placeholder)
+        self.form_layout.addRow(self.yaml_label, self.yaml_edit_with_button)
 
+        placeholder = "Имя нового проекта" if self.lang == 'RU' else 'New project name'
+
+        self.import_project_edit_with_button = EditWithButton(None, theme=theme,
+                                                              is_dir=False, file_type='json',
+                                                              dialog_text=placeholder,
+                                                              placeholder=placeholder, is_existing_file_only=False)
+        self.import_project_label = QLabel(placeholder)
+        self.form_layout.addRow(self.import_project_label, self.import_project_edit_with_button)
         # Dataset Combo layout:
 
-        self.dataset_layout = QHBoxLayout()
-        self.dataset_combo = QComboBox()
+        self.dataset_combo = StyledComboBox(None, theme=self.settings.read_theme())
 
         self.dataset_label = QLabel("Датасет" if self.lang == 'RU' else 'Dataset')
 
-        self.dataset_layout.addWidget(self.dataset_label)
-        self.dataset_layout.addWidget(self.dataset_combo)
+        self.form_layout.addRow(self.dataset_label, self.dataset_combo)
+
         self.dataset_label.setVisible(False)
         self.dataset_combo.setVisible(False)
         self.dataset_combo.currentTextChanged.connect(self.on_dataset_change)
-
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setMinimum(0)
-        self.progress_bar.setMaximum(100)
-        self.progress_bar.setVisible(False)
 
         # save images?
         self.is_copy_images = False
@@ -118,27 +133,29 @@ class ImportFromYOLODialog(QWidget):
         self.save_images_checkbox.setChecked(False)
         self.save_images_checkbox.clicked.connect(self.on_checkbox_clicked)
 
-        save_images_layout = QHBoxLayout()
-        save_images_layout.addWidget(QLabel('Копировать изображения' if self.lang == 'RU' else 'Copy images'))
-        save_images_layout.addWidget(self.save_images_checkbox)
+        self.save_images_checkbox_label = QLabel('Копировать изображения' if self.lang == 'RU' else 'Copy images')
+        self.form_layout.addRow(self.save_images_checkbox_label, self.save_images_checkbox)
 
         # save images edit + button
 
-        placeholder = 'Путь для сохранения изображений...' if self.lang == 'RU' else "Path to save imageds..."
+        placeholder = 'Путь для сохранения изображений...' if self.lang == 'RU' else "Path to save images..."
         dialog_text = 'Выберите папку для сохранения изображений' if self.lang == 'RU' else "Set images folder"
         self.save_images_edit_with_button = EditWithButton(None, theme=theme,
                                                            dialog_text=dialog_text,
                                                            placeholder=placeholder, is_dir=True)
 
         self.save_images_edit_with_button.setVisible(False)
+        self.save_images_label = QLabel(placeholder)
+        self.save_images_label.setVisible(False)
+        self.form_layout.addRow(self.save_images_label, self.save_images_edit_with_button)
 
+        self.convert_to_mask = convert_to_mask
         if convert_to_mask:
             self.convert_to_mask_checkbox = QCheckBox()
             self.convert_to_mask_checkbox.setChecked(False)
-            convert_to_mask_layout = QHBoxLayout()
-            convert_to_mask_layout.addWidget(QLabel(
-                'Использовать SAM для конвертации боксов в сегменты' if self.lang == 'RU' else 'Use SAM to convert boxes to segments'))
-            convert_to_mask_layout.addWidget(self.convert_to_mask_checkbox)
+            self.convert_to_mask_label = QLabel(
+                'Использовать SAM для конвертации боксов в сегменты' if self.lang == 'RU' else 'Use SAM to convert boxes to segments')
+            self.form_layout.addRow(self.convert_to_mask_label, self.convert_to_mask_checkbox)
 
         # Buttons layout:
         btnLayout = QHBoxLayout()
@@ -155,21 +172,21 @@ class ImportFromYOLODialog(QWidget):
         btnLayout.addWidget(self.okBtn)
         btnLayout.addWidget(self.cancelBtn)
 
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(100)
+        self.progress_bar.setVisible(False)
+        self.progress_label = QLabel(
+            'Подождите, идет импорт датасета...' if self.lang == 'RU' else 'Please wait, the dataset is being imported...')
+        self.progress_label.setVisible(False)
+        self.form_layout.addRow(self.progress_label, self.progress_bar)
+
         # Stack layers
 
         self.mainLayout = QVBoxLayout()
-        self.mainLayout.addWidget(self.yaml_edit_with_button)
-        self.mainLayout.addLayout(self.dataset_layout)
-        self.mainLayout.addLayout(save_images_layout)
-
-        self.mainLayout.addWidget(self.save_images_edit_with_button)
-
-        if convert_to_mask:
-            self.mainLayout.addLayout(convert_to_mask_layout)
+        self.mainLayout.addLayout(self.form_layout)
 
         self.mainLayout.addLayout(btnLayout)
-
-        self.mainLayout.addWidget(self.progress_bar)
 
         self.setLayout(self.mainLayout)
 
@@ -183,14 +200,60 @@ class ImportFromYOLODialog(QWidget):
     def on_checkbox_clicked(self):
         self.is_copy_images = self.save_images_checkbox.isChecked()
         self.save_images_edit_with_button.setVisible(self.is_copy_images)
+        self.save_images_label.setVisible(self.is_copy_images)
 
     def on_ok(self):
-        self.yaml_edit_with_button.setEnabled(False)
-        self.dataset_combo.setVisible(False)
-        self.cancelBtn.setEnabled(False)
-        self.okBtn.setEnabled(False)
+
+        if self.save_images_checkbox.isChecked():
+            if self.save_images_edit_with_button.getEditText() == "":
+                if self.lang == 'RU':
+                    text = f"Задайте директорию для сохранения изображений"
+                else:
+                    text = f"Set the directory to save images"
+
+                title = "Заполните все поля" if self.lang == 'RU' else "Fill in all the fields"
+                show_message(text, title)
+                return
+
+        if self.yaml_edit_with_button.getEditText() == "":
+
+            if self.lang == 'RU':
+                text = f"Задайте имя YAML файла"
+            else:
+                text = f"Set the YAML file name"
+
+            title = "Заполните все поля" if self.lang == 'RU' else "Fill in all the fields"
+            show_message(text, title)
+            return
+
+        if self.import_project_edit_with_button.getEditText() == "":
+
+            if self.lang == 'RU':
+                text = f"Задайте имя нового проекта"
+            else:
+                text = f"Give the new project a name"
+
+            title = "Заполните все поля" if self.lang == 'RU' else "Fill in all the fields"
+            show_message(text, title)
+            return
+
+        for w in [self.import_project_label, self.import_project_edit_with_button, self.dataset_label,
+                  self.dataset_combo, self.yaml_label, self.yaml_edit_with_button, self.save_images_edit_with_button,
+                  self.save_images_label, self.cancelBtn, self.okBtn, self.save_images_checkbox_label,
+                  self.save_images_checkbox]:
+            w.hide()
+
+        if self.convert_to_mask:
+            self.convert_to_mask_label.hide()
+            self.convert_to_mask_checkbox.hide()
+
         self.data['is_copy_images'] = self.is_copy_images
         self.data['save_images_dir'] = self.save_images_edit_with_button.getEditText()
+        self.data['import_project_path'] = self.import_project_edit_with_button.getEditText()
+
+        self.progress_bar.setVisible(True)
+        self.progress_label.setVisible(True)
+        self.adjustSize()
 
         self.on_ok_clicked()
 
@@ -247,6 +310,7 @@ class ImportFromCOCODialog(QWidget):
         self.labels = []
 
         # COCO file layout:
+        self.form_layout = QFormLayout()
         placeholder = "Путь к файлу с разметкой COCO" if self.lang == 'RU' else "Path to COCO file"
 
         dialog_text = 'Открытие файла в формате COCO' if self.lang == 'RU' else 'Open file in COCO format'
@@ -256,10 +320,17 @@ class ImportFromCOCODialog(QWidget):
                                                     dialog_text=dialog_text,
                                                     placeholder=placeholder)
 
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setMinimum(0)
-        self.progress_bar.setMaximum(100)
-        self.progress_bar.setVisible(False)
+        self.coco_path_label = QLabel(placeholder)
+        self.form_layout.addRow(self.coco_path_label, self.coco_edit_with_button)
+
+        placeholder = "Имя нового проекта" if self.lang == 'RU' else 'New project name'
+
+        self.import_project_edit_with_button = EditWithButton(None, theme=theme,
+                                                              is_dir=False, file_type='json',
+                                                              dialog_text=placeholder,
+                                                              placeholder=placeholder, is_existing_file_only=False)
+        self.import_project_label = QLabel(placeholder)
+        self.form_layout.addRow(self.import_project_label, self.import_project_edit_with_button)
 
         # save images?
         self.is_copy_images = False
@@ -268,18 +339,21 @@ class ImportFromCOCODialog(QWidget):
         self.save_images_checkbox.setChecked(False)
         self.save_images_checkbox.clicked.connect(self.on_checkbox_clicked)
 
-        save_images_layout = QFormLayout()
-        save_images_layout.addRow(QLabel('Копировать изображения' if self.lang == 'RU' else "Copy images"),
-                                  self.save_images_checkbox)
+        self.save_images_checkbox_label = QLabel('Копировать изображения' if self.lang == 'RU' else 'Copy images')
+        self.form_layout.addRow(self.save_images_checkbox_label, self.save_images_checkbox)
 
         # save images edit + button
-        placeholder = 'Путь для сохранения изображений...' if self.lang == 'RU' else "Path to save imageds..."
+
+        placeholder = 'Путь для сохранения изображений...' if self.lang == 'RU' else "Path to save images..."
         dialog_text = 'Выберите папку для сохранения изображений' if self.lang == 'RU' else "Set images folder"
         self.save_images_edit_with_button = EditWithButton(None, theme=theme,
                                                            dialog_text=dialog_text,
                                                            placeholder=placeholder, is_dir=True)
 
         self.save_images_edit_with_button.setVisible(False)
+        self.save_images_label = QLabel(placeholder)
+        self.save_images_label.setVisible(False)
+        self.form_layout.addRow(self.save_images_label, self.save_images_edit_with_button)
 
         # label names?
         self.is_label_names = False
@@ -288,10 +362,9 @@ class ImportFromCOCODialog(QWidget):
         self.label_names_checkbox.setChecked(False)
         self.label_names_checkbox.clicked.connect(self.on_label_names_checkbox_clicked)
 
-        label_names_layout = QHBoxLayout()
-        label_names_layout.addWidget(
-            QLabel('Задать файл с именами классов' if self.lang == 'RU' else "Set labels names from txt file"))
-        label_names_layout.addWidget(self.label_names_checkbox)
+        self.labels_names_label = QLabel(
+            'Задать файл с именами классов' if self.lang == 'RU' else "Set labels names from txt file")
+        self.form_layout.addRow(self.labels_names_label, self.label_names_checkbox)
 
         # label_names edit + button
         dialog_text = 'Открытие файла с именами классов' if self.lang == 'RU' else "Open file with label names"
@@ -318,18 +391,18 @@ class ImportFromCOCODialog(QWidget):
         btnLayout.addWidget(self.cancelBtn)
 
         # Stack layers
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(100)
+        self.progress_bar.setVisible(False)
+        self.progress_label = QLabel(
+            'Подождите, идет импорт датасета...' if self.lang == 'RU' else 'Please wait, the dataset is being imported...')
+        self.progress_label.setVisible(False)
+        self.form_layout.addRow(self.progress_label, self.progress_bar)
 
         self.mainLayout = QVBoxLayout()
-        self.mainLayout.addWidget(self.coco_edit_with_button)
-
-        self.mainLayout.addLayout(save_images_layout)
-        self.mainLayout.addWidget(self.save_images_edit_with_button)
-
-        self.mainLayout.addLayout(label_names_layout)
-        self.mainLayout.addWidget(self.label_names_edit_with_button)
-
+        self.mainLayout.addLayout(self.form_layout)
         self.mainLayout.addLayout(btnLayout)
-        self.mainLayout.addWidget(self.progress_bar)
         self.setLayout(self.mainLayout)
 
         self.data = {}
@@ -337,9 +410,53 @@ class ImportFromCOCODialog(QWidget):
         self.resize(int(width), int(height))
 
     def on_ok(self):
-        self.coco_edit_with_button.setEnabled(False)
-        self.cancelBtn.setEnabled(False)
-        self.okBtn.setEnabled(False)
+
+        if self.save_images_checkbox.isChecked():
+            if self.save_images_edit_with_button.getEditText() == "":
+                if self.lang == 'RU':
+                    text = f"Задайте директорию для сохранения изображений"
+                else:
+                    text = f"Set the directory to save images"
+
+                title = "Заполните все поля" if self.lang == 'RU' else "Fill in all the fields"
+                show_message(text, title)
+                return
+
+        if self.coco_edit_with_button.getEditText() == "":
+
+            if self.lang == 'RU':
+                text = f"Задайте имя COCO файла"
+            else:
+                text = f"Set the COCO file name"
+
+            title = "Заполните все поля" if self.lang == 'RU' else "Fill in all the fields"
+            show_message(text, title)
+            return
+
+        if self.import_project_edit_with_button.getEditText() == "":
+
+            if self.lang == 'RU':
+                text = f"Задайте имя нового проекта"
+            else:
+                text = f"Give the new project a name"
+
+            title = "Заполните все поля" if self.lang == 'RU' else "Fill in all the fields"
+            show_message(text, title)
+            return
+
+        for w in [self.coco_edit_with_button, self.coco_path_label, self.save_images_edit_with_button,
+                  self.save_images_label, self.save_images_checkbox, self.import_project_edit_with_button,
+                  self.import_project_label, self.save_images_checkbox_label,
+                  self.cancelBtn, self.okBtn, self.labels_names_label, self.label_names_checkbox,
+                  self.label_names_edit_with_button]:
+            w.hide()
+
+        self.data['import_project_path'] = self.import_project_edit_with_button.getEditText()
+
+        self.progress_bar.setVisible(True)
+        self.progress_label.setVisible(True)
+        self.adjustSize()
+
         self.on_ok_clicked()
 
     def get_copy_images_path(self):
@@ -369,8 +486,8 @@ class ImportFromCOCODialog(QWidget):
 
                 data = ujson.load(f)
                 if self.check_coco(data):
-                    self.data = data
-                    self.coco_name = coco_name
+                    self.data['coco_json'] = data
+                    self.data['coco_name'] = coco_name
                 else:
                     self.data = None
 
@@ -410,3 +527,19 @@ class ImportFromCOCODialog(QWidget):
             self.progress_bar.setValue(progress_value)
         else:
             self.progress_bar.setVisible(False)
+
+
+if __name__ == '__main__':
+    def on_ok():
+        print(dialog.getData())
+
+
+    from qt_material import apply_stylesheet
+
+    app = QApplication([])
+    apply_stylesheet(app, theme='dark_blue.xml')
+
+    labels = ['F-16', 'F-35', 'C-130', 'C-17']
+    dialog = ImportFromCOCODialog(None, on_ok_clicked=on_ok)
+    dialog.show()
+    sys.exit(app.exec_())

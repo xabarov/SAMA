@@ -962,6 +962,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def on_import_yolo_clicked(self):
         yaml_data = self.import_dialog.getData()
+        self.new_import_project_name = yaml_data['import_project_path']
 
         copy_images_path = None
         if yaml_data['is_copy_images']:
@@ -1004,11 +1005,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def on_import_coco_clicked(self):
 
+        # dict with keys
+        #       'coco_json' - json data,
+        #       'coco_name' - path to coco file,
+        #       'import_project_path' - path to new project file
         proj_data = self.import_dialog.getData()
+        self.new_import_project_name = proj_data['import_project_path']
+
         if proj_data:
-            self.importer = Importer(coco_data=proj_data, alpha=self.settings.read_alpha(),
+            self.importer = Importer(coco_data=proj_data['coco_json'], alpha=self.settings.read_alpha(),
                                      copy_images_path=self.import_dialog.get_copy_images_path(),
-                                     coco_name=self.import_dialog.get_coco_name(), is_coco=True)
+                                     coco_name=proj_data['coco_name'], is_coco=True)
 
             self.importer.finished.connect(self.on_import_finished)
             self.importer.load_percent_conn.percent.connect(self.on_import_percent_change)
@@ -1020,7 +1027,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.project_data.set_data(self.importer.get_project())
 
         self.fill_labels_combo_from_project()
-        self.save_project_as()
+        self.save_project_as(self.new_import_project_name)
 
         self.reload_project()
         self.import_dialog.hide()
@@ -1042,7 +1049,7 @@ class MainWindow(QtWidgets.QMainWindow):
             text = f"Export to {export_format} was successful"
 
         msgbox.setText(text)
-        msgbox.setWindowTitle("Экспорт завершен")
+        msgbox.setWindowTitle("Экспорт завершен" if self.lang == 'RU' else "Export completed")
         msgbox.exec()
 
     def add_new_name_to_combobox(self, new_name):
