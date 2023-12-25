@@ -12,13 +12,14 @@ from PyQt5.QtWidgets import QAction, QFileDialog, QMessageBox, QMenu, QToolBar, 
 from qt_material import apply_stylesheet
 
 from ui.ask_del_polygon import AskDelWindow
+from ui.custom_widgets.edit_with_button import EditWithButton
 from ui.custom_widgets.styled_widgets import StyledComboBox
+from ui.custom_widgets.toolbars import ProgressBarToolbar
 from ui.dialogs.create_project_dialog import CreateProjectDialog
 from ui.dialogs.export_dialog import ExportDialog
 from ui.dialogs.import_dialogs import ImportFromYOLODialog, ImportFromCOCODialog, ImportLRMSDialog
 from ui.dialogs.input_dialog import CustomInputDialog, CustomComboDialog
 from ui.dialogs.ok_cancel_dialog import OkCancelDialog
-from ui.custom_widgets.edit_with_button import EditWithButton
 from ui.list_widgets.images_widget import ImagesWidget
 from ui.list_widgets.labels_widget import LabelsWidget
 from ui.panels import ImagesPanel, LabelsPanel
@@ -27,7 +28,6 @@ from ui.shortcuts_editor import ShortCutsEditor
 from ui.signals_and_slots import ImagesPanelCountConnection, LabelsPanelCountConnection, ThemeChangeConnection, \
     RubberBandModeConnection
 from ui.splash_screen import MovieSplashScreen
-from ui.custom_widgets.toolbars import ProgressBarToolbar
 from ui.view import GraphicsView
 from utils import config
 from utils import help_functions as hf

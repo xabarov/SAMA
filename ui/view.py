@@ -84,6 +84,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
         self.fat_width_default_percent = 50
         self._zoom = 0
 
+        self.view_state_before_mid_click = None
+        self.is_mid_click = False
+
         self.create_actions()
 
         self.setRenderHint(QPainter.Antialiasing)
@@ -620,6 +623,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
 
     def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:
 
+        sp = self.mapToScene(event.pos())
+        lp = self.pixmap_item.mapFromScene(sp)
+
         modifierPressed = QApplication.keyboardModifiers()
         modifierName = ''
         # if (modifierPressed & QtCore.Qt.AltModifier) == QtCore.Qt.AltModifier:
@@ -637,11 +643,24 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if event.buttons() == QtCore.Qt.RightButton:
             modifierName += " Right Click"
 
-        if event.buttons() == QtCore.Qt.LeftButton:
+        elif event.buttons() == QtCore.Qt.LeftButton:
             modifierName += " Left Click"
 
-        sp = self.mapToScene(event.pos())
-        lp = self.pixmap_item.mapFromScene(sp)
+        elif event.buttons() == QtCore.Qt.MidButton:
+            # Если была нажата средняя кнопка мыши - режим hand_move вызван разово.
+            # Сохраняем предыдущее состояние view_state
+            # Меняем временно, до MouseRelease состояние на hand_move
+
+            modifierName += " Mid Click"
+            self.is_mid_click = True
+            self.view_state_before_mid_click = self.view_state
+            self.view_state = ViewState.hand_move
+
+            if not self.hand_start_point:
+                self.hand_start_point = event.pos()
+                self.drag_state = DragState.start
+                self.viewport().setCursor(QCursor(QtCore.Qt.ClosedHandCursor))
+            return
 
         if self.view_state == ViewState.hide_polygons:
             return
@@ -888,9 +907,9 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if self.view_state == ViewState.hide_polygons:
             return
 
-        if self.view_state == ViewState.hand_move:
-            self.drag_state = DragState.in_process
-            return
+        # if self.view_state == ViewState.hand_move:
+        #     self.drag_state = DragState.in_process
+        #     return
 
         if self.draw_state == DrawState.rubber_band:
             if self.drag_state in [DragState.start, DragState.in_process]:
@@ -1057,7 +1076,7 @@ class GraphicsView(QtWidgets.QGraphicsView):
         if self.view_state == ViewState.hide_polygons:
             return
 
-        if self.view_state == ViewState.hand_move and self.drag_state == DragState.in_process:
+        if self.view_state == ViewState.hand_move:  #and self.drag_state == DragState.in_process:
             lp = event.pos()
             dx = int(lp.x() - self.hand_start_point.x())
             dy = int(lp.y() - self.hand_start_point.y())
@@ -1072,6 +1091,13 @@ class GraphicsView(QtWidgets.QGraphicsView):
             self.viewport().setCursor(QCursor(QtCore.Qt.OpenHandCursor))
 
             self.drag_state = DragState.no
+
+            if self.is_mid_click:
+                # Если была нажата средняя кнопка мыши - режим hand_move вызван разово.
+                # Возвращаем состояние обратно
+                self.is_mid_click = False
+                self.view_state = self.view_state_before_mid_click
+                self.viewport().setCursor(QCursor(QtCore.Qt.ArrowCursor))
 
             return
 
