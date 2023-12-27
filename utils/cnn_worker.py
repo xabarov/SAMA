@@ -65,7 +65,7 @@ class CNN_worker(QtCore.QThread):
 
         for im_num, img_path_full in enumerate(image_list):
             img = cv2.imread(img_path_full)
-            image_height, image_width = img.shape[1], img.shape[0]
+            image_height, image_width = img.shape[0], img.shape[1]
             filename = os.path.basename(img_path_full)
 
             if self.model_name == 'YOLOv8_openvino':
