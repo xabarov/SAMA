@@ -153,6 +153,27 @@ def create_png_from_yolo(yolo_label_path, image_path, save_path, background_cls=
     cv2.imwrite(save_path, final_mask)
 
 
+def paint_shape_to_mask(mask, shape, cls_num=None):
+    """
+    Добавляет на mask - np.zeros((img_height, img_width))
+    shape = {cls_num: номер класса, points:[ [x1,y1], ...] - точки граней маски }
+    cls_num - номер класса. Если не задан - берется из shape
+    """
+    img_width, img_height = mask.size
+
+    if not cls_num:
+        cls_num = shape['cls_num']
+
+    points = shape["points"]
+    pol = Polygon(points)
+
+    mask_image = features.rasterize([pol], out_shape=(img_height, img_width),
+                                    fill=255,
+                                    default_value=cls_num)
+
+    mask[mask_image == cls_num] = cls_num
+
+
 def create_seg_annotations_from_yolo_seg(images_folder, yolo_seg_folder, png_save_folder, img_suffix='jpg'):
     if not os.path.exists(png_save_folder):
         os.makedirs(png_save_folder)
@@ -254,7 +275,6 @@ def mask_results_to_yolo_txt(mask_results, image_path, yolo_txt_file_name, with_
 
 
 def yolo8masks2points(yolo_mask, simplify_factor=0.4, width=1280, height=1280):
-
     img_data = yolo_mask[0] > 128
     shape = img_data.shape
 
@@ -280,6 +300,31 @@ def yolo8masks2points(yolo_mask, simplify_factor=0.4, width=1280, height=1280):
             pass
 
     return results
+
+
+def mask2shapes(mask_filename, nc=254, simplify_factor=0.3):
+    img_data = cv2.imread(mask_filename, 0)
+    shapes = []
+
+    for cls_num in range(nc):
+
+        img_data_cls = img_data == cls_num
+        img_data_cls = np.asarray(img_data_cls[:, :], dtype=np.double)
+        polygons = mask_to_polygons_layer(img_data_cls)
+
+        for pol in polygons:
+            shape = {'cls_num': cls_num}  # pairs of x,y pixels
+            pol_simplified = pol.simplify(simplify_factor, preserve_topology=False)
+
+            try:
+                xy = np.asarray(pol_simplified.boundary.xy, dtype="int32")
+                points = [[x, y] for x, y in zip(xy[0], xy[1])]
+                shape['points'] = points
+                shapes.append(shape)
+            except:
+                pass
+
+    return shapes
 
 
 def mask2seg(mask_filename, simplify_factor=3, cls_num=None):
@@ -464,16 +509,34 @@ def mask_to_polygons_layer(mask, method='cv2', is_clear=True, min_size=80):
     return shapes
 
 
-if __name__ == '__main__':
-    # train_folder= 'D:\python\datasets\\aes_seg\images\\train'
-    # val_folder = 'D:\python\datasets\\aes_seg\images\\val'
-    # big_folder = 'D:\python\datasets\\aes_2200_copy'
-    #
-    # print(get_images_not_match(train_folder, val_folder, big_folder))
-    test_cv2()
+def show_mask(mask_path, pallete):
+    img = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+    img_colored = cv2.imread(mask_path)
+    for cls_num in pallete:
+        img_colored[img == cls_num] = np.array(pallete[cls_num])
 
-    # for folder in ['train', 'val']:
-    #     images_path = f'D:\python\datasets\\aes_seg\images\\{folder}'
-    #     labels_path = f'D:\python\datasets\\aes_seg\labels\\{folder}'
-    #     mask_path = f'D:\python\datasets\\aes_seg\\annotations\\{folder}'
-    #     create_seg_annotations_from_yolo_seg(images_path, labels_path, mask_path)
+    img_colored = cv2.resize(img_colored, (640, 640))
+
+    cv2.imshow('image', img_colored)
+    cv2.waitKey()
+    cv2.destroyAllWindows()
+
+
+if __name__ == '__main__':
+    mask_path = "F:\\python\\datasets\\nuclear_power_stations\\mmseg\\ann_dir\\train\\usa_catawba_13.png"
+
+    labels = ["reactor_sq", "reactor", "engine_room", "pipe", "turbine", "switchgear", "pump", "cooltower",
+              "ct_vent_circle", "cl_vent_sq", "ct_active", "discharge", "ISFSI", "tank", "diesel", "sea", "parking",
+              "waste_water_cil"]
+    labels_colors = {"discharge": [255, 215, 64, 120], "ISFSI": [255, 170, 127, 58], "reactor_sq": [170, 0, 255, 58],
+                     "reactor": [0, 255, 127, 120], "engine_room": [255, 0, 127, 58], "pipe": [255, 255, 0, 58],
+                     "turbine": [255, 170, 0, 120], "switchgear": [255, 0, 0, 58], "pump": [85, 255, 0, 58],
+                     "cooltower": [85, 0, 0, 120], "ct_vent_circle": [85, 85, 127, 58], "cl_vent_sq": [13, 45, 85, 120],
+                     "ct_active": [178, 255, 191, 120], "tank": [0, 85, 255, 120], "diesel": [255, 85, 0, 120],
+                     "sea": [69, 255, 209, 58], "parking": [255, 85, 255, 58], "waste_water_cil": [170, 0, 3, 50]}
+
+    pallete = {}
+    for i, lbl in enumerate(labels):
+        pallete[i] = labels_colors[lbl][:-1]
+
+    show_mask(mask_path, pallete)

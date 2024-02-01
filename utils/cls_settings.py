@@ -91,7 +91,7 @@ CNN_DICT = {
     #              "type": "YOLO5"},
     # 'YOLOv5x6': {'weights': 'yolo//yolo_weights//v5x6_640//best.pt', 'config': "yolo//yamls//aes.yaml",
     #              "type": "YOLO5"},
-    'YOLOv8': {'weights': 'yolov8//weights//best.pt', 'config': "yolov8//aes_yolo_seg.yaml",
+    'YOLOv8': {'weights': 'yolov8//weights_11_01_2024//best.pt', 'config': "yolov8//aes_yolo_seg.yaml",
                "type": "YOLO8"},
     # 'YOLOv8': {'weights': 'yolov8//weights//yolov8x-seg.pt', 'config': "yolov8//yolov8-seg.yaml",
     #            "type": "YOLO8"},

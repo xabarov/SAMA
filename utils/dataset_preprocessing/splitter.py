@@ -9,11 +9,10 @@ from PIL import Image
 from utils.config import PATH_TO_SENTENCE_TRANSFORMER, PATH_TO_IMAGES_TRANSFORMER
 from utils.dataset_preprocessing.images_similarity import get_images_similarity
 from utils.dataset_preprocessing.sentence_sim import get_images_names_similarity
-from utils.help_functions import is_im_path
+from utils.help_functions import is_im_path, convert_image_name_to_png_name
 from utils.help_functions import split_into_fragments, calc_parts
 
 Image.MAX_IMAGE_PIXELS = 933120000
-
 
 
 def handle_out_of_image_border(x_px, y_px, w_px, h_px, im_width, im_height):
@@ -171,7 +170,6 @@ def train_test_val_splitter(images_path, train=80.0, val=20.0, test=None, sim_me
         names - по именам
         clip - по эмбеддингам
     """
-
 
     sentence_model_path = os.path.join(os.path.dirname(__file__), "..", "..", PATH_TO_SENTENCE_TRANSFORMER)
     images_model_path = os.path.join(os.path.dirname(__file__), "..", "..", PATH_TO_IMAGES_TRANSFORMER)
@@ -331,13 +329,4 @@ if __name__ == '__main__':
     # save_images_path = "images"
     #
     # split_image_and_label(image_path, label_path, save_images_path, save_labels_path, part_size=1280)
-    path = "D:\python\\aia_git\\ai_annotator\projects\\airplanes"
-
-    def print_value(value):
-        print(value)
-
-    train, val, test = train_test_val_splitter(path, 80, 10, 10, sim_method='images', percent_hook=print_value)
-
-    print(len(train))
-    print(len(val))
-    print(len(test))
+    pass

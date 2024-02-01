@@ -13,6 +13,7 @@ from utils import help_functions as hf
 from utils.blur_image import blur_image_by_mask, get_mask_from_yolo_txt
 from utils.datasets_converter.yolo_converter import create_yaml
 from utils.dataset_preprocessing.splitter import train_test_val_splitter
+from utils import config
 
 
 class Exporter(QtCore.QThread):
@@ -26,6 +27,10 @@ class Exporter(QtCore.QThread):
         2 - Only Train
         3 - Only Val
         4 - Only Test
+
+        format - формат экспорта. Варианты: "yolo_seg", "yolo_box", "coco", "mm_seg"
+                        0 - "YOLO Seg", 1 - "YOLO Box", 2 - 'COCO', 3 - 'MM Segmentation'
+
         """
         super(Exporter, self).__init__()
 
@@ -57,6 +62,8 @@ class Exporter(QtCore.QThread):
             self.exportToYOLO(type="seg")
         elif self.format == 'yolo_box':
             self.exportToYOLO(type="box")
+        elif self.format == 'mm_seg':
+            self.exportMMSeg()
         else:
             self.exportToCOCO()
 
@@ -84,17 +91,18 @@ class Exporter(QtCore.QThread):
         return False
 
     def create_images_labels_subdirs(self, export_dir, is_labels_need=True):
-        images_dir = os.path.join(export_dir, 'images')
-        if not os.path.exists(images_dir):
-            os.makedirs(images_dir)
 
-        for folder in ["train", "val", "test"]:
-            folder_name = os.path.join(images_dir, folder)
-            if not os.path.exists(folder_name):
-                os.makedirs(folder_name)
+        if self.format == "mm_seg":
 
-        if is_labels_need:
-            labels_dir = os.path.join(export_dir, 'labels')
+            images_dir = os.path.join(export_dir, 'img_dir')
+            if not os.path.exists(images_dir):
+                os.makedirs(images_dir)
+            for folder in ["train", "val", "test"]:
+                folder_name = os.path.join(images_dir, folder)
+                if not os.path.exists(folder_name):
+                    os.makedirs(folder_name)
+
+            labels_dir = os.path.join(export_dir, 'ann_dir')
             if not os.path.exists(labels_dir):
                 os.makedirs(labels_dir)
 
@@ -105,7 +113,30 @@ class Exporter(QtCore.QThread):
 
             return images_dir, labels_dir
 
-        return images_dir
+        else:
+            # Формат экспорт YOLO или COCO
+            images_dir = os.path.join(export_dir, 'images')
+            if not os.path.exists(images_dir):
+                os.makedirs(images_dir)
+
+            for folder in ["train", "val", "test"]:
+                folder_name = os.path.join(images_dir, folder)
+                if not os.path.exists(folder_name):
+                    os.makedirs(folder_name)
+
+            if is_labels_need:
+                labels_dir = os.path.join(export_dir, 'labels')
+                if not os.path.exists(labels_dir):
+                    os.makedirs(labels_dir)
+
+                for folder in ["train", "val", "test"]:
+                    folder_name = os.path.join(labels_dir, folder)
+                    if not os.path.exists(folder_name):
+                        os.makedirs(folder_name)
+
+                return images_dir, labels_dir
+
+            return images_dir
 
     def create_blur_dir(self, export_dir):
         blur_dir = os.path.join(export_dir, 'blur')
@@ -188,6 +219,182 @@ class Exporter(QtCore.QThread):
 
         f.write(
             f"{cls_num} {x_center / im_shape[1]} {y_center / im_shape[0]} {w / im_shape[1]} {h / im_shape[0]}\n")
+
+    def create_mmseg_readme(self, yaml_short_name, save_folder, label_names, dataset_name='Dataset', palette=None):
+        label_names = {k: v + 1 for v, k in enumerate(label_names)}
+        label_names['background'] = 0
+        yaml_full_name = os.path.join(save_folder, yaml_short_name)
+        with open(yaml_full_name, 'w') as f:
+            f.write(f"# {dataset_name}\n")
+            # Paths:
+            path_str = f"path: {save_folder}\n"
+            path_str += "annotations: ann_dir \n"
+            path_str += "images: img_dir\n"
+            f.write(path_str)
+            # Classes:
+            f.write("#Classes\n")
+            f.write(f"nc: {len(label_names)} # number of classes\n")
+            f.write(f"names: {label_names}\n")
+            if not palette:
+                palette = {}
+                for name, cls_num in label_names:
+                    if cls_num > len(config.COLORS) - 1:
+                        color_num = len(config.COLORS) % (cls_num + 1) - 1
+                        color = config.COLORS[color_num][:-1]
+                    else:
+                        color = config.COLORS[cls_num][:-1]
+                    palette[name] = color
+            f.write(f"palette: {palette}\n")
+
+    def exportMMSeg(self):
+        """
+        Экспорт датасета в формат MM Segmentation
+
+        Номер класса для фона - 0
+        Нумерация остальных классов начинается с 1
+
+        my_dataset
+        |-- img_dir
+        |   |-- train
+        |   |   |-- xxx{img_suffix}
+        |   |   |-- yyy{img_suffix}
+        |   |   |-- zzz{img_suffix}
+        |   |-- val
+        |-- ann_dir
+        |   |-- train
+        |   |   |-- xxx{seg_map_suffix}
+        |   |   |-- yyy{seg_map_suffix}
+        |   |   |-- zzz{seg_map_suffix}
+        |   |-- val
+        """
+
+        export_dir = self.export_dir
+        export_map = self.export_map
+
+        if not os.path.isdir(export_dir):
+            return
+
+        images_dir, labels_dir = self.create_images_labels_subdirs(export_dir)
+
+        self.clear_not_existing_images()
+        labels_names = self.get_labels()
+
+        if not export_map:
+            export_map = self.get_export_map(labels_names)
+
+        is_blur = self.is_blurred_classes(export_map)
+
+        if is_blur:
+            blur_dir = self.create_blur_dir(export_dir)
+
+        split_names = self.get_split_image_names()
+        im_num = 0
+
+        export_label_names = {}
+        unique_values = []
+        for k, v in export_map.items():
+            if v != 'del' and v != 'blur' and v not in unique_values:
+                export_label_names[k] = v
+                unique_values.append(v)
+
+        labels_color = self.data['labels_color']  # dict {name:rgba}
+        palette = {k: v[:-1] for k, v in labels_color.items()}
+
+        self.create_mmseg_readme(f"{self.dataset_name}.yaml", export_dir, list(export_label_names.keys()),
+                                 dataset_name=self.dataset_name, palette=palette)
+
+        for split_folder, image_names in split_names.items():
+
+            for filename, image in self.data["images"].items():
+
+                if filename not in image_names:
+                    continue
+
+                if not len(image["shapes"]) and self.is_filter_null:  # чтобы не создавать пустых файлов
+                    continue
+
+                fullname = os.path.join(self.data["path_to_images"], filename)
+
+                if not os.path.exists(fullname):
+                    continue
+
+                width, height = Image.open(fullname).size
+                im_shape = [height, width]
+
+                # Final_mask - маска. На нее по очереди наносятся маски полигонов
+                if self.new_image_size:
+                    final_mask = np.zeros((self.new_image_size[1], self.new_image_size[0]))
+                else:
+                    final_mask = np.zeros((height, width))
+
+                final_mask[:, :] = 0  # сперва вся маска заполнена фоном
+
+                if is_blur:
+                    txt_yolo_name = hf.convert_image_name_to_txt_name(filename)
+                    blur_txt_name = os.path.join(blur_dir, txt_yolo_name)
+                    blur_f = open(blur_txt_name, 'w')
+
+                # desc - порядок. По умолчанию - по убыванию площади
+                #     Нужно для нанесения сегментов на маску. Сперва большие сегменты, затем маленькие.
+                #     Возвращает сортированный список shapes по площади
+                sorted_by_area_shapes = hf.sort_shapes_by_area(image['shapes'], True)
+
+                for shape in sorted_by_area_shapes:
+                    cls_num = shape["cls_num"]
+
+                    points = shape["points"]
+
+                    if self.new_image_size:
+                        # масштабируем полигон
+                        new_points = []
+                        for point in points:
+                            x_scale = 1.0 * self.new_image_size[0] / width
+                            y_scale = 1.0 * self.new_image_size[1] / height
+                            x = int(point[0] * x_scale)
+                            y = int(point[1] * y_scale)
+                            new_points.append([x, y])
+                        points = new_points
+
+                    if cls_num == -1 or cls_num > len(labels_names)-1:
+                        continue
+
+                    label_name = labels_names[cls_num]
+                    export_cls_num = export_map[label_name]
+
+                    if export_cls_num == 'del':
+                        continue
+
+                    elif export_cls_num == 'blur':
+                        self.write_yolo_seg_line(shape, im_shape, blur_f, 0)
+
+                    else:
+                        # наносим полигон в виде маски на image_name.png
+                        hf.paint_shape_to_mask(final_mask, points, cls_num + 1)  # Нумерация классов начинается с 1. 0 - фон
+
+                # Сохраняем маску {png_ann_name} в директорию ann_dir/{split_folder}/
+                png_ann_name = hf.convert_image_name_to_png_name(filename)
+                png_fullpath = os.path.join(labels_dir, split_folder, png_ann_name)
+                cv2.imwrite(png_fullpath, final_mask)
+
+                if is_blur:
+                    blur_f.close()
+                    mask = get_mask_from_yolo_txt(fullname, blur_txt_name, [0])
+                    blurred_image_cv2 = blur_image_by_mask(fullname, mask)
+                    if self.new_image_size:
+                        blurred_image_cv2 = cv2.resize(blurred_image_cv2, self.new_image_size)
+
+                    cv2.imwrite(os.path.join(images_dir, split_folder, filename), blurred_image_cv2)
+                else:
+
+                    if self.new_image_size:
+                        img = cv2.imread(fullname)
+                        new_img = cv2.resize(img, self.new_image_size)
+                        cv2.imwrite(os.path.join(images_dir, split_folder, filename), new_img)
+                    else:
+                        shutil.copy(fullname, os.path.join(images_dir, split_folder, filename))
+
+                im_num += 1
+                self.export_percent_conn.percent.emit(int(100 * im_num / (len(self.data['images']))))
 
     def exportToYOLO(self, type):
         """

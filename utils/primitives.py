@@ -1,7 +1,8 @@
 import pickle
+
 import numpy as np
 from matplotlib import path
-import statistics as st
+
 
 # Классы для отрисовки полигонов
 class DNWPoint:
@@ -282,7 +283,8 @@ class DNPoly:
     # Добавляем новые каналы в полигон
     def AddCh(self, NamesNewCh=[], NewChP=[], DataNewCh=[]):
         if not len(NamesNewCh) == len(DataNewCh) or not len(NewChP) == len(DataNewCh):
-            print('Количество имена каналов не совпадает с количеством данных:',len(NamesNewCh),len(DataNewCh),len(NewChP))
+            print('Количество имена каналов не совпадает с количеством данных:', len(NamesNewCh), len(DataNewCh),
+                  len(NewChP))
             return
         NamesCh = np.hstack([self.NamesCh, NamesNewCh.copy()])
         NamesCh = NamesCh.tolist()
@@ -339,4 +341,3 @@ class DNPoly:
     def GetCh(self, NumCh: int):
         DataMass = DNPoly.ReadFile(self.FileName)[8]
         return DataMass[NumCh]
-

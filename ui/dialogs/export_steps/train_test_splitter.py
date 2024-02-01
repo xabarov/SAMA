@@ -34,9 +34,9 @@ class TrainTestSplitter(QWidget):
         self.group_combo = StyledComboBox(theme=theme)
         if self.lang == 'RU':
             self.group_variants = np.array(
-                ["случайно", "по близости имен", "по близости изображений"])
+                ["случайно", "по близости имен", "по близости изображений", "из JSON"])
         else:
-            self.group_variants = np.array(["random", "by names similarity", "by images similarity"])
+            self.group_variants = np.array(["random", "by names similarity", "by images similarity", "from JSON"])
 
         self.group_combo.addItems(self.group_variants)
         self.group_combo.currentIndexChanged.connect(self.on_group_combo_change)

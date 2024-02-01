@@ -21,7 +21,7 @@ class SetPathWidget(QWidget):
         self.export_label = QLabel("Формат:" if self.lang == 'RU' else "Format:")
 
         self.export_format_combo = StyledComboBox(self, theme=theme)
-        self.export_format_vars = np.array(["YOLO Seg", "YOLO Box", 'COCO'])
+        self.export_format_vars = np.array(["YOLO Seg", "YOLO Box", 'COCO', 'MMSegmentation'])
         self.export_format_combo.addItems(self.export_format_vars)
         self.export_format_combo.currentTextChanged.connect(self.on_export_format_combo_change)
 
@@ -42,9 +42,10 @@ class SetPathWidget(QWidget):
         self.setLayout(self.mainLayout)
 
     def get_export_format(self):
-        export_idx = self.export_format_combo.currentIndex()  # 0 - "YOLO Seg", 1 - "YOLO Box", 2 - 'COCO'
+        # 0 - "YOLO Seg", 1 - "YOLO Box", 2 - 'COCO', 3 - 'MM Segmentation'
+        export_idx = self.export_format_combo.currentIndex()
 
-        export_formats = ["yolo_seg", "yolo_box", "coco"]
+        export_formats = ["yolo_seg", "yolo_box", "coco", "mm_seg"]
         return export_formats[export_idx]
 
     def get_export_path(self):
@@ -57,8 +58,11 @@ class SetPathWidget(QWidget):
         if 'YOLO' in text:
             placeholder = "Директория экспорта YOLO" if self.lang == 'RU' else 'Path to export YOLO'
 
-        elif 'COCO' in text:
+        elif text == 'COCO':
             placeholder = "Директория экспорта COCO" if self.lang == 'RU' else 'Path to export COCO'
+
+        elif text == 'MMSegmentation':
+            placeholder = "Директория экспорта MMSegmentation" if self.lang == 'RU' else 'Path to export MMSegmentation'
 
         self.export_edit_with_button.setPlaceholderText(placeholder)
 

@@ -98,6 +98,8 @@ PATH_TO_GROUNDING_DINO_CHECKPOINT = 'gd/groundingdino_swinb_cogcoor.pth'  # 'gd\
 
 PATH_TO_SAM_CHECKPOINT = 'sam_models/sam_vit_h_4b8939.pth'
 PATH_TO_SAM_HQ_CHECKPOINT = 'sam_models/sam_hq_vit_h.pth'
+PATH_TO_SAM_HQ_B_CHECKPOINT = 'sam_models/sam_hq_vit_b.pth'
+PATH_TO_SAM_HQ_L_CHECKPOINT = 'sam_models/sam_hq_vit_l.pth'
 
 PATH_TO_SENTENCE_TRANSFORMER = "sentence-transformers_all-distilroberta-v1"
 PATH_TO_IMAGES_TRANSFORMER = "models--openai--clip-vit-large-patch14"

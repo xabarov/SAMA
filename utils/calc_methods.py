@@ -1,16 +1,20 @@
-import numpy as np
-import statistics as st
-import cv2 as cv
 import math as mt
-from sklearn.cluster import KMeans
-from sklearn.cluster import DBSCAN
+import os
+import pickle
+import statistics as st
+
+import cv2 as cv
 import matplotlib.pyplot as plt
-from utils.primitives import DNPoly
-from matplotlib import path
-from PIL import Image, ImageTk
-from shapely import LineString, Point, Polygon, MultiPolygon, BufferCapStyle, BufferJoinStyle
-from shapely.ops import unary_union
+import numpy as np
 import pandas as pd
+from PIL import Image
+from matplotlib import path
+from shapely import Polygon, MultiPolygon
+from sklearn.cluster import DBSCAN
+from sklearn.cluster import KMeans
+from ui.signals_and_slots import LoadPercentConnection, InfoConnection
+from utils.primitives import DNPoly, DNWPoint, DNWLine, DNWPoly, DNWPoly_s
+from utils.sam_fragment import create_masks, create_generator
 
 
 class DNMathAdd:
@@ -63,7 +67,7 @@ class DNMathAdd:
                'Per': [],  # Перпендикуляры (координаты)
                'Dist': []  # Длина перпендикуляра
                }
-        # Проверка пересекаются ли отрезки
+        # Проверка пересекаются ли отрезик
         Seg = DNMathAdd.SegmentsPointIntersection(P11, P12, P21, P22)
         Res['IsSegInter'] = Seg['IsSegInter']
         if Seg['IsSegInter']: return Res
@@ -1926,6 +1930,29 @@ class DNTheam:
 
         return {"W": WContur, "H": HContur, "S": SMin, "alfa": alfaMin}
 
+    # Проверка наличия строений между двумя объектами (Функция не работает как надо)
+    @classmethod
+    def IsBuildsBetveenObj(cls, ContObj1: [], ContObj2: [], ContBuilds: []):
+        # Перевод всех контуров в полигоны
+        PolObj1 = Polygon(ContObj1)
+        PolObj2 = Polygon(ContObj2)
+
+        PolBuilds = []
+        for ContBuild in ContBuilds:
+            PolBuilds.append(Polygon(ContBuild))
+
+        # Объединение двух объектов в один полигон
+        MPol = [PolObj1, PolObj2]
+        MPol = MultiPolygon(MPol)
+        PObjUnion = MPol.convex_hull
+
+        # Проверка пересекается ли какое-нибудь из зданий с объединенным полигоном
+        IsPolOv = PObjUnion.intersects(PolBuilds)
+        IndxOv = np.column_stack(np.where(IsPolOv))
+
+        # Если есть здания между двумя объектами возвращаем True, в противном случае - False
+        return {'Bs': ContBuilds, 'Pol': np.array(PObjUnion.exterior.coords, int), 'Is': IndxOv}  # not len(IndxOv)==0
+
     # Расчет наименьшего расстояния между контурами
     @classmethod
     def CalcMinDistCont(cls, Contur1: [], Contur2: []):
@@ -2318,10 +2345,12 @@ class DNTheam:
                 for Contur in Conturs:
                     ContursAll.append(Contur)
 
-            # if NCls==85:
-            #     print(len(ContursAll),len(Conturs))
-            #     plt.imshow(Img)
-            #     plt.show()
+        # plt.imshow(ClsMass.transpose())
+        # plt.show()
+        #     if NCls==125:
+        #         print(NCls,len(ContursAll)-1,len(Conturs))
+        # plt.imshow(Img.transpose())
+        #         plt.show()
 
         # DNTheam.PrintContLines(ContursAll[344],[])
         NumsSeg = []  # Номера сегментов, которые последовательно будут отфильтрованы по признакам
@@ -2356,11 +2385,11 @@ class DNTheam:
                     and ContursParam[i]['Area'] / ContursParam[i]['SMin'] > 0.65:
                 IndxGoodSeg.append(i)
 
-        # print(ContursParam[644])
-        # print(ContursParam[644]['W']/ContursParam[644]['H'])
-        # print(ContursParam[644]['Area']/ContursParam[644]['SMin'])
-        # print(644 in IndxGoodSeg)
-        # DNTheam.PrintContLines(ContursAll[644],[])
+        # print(ContursParam[134])
+        # print(ContursParam[134]['W']/ContursParam[134]['H'])
+        # print(ContursParam[134]['Area']/ContursParam[134]['SMin'])
+        # print(134 in IndxGoodSeg)
+        # DNTheam.PrintContLines(ContursAll[134],[])
 
         # 3. Аппроксимация контура прямыми
         LinesGoodSegs = []  # Линии всех хороших сегментов
@@ -2405,10 +2434,10 @@ class DNTheam:
         IndxFilter = []
         for i in IndxGoodSeg:
             # if i==644:
-            #     print(i)
+            #     print(ContursParam[i]['Lines'])
             if not len(ContursParam[i]['Lines']) == 0:
                 LinesP = DNTheam.FineParallelPerpendLines(ContursParam[i]['Lines'], d_alfa)
-
+                # DNTheam.PrintContLines(ContursAll[i], [[ContursParam[i]['Lines']]])
                 # Ищем наиболее длинную группу параллельных-перпендикулярных прямых
                 IndxMaxL = -1
                 DMax = 0.
@@ -2438,11 +2467,24 @@ class DNTheam:
                     IndxFilter.append(i)
 
                 # print(ContursParam[i]['LinesP'],"\n")
-                # if i==644:
-                #     print(ContursParam[i]['DLP_P'])
-                #     DNTheam.PrintContLines(ContursAll[i], [[ContursParam[i]['Lines']],[ContursParam[i]['LinesP']]])
+            # if i==134:
+            #     print(ContursParam[i]['DLP_P'])
+            #     DNTheam.PrintContLines(ContursAll[i], [[ContursParam[i]['Lines']],[ContursParam[i]['LinesP']]])
 
+        # print(len(IndxFilter))
+        # IndxFilter.append(582)
+        # IndxFilter.append(350)
+        # IndxFilter.append(657)
+        # IndxFilter.append(629)
+        # IndxFilter.append(431)
+        # IndxFilter.append(580)
+        # IndxFilter.pop(IndxFilter.index(341))
+        # IndxFilter.pop(IndxFilter.index(543))
+        # IndxFilter.pop(IndxFilter.index(276))
+
+        # IndxFilter.pop(IndxFilter.index(149))
         IndxGoodSeg = IndxFilter.copy()
+        # IndxGoodSeg=[139,140]
 
         ResultCont = []
         for i in IndxGoodSeg:
@@ -2485,8 +2527,8 @@ class DNTheam:
 
         IndxGoodSeg = []  # Индексы сегментов, которые проходят по признакам
         for i in range(len(ContursAll)):
-            if i == 109:
-                print(i)
+            # if i==109:
+            #     print(i)
             Area = cls.GetAreaContur(ContursAll[i])
             WidHeigh = cls.GetWidHeighContur(ContursAll[i])
             ContursParam[i]['Area'] = Area
@@ -2678,6 +2720,27 @@ class DNTheam:
         return Result
 
 
+def read_yolo(path_to_yolo_reults: str):
+    Elements = []
+
+    with open(path_to_yolo_reults, "r") as file:
+        for i, line in enumerate(file):
+            line = line.strip()
+            Data = line.split(' ')
+            xT = [float(x) for x in Data[1::2]]
+            yT = [float(y) for y in Data[2::2]]
+            x = np.array(xT)
+            y = np.array(yT)
+            Element = {
+                'NumCls': int(Data[0]),
+                'NumElem': int(i),
+                'x': x,
+                'y': y
+            }
+            Elements.append(Element)
+    return Elements
+
+
 class GrigStructs:
     def __init__(self, LRM: float, PathToImgFile: str, PathToCNNFile, PathToModelFile: str):
         # Задаем ЛРМ
@@ -2689,25 +2752,7 @@ class GrigStructs:
         self.WImg = self.image.width
 
         # Читаем файл результатов СНС
-        file = open(PathToCNNFile, "r")
-        self.Elements = []
-        while True:
-            line = file.readline()
-            line = line.strip()
-            if not line: break
-            Data = line.split(' ')
-            xT = Data[1::2]
-            yT = Data[2::2]
-            x = np.array(xT, np.float32)
-            y = np.array(yT, np.float32)
-            xy = list(zip(x, y))
-            Element = {
-                'NumCls': int(Data[0]),
-                'x': x,
-                'y': y
-            }
-            self.Elements.append(Element)
-        file.close()
+        self.Elements = read_yolo(PathToCNNFile)
 
         # Читаем таблицу ребер, созданную по эталонам
         self.rebra_data = pd.read_csv(PathToModelFile, delimiter=';', encoding='utf_8', encoding_errors='replace')
@@ -2732,11 +2777,11 @@ class GrigStructs:
         PolysSH = []
         NumCl = []
         for i in range(len(Elems)):
-            Elems[i]['x'] = np.array(Elems[i]['x'] * self.WImg, int)
-            Elems[i]['y'] = np.array(Elems[i]['y'] * self.HImg, int)
+            CoordX = np.array(Elems[i]['x'] * self.WImg, int)
+            CoordY = np.array(Elems[i]['y'] * self.HImg, int)
             pts = np.zeros([len(Elems[i]['x']), 2], dtype=np.int32)
-            pts[:, 0] = Elems[i]['x']
-            pts[:, 1] = Elems[i]['y']
+            pts[:, 0] = CoordX
+            pts[:, 1] = CoordY
             PolysPT.append(pts)
             PolysSH.append(Polygon(pts))
             NumCl.append(Elems[i]['NumCls'])
@@ -2763,6 +2808,28 @@ class GrigStructs:
                     ResPT[i][j, 1] = self.HImg - 1
 
         return ResPT
+
+    # Функция определения полигона находящегося на минимальном расстоянии от полигона источника
+    @classmethod
+    def DetectPolMinDist(cls, PolySrcPT: [], PolysTargPT: []):
+
+        # Перевод точечных полигонов в шейп
+        PolySrcSHP = Polygon(PolySrcPT)
+
+        PolysTargSHP = []
+        for Poly in PolysTargPT:
+            PolysTargSHP.append(Polygon(Poly))
+
+        # Расчитываем дистанции от полигона-источника до полигонов-целей
+        DistMass = PolySrcSHP.distance(PolysTargSHP)
+
+        # Узнаем индекс полигона-цели на минимальном расстоянии от полигона-источника
+        DistMassList = DistMass.tolist()
+        MinDist = min(DistMassList)
+        Inx = DistMassList.index(MinDist)
+
+        # Возвращаем полигон с соответствующим индексом
+        return {'Pol': PolysTargPT[Inx], 'Indx': Inx}
 
     # Объединение полигонов по критерию близости друг к другу
     # MaxDist - без учета ЛРМ (в пикселях)
@@ -2909,8 +2976,8 @@ class GrigStructs:
         return {'Coords': RecMassImg, 'Imgs': MiniImgMass}
 
     # Функция фильтрации пересекающихся полигонов (когда разными методами обнаружилось одно и то же)
-    def FilterPol(self, Conturs: [], NumCls: [], IntersPart=0.85):
-        PolysCNN = self.ElemsToPoly(self.Elements)
+    @classmethod
+    def FilterPol(cls, Conturs: [], IntersPart=0.85):
         PolysOth = [Polygon(Conturs[i]) for i in range(len(Conturs))]
 
         # Проверяем пересечение между полигонами полученными сторонними методами
@@ -2940,6 +3007,87 @@ class GrigStructs:
         ContursRes = [Conturs[i] for i in range(len(Conturs)) if not i in IndxDel]
 
         return ContursRes
+
+    # Функция поиска РО и МЗ для которых не нашлось своих пар, чтобы локализовать зону интереса
+    def MZ_FinedRO(self, ElemsRO, ElemsMZ, MinDistPor=0.0, MaxDistPor=70.0, DistPor=2.0):
+        Res = {'RO': None, 'MZ': None}
+
+        # Перевод из метров в пиксели
+        MinDistPorPx = int(MinDistPor / self.lrm)
+        MaxDistPorPx = int(MaxDistPor / self.lrm)
+        DistPorPx = int(DistPor / self.lrm)
+
+        # Если не найдено вообще ни одного интересующего элемента
+        if len(ElemsRO) == 0 and len(ElemsMZ) == 0:
+            return Res
+
+        # Если не найдено ни одного РО, возвращаем все МЗ
+        if len(ElemsRO) == 0:
+            Res['MZ'] = ElemsMZ
+            return Res
+
+        # Если не найдено ни одного МЗ, возвращаем все РО
+        if len(ElemsMZ) == 0:
+            Res['RO'] = ElemsRO
+            return Res
+
+        # Для каждого из найденных машинных залов, находим его группу реакторов
+        while 1:
+            # Преобразуем найденные объекты в набор полигонов
+            RO_Polys = self.ElemsToPoly(ElemsRO)
+            MZ_Polys = self.ElemsToPoly(ElemsMZ)
+
+            # Вычисляем расстояния между всеми МЗ и всеми РО, находим минимальное расстояние
+            MinDist = []
+            DistMass = []
+            for i in range(len(ElemsMZ)):
+                # Вычисляем расстояние от конкретного МЗ до РО для которых МЗ не определен
+                DistMass.append(MZ_Polys['PolysSH'][i].distance(RO_Polys['PolysSH']))
+
+                # Определяем минимальное расстояние между реакторами и конкретным МЗ
+                MinDist.append(min(DistMass[-1]))
+
+            # Из всех минимальных расстояний, находим самое минимальное
+            MinDistMZ = min(MinDist)
+
+            # Если минимальное расстояние не укладывается в интервал значений, то нет пар РО-МЗ (все найденные РО и МЗ отдельно друг от друга)
+            if MinDistMZ < MinDistPorPx or MinDistMZ > MaxDistPorPx:
+                Res['MZ'] = ElemsMZ
+                Res['RO'] = ElemsRO
+                return Res
+
+            # Находим индексы пары объектов, между которыми
+            IndMZ = MinDist.index(MinDistMZ)
+
+            # Находим все, относящиеся к конкретному МЗ реакторы
+            IndRO = []
+            for i in range(len(DistMass[IndMZ])):
+                if abs(MinDistMZ - DistMass[IndMZ][i]) <= DistPorPx:
+                    IndRO.append(i)
+
+            # Удаляем из списков элементов элементы для которых нашлась пара
+            ElemsMZ.pop(IndMZ)
+
+            NewElemsRO = []
+            for i in range(len(ElemsRO)):
+                if not i in IndRO:
+                    NewElemsRO.append(ElemsRO[i])
+            ElemsRO = NewElemsRO
+
+            # Возвращаем оставшиеся без пар объекты
+            # Если не найдено вообще ни одного интересующего элемента
+            if len(ElemsRO) == 0 and len(ElemsMZ) == 0:
+                return Res
+
+            # Если не найдено ни одного РО, возвращаем все МЗ
+            elif len(ElemsRO) == 0:
+                Res['MZ'] = ElemsMZ
+                return Res
+
+            # Если не найдено ни одного МЗ, возвращаем все РО
+            elif len(ElemsMZ) == 0:
+                Res['RO'] = ElemsRO
+                return Res
 
     # Функции построения зон поиска
     def LocalZoneRO(self, MaxR: float):
@@ -3121,3 +3269,704 @@ class GrigStructs:
         P_Zones = self.SHPToPol(P_ZonesSH)
 
         return self.CreateZoneImgs(P_Zones)
+
+
+# Сигналы, управляющие прогрессбаром вставлять сюда
+class DNProgressBar:
+    def __init__(self):
+        self.proc = 0
+        self.state = ""
+        self.IsProcFin = False
+
+    # Изменение состояния прогрессбара
+    def ChangeProcState(self, SummVar: int, CurVar: int, NameState: str):
+        self.proc = float(CurVar / SummVar) * 100
+        self.state = NameState
+
+    # Функция, вызываемая при завершении процесса
+    def FinishProc(self):
+        self.IsProcFin = True
+
+
+# Класс для встраивания в QGis
+class DNToQGis:
+    def __init__(self, PathToImg: str, PathToCNNRes: str, PathToModelFile: str, MinArea=150, MinL=10):
+
+        # Начальные параметры для детектирования зданий (в пикселях)
+        self.MinArea = MinArea  # Минимальная площадь сегмента
+        self.MinL = MinL  # Минимальный линейный размер сегмента
+        self.PathToImg = PathToImg  # Путь к файлу - изображению
+        self.PathToCNNRes = PathToCNNRes  # Путь к файлу - результату работы СНС
+        self.PathToModelFile = PathToModelFile  # Путь к файлу - модели
+        self.ClassNums = {'RO_P': 0,
+                          'RO_S': 1,
+                          'MZ_V': 2,
+                          'MZ_Ot': 4,
+                          'RU_Ot': 5,
+                          'Bns_Ot': 6,
+                          'Gr_b': 7,
+                          'Gr_V_S': 9,
+                          'Gr_V_P': 8,
+                          'Gr_B_Act': 10,
+                          'Disch': 11}
+
+        self.image = Image.open(PathToImg)
+        self.HImg = self.image.height
+        self.WImg = self.image.width
+
+        # Читаем файл результатов СНС
+
+        self.Elements = read_yolo(PathToCNNRes)
+
+    # Преобразование результатов НС в полигоны Шейп и пиксельные
+    # Преобразование результатов НС в полигоны Шейп и пиксельные
+    def ElemsToPoly(self, Elems: []):
+        if Elems == None:
+            return {'PolysPT': None, 'PolysSH': None, 'NumCl': None}
+
+        PolysPT = []
+        PolysSH = []
+        NumCl = []
+        for i in range(len(Elems)):
+            CoordX = np.array(Elems[i]['x'] * self.WImg, int)
+            CoordY = np.array(Elems[i]['y'] * self.HImg, int)
+            pts = np.zeros([len(Elems[i]['x']), 2], dtype=np.int32)
+            pts[:, 0] = CoordX
+            pts[:, 1] = CoordY
+            PolysPT.append(pts)
+            PolysSH.append(Polygon(pts))
+            NumCl.append(Elems[i]['NumCls'])
+
+        return {'PolysPT': PolysPT, 'PolysSH': PolysSH, 'NumCl': NumCl}
+
+    # Удаление накладывающихся друг на друга полигонов (удаление из списка Targ)
+    def PolyInterSecDel(self, PolysPTSrc: [], PolysPTTarg, IntersPart=0.5):
+        # Перевод полигонов из точечных в SHP
+        PolysSHSrc = []
+        for PolyPTSrc in PolysPTSrc:
+            PolysSHSrc.append(Polygon(PolyPTSrc))
+
+        PolysPTTargGood = []
+        for PolyPTTarg in PolysPTTarg:
+            # Перевод полигонов из точечных в SHP
+            PolySHTarg = Polygon(PolyPTTarg)
+
+            # Проверка на пересекаемость
+            IsPolOv = PolySHTarg.intersects(PolysSHSrc)
+            IndxOv = np.column_stack(np.where(IsPolOv))
+            if len(IndxOv) == 0:
+                PolysPTTargGood.append(PolyPTTarg)
+
+            # Если полигоны пересекаются надо проверить их площадь пересечения
+            else:
+                IsOunBuild = []
+                for i in IndxOv:
+                    PInter = PolySHTarg.intersection(PolysSHSrc[i[0]])
+                    AreaInter = PInter.area
+                    AreaP = [PolySHTarg.area, PolysSHSrc[i[0]].area]
+                    AreaMean = np.mean(AreaP)
+
+                    # Если площадь пересечения меньше пороговой, то это разные здания
+                    if (AreaInter / AreaMean) < IntersPart:
+                        IsOunBuild.append(True)
+
+                IndxOv = np.column_stack(np.where(not IsOunBuild))
+                if len(IndxOv) == 0:
+                    PolysPTTargGood.append(PolyPTTarg)
+
+        return PolysPTTargGood
+
+    ####### Функции отрисовки результатов распознавания объектов по НС
+    # Вывод контуров на изображение
+    def PrintConturs(self, Conturs: []):
+        RGBMAss = np.array(self.image).astype("uint8")
+
+        for Contur in Conturs:
+            for i in range(len(Contur)):
+                j = i + 1
+                if j == len(Contur): j = 0
+                p1 = Contur[i]
+                p2 = Contur[j]
+                cv.line(RGBMAss, p1, p2, (255, 255, 0), 2)
+        plt.imshow(RGBMAss)
+        plt.show()
+
+    # По номерам классов
+    def PaintNumElements(self, NumsElem: []):
+        Elems = self.FinedClassElement(NumsElem)
+        Polys = self.ElemsToPoly(Elems)
+        Conts = Polys['PolysPT'].copy()
+        self.PrintConturs(Conts)
+
+    # По отдельным элементам
+    def PaintElements(self, Elems: []):
+        Polys = self.ElemsToPoly(Elems)
+        Conts = Polys['PolysPT'].copy()
+        self.PrintConturs(Conts)
+
+    ######## Общие функции для любой тематической задачи (нет привязанности к конкретным классам)
+
+    # Функция построения буферной зоны вокруг элемента
+    def ElemsCreateBufZone(self, LRMImg: float, Dist: float, Elems: []):
+        if Elems == None:
+            return None
+
+        DistP = Dist / LRMImg
+        GObj = GrigStructs(LRMImg, self.PathToImg, self.PathToCNNRes, self.PathToModelFile)
+        Pols = self.ElemsToPoly(Elems)
+        Zones = GObj.CreateBufZone(Pols['PolysSH'], DistP)
+        return GObj.CreateZoneImgs(Zones)
+
+    # Фильтрация объектов по площади
+    def ElemsFilterArea(self, LRMImg: float, MinArea: float, MaxArea, Elems: []):
+        MinAreaP = MinArea / (LRMImg * LRMImg)
+        MaxAreaP = MaxArea / (LRMImg * LRMImg)
+        Pols = self.ElemsToPoly(Elems)
+
+        IndxGoodCont = []
+        for i in range(len(Pols['PolysPT'])):
+            AreaCont = DNTheam.GetAreaContur(Pols['PolysPT'][i])
+            if AreaCont > MinAreaP and AreaCont < MaxAreaP:
+                IndxGoodCont.append(i)
+
+        ElemsGood = []
+        for i in IndxGoodCont:
+            ElemsGood.append(Elems[i])
+
+        return ElemsGood
+
+    # Функция получения конкретных классов из результатов НС
+    def FinedClassElement(self, NumsClass: []):
+        index = [i for i in range(0, len(self.Elements)) if self.Elements[i]['NumCls'] in NumsClass]
+        Elms = []
+        Indxs = []
+        for i in index:
+            Elms.append(self.Elements[i])
+            Indxs.append(i)
+        return Elms
+
+    # Получение списка существующих полигонов
+    @classmethod
+    def GetPolysNames(cls, CatName: str):
+        IsDirExist = os.path.isdir(CatName)
+        # Если дирректория с именем файла изображения есть, записываем полигон туда
+        if not IsDirExist:
+            return []
+
+        else:
+            # Получение списка существующих полигонов
+            PolysClass = os.walk(CatName, topdown=True, onerror=None, followlinks=False)
+            ListFiles = []
+            ListFolders = []
+            ListPath = []
+            for Path, Dirs, FilesInFolds in PolysClass:
+                ListFiles.append(FilesInFolds)
+                ListFolders.append(Dirs)
+                ListPath.append(Path)
+
+            Result = []
+            for Files in ListFiles:
+                for File in Files:
+                    Result.append(File.split('.')[:-1][0])  # Убираем расширение у файлов
+
+            return Result
+
+    # Функция возвращает полигон с указанным именем (создает его, если его не существует, или возвращает ранее созданный)
+    @classmethod
+    def CreatePoly(cls, ImgPath: str, Polyname: str, Polygon: []):
+        # Проверяем наличие уже созданных полигонов
+        CatName = ImgPath.split('.')[:-1][0]
+        IsDirExist = os.path.isdir(CatName)
+        # Если дирректория с именем файла изображения есть, записываем полигон туда
+        if not IsDirExist:
+            os.mkdir(CatName)
+
+        # Получение списка существующих полигонов
+        PolysClass = os.walk(ImgPath.split('.')[:-1][0], topdown=True, onerror=None, followlinks=False)
+
+        ListFiles = []
+        ListFolders = []
+        ListPath = []
+        for Path, Dirs, FilesInFolds in PolysClass:
+            ListFiles.append(FilesInFolds)
+            ListFolders.append(Dirs)
+            ListPath.append(Path)
+
+        # Проверяем соответствует ли имя полигона имени уже записанного файла
+        IsFileHere = False
+        for Files in ListFiles:
+            for File in Files:
+                NFile = File.split('.')[:-1][0]  # Убираем расширение у файлов
+                if NFile == Polyname:
+                    IsFileHere = True
+                    break
+
+            if IsFileHere:
+                break
+        FileNameCurElem = CatName + '/' + Polyname + ".pol"
+        # Если файл с полигоном существует, то просто читаем его
+        if IsFileHere:
+            Poly = DNPoly(FileNameCurElem)
+
+        # Если файла такого не существут, создаем файл
+        else:
+            # Создаем объект DNWPoly
+            WPts = []
+            i = 0
+            for Pt in Polygon:
+                WPts.append(DNWPoint(Pt[0], Pt[1], Pt[0] + Pt[1] + i))
+                i += 1
+
+            WLines = []
+            for i in range(len(WPts)):
+                j = i + 1
+                if j == len(WPts): j = 0
+                WLines.append(DNWLine(WPts[i], WPts[j], WPts[i].x + WPts[j].x + WPts[i].y + WPts[j].y + i + j))
+
+            WPoly = DNWPoly(WPts, WLines, Polyname)
+
+            # Читаем картинку
+            Img = Image.open(ImgPath)
+
+            # Создаем файл полигона
+            DNPoly.WriteFile(WPoly, FileNameCurElem, Img)
+            Poly = DNPoly(FileNameCurElem)
+
+        return Poly
+
+    # Функция возвращает имя полигона с указанными координатами или False, если такого полигона нет
+    @classmethod
+    def FinedPoly(cls, ImgPath: str, Polygon: []):
+
+        # Получение списка имен всех полигонов
+        NamesPoly = DNToQGis.GetPolysNames(ImgPath)
+
+        # Если полигоны отсутствуют, возвращаем False
+        if len(NamesPoly) == 0:
+            return False
+
+        CatName = ImgPath.split('.')[:-1][0]
+        # Ищем среди существующих полигонов тот, который подходит под координаты
+        for NamePoly in NamesPoly:
+            FileNameCurElem = CatName + '/' + NamePoly + ".pol"
+            Poly = DNPoly(FileNameCurElem)
+            IsPolyThis = True
+            # Если количество точек в полигоне не совпадает, то это не наш полигон
+            if len(Poly.WPoly.Points) != len(Polygon):
+                IsPolyThis = False
+            else:
+                # Проверяем присутствие каждой точки в полигоне
+                for WPt in Poly.WPoly.Points:
+                    Pt = [WPt.x, WPt.y]
+                    if not Pt in Polygon:
+                        IsPolyThis = False
+                        break
+
+            if IsPolyThis:
+                return NamePoly
+        return False
+
+    # Функция генерит уникальное имя полигона
+    @classmethod
+    def GenUniName(cls, ResultFilePath: str, BaseName: str):
+        # Получение списка имен всех полигонов
+        NamesPoly = DNToQGis.GetPolysNames(ResultFilePath)
+
+        NameCurPoly = BaseName + "_"
+        i = 0
+        while 1:
+            NameCurPoly = BaseName + "_" + str(i)
+            i += 1
+            if not NameCurPoly in NamesPoly:
+                break
+        return NameCurPoly
+
+    # Функция получения относительных координат
+    @classmethod
+    def CalcOtnCoord(cls, Conturs, W: int, H: int):
+        ContOtn = []
+        for Cont in Conturs:
+            x = Cont[:, 0]
+            y = Cont[:, 1]
+            xOtn = x / W
+            yOtn = y / H
+            BuildOtn = np.zeros([len(xOtn), 2], dtype=np.float32)
+            BuildOtn[:, 0] = xOtn
+            BuildOtn[:, 1] = yOtn
+            ContOtn.append(BuildOtn)
+
+        return ContOtn
+
+    # Функция записи координат в файл
+    @classmethod
+    def WriteContursFile(cls, FilePath, Conturs):
+        # Запись результатов в файл
+        # Проверка, есть ли каталог, куда будет записан файл результатов
+        ResultFilePath = FilePath.replace('\\', '/')
+        IsDirExist = os.path.isdir(ResultFilePath)
+        # Если дирректории нет, создавем ее
+        if not IsDirExist:
+            os.mkdir(ResultFilePath)
+
+        # Создаем текстовый файл с именем картинки
+        FileTxtName = DNToQGis.GenUniName(ResultFilePath, "Result") + ".txt"
+        FileTxtName = ResultFilePath + '/' + FileTxtName
+        f = open(FileTxtName, 'w')
+
+        for Build in Conturs:
+            StrWrite = "0"
+            for Pt in Build:
+                StrWrite += " " + str(Pt[0]) + " " + str(Pt[1])
+            StrWrite += "\n"
+            f.write(StrWrite)
+        f.close()
+
+    def MZ_FinedRO(self, LRMImg: float, MinDist=0.0, MaxDist=70.0, DistPor=12.0):
+        MZ_Elems = self.MZ_FilterArea(LRMImg)
+        RO_Elems = self.RO_FilterArea(LRMImg)
+        GObj = GrigStructs(LRMImg, self.PathToImg, self.PathToCNNRes, self.PathToModelFile)
+        ElemsROMZ = GObj.MZ_FinedRO(RO_Elems, MZ_Elems, MinDist, MaxDist, DistPor)
+        return ElemsROMZ
+
+    ######## Функции для Ромы
+    # Функции фильтрации объектов по линейным размерам
+    def MZ_FilterArea(self, LRMImg: float, MinArea=1200., MaxArea=35000.):
+        MZ_Elems = self.FinedClassElement([self.ClassNums['MZ_V']])
+        MZ_GoodElems = self.ElemsFilterArea(LRMImg, MinArea, MaxArea, MZ_Elems)
+        return MZ_GoodElems
+
+    def RO_FilterArea(self, LRMImg: float, MinArea=150., MaxArea=7500.):
+        RO_Elems = self.FinedClassElement([self.ClassNums['RO_S'], self.ClassNums['RO_P']])
+        RO_GoodElems = self.ElemsFilterArea(LRMImg, MinArea, MaxArea, RO_Elems)
+        return RO_GoodElems
+
+    # Функции локализации области интереса
+
+    # Локализация области для поиска МЗ:
+    # Dist - размер буферной зоны вокруг РО в метрах
+    # MinDist,MaxDist - интервал расстояний от РО до МЗ (на каком отдолении друг от друга они находятся) в метрах
+    # DistPor - минимальная разница расстояний между разными РО и одним МЗ, для того, чтобы принять решение, относятся, ли эти РО к данному МЗ
+    def MZ_LocaleZone(self, LRMImg: float, Dist=115, MinDist=0.0, MaxDist=70.0, DistPor=12.0):
+        Elems = self.MZ_FinedRO(LRMImg, MinDist=MinDist, MaxDist=MaxDist, DistPor=DistPor)
+
+        # Возвращаем список картинок и список контуров РО, для которых не найден МЗ
+        return {'Imgs': self.ElemsCreateBufZone(LRMImg, Dist, Elems['RO']),
+                'PolysPT': self.ElemsToPoly(Elems['RO'])['PolysPT']}
+
+    def LocalZoneBNS(self, LRMImg: float, MaxDistGroupGR=190, MaxDistGroupObj=70):
+        GObj = GrigStructs(LRMImg, self.PathToImg, self.PathToCNNRes, self.PathToModelFile)
+        Res = GObj.LocalZoneBNSGR(MaxDistGroupGR, MaxDistGroupObj)
+        return Res
+
+    # Функции обнаружения объектов
+    def MZ_Fined(self, Mass: [], ROPolysPT: [], RectImg: [], LRM, MinArea=1200., MinW=20., MaxW=90., MaxDist=200):
+        MinAreaP = MinArea / (LRM * LRM)
+        MinWP = MinW / LRM
+        MaxWP = MaxW / LRM
+
+        # Проверка достаточности ЛРМ для обнаружения МЗ
+        if MinWP < self.MinL:
+            print("Детальности изображения недостаточно для выполнения задачи")
+            return None
+
+        ProgressBar = DNProgressBar()  # Объект класса для визуализации ProgressBar
+
+        # Подготовка массива для классификации
+        NCl, H, W = np.shape(Mass)
+        ClsMass = np.zeros([W, H], dtype=np.uint8)
+        for n in range(len(Mass)):
+            P = np.column_stack(np.where(np.array(Mass[n]) == 1))
+            ClsMass[P[:, 1], P[:, 0]] = n + 1
+
+        # Определение зданий в заданном массиве
+        BuildsС = DNTheam.DetectBuild2(ClsMass, self.MinArea, self.MinL, ProgressBar)
+
+        # Перевод координат кроп картинки в координаты Img
+        StartP = RectImg[0]
+        for i in range(len(BuildsС)):
+            BuildsС[i][:, 0] = BuildsС[i][:, 0] + StartP[0]
+            BuildsС[i][:, 1] = BuildsС[i][:, 1] + StartP[1]
+
+        # Фильтрация зданий, которые уже были расклассифицированы по результатам НС
+        # Получение уже расклассифицированных зданий
+        Elems = self.FinedClassElement([self.ClassNums['RO_P'],
+                                        self.ClassNums['RO_S'],
+                                        self.ClassNums['MZ_V']])
+        PolysNS = self.ElemsToPoly(Elems)
+
+        # Удаление уже расклассифицированных зданий по результатам НС
+        BuildsСNoCl = self.PolyInterSecDel(PolysNS['PolysPT'], BuildsС)
+
+        # self.PaintNumElements([self.ClassNums['RO_P'],self.ClassNums['RO_S']])
+        # self.PaintNumElements([self.ClassNums['MZ_V']])
+
+        # self.PrintConturs(BuildsС)
+        # self.PrintConturs(BuildsСNoCl)
+
+        # Фильтрация зданий по площади и линейному размеру
+        BuildsRazm = []
+        for Build in BuildsСNoCl:
+            Area = DNTheam.GetAreaContur(Build)
+            Razm = DNTheam.GetWidHeighContur(Build)
+            if Area > MinAreaP and Razm['W'] > MinWP and Razm['W'] < MaxWP:
+                BuildsRazm.append(Build)
+
+        # self.PrintConturs(BuildsRazm)
+        # Если список зданий пустой
+        if len(BuildsRazm) == 0:
+            return []
+
+        # Фильтрация здаий по наиближайшему, размещенному к данному РО
+        BuildsNeibor = []
+        Indxs = []
+        for ROPoly in ROPolysPT:
+            Res = GrigStructs.DetectPolMinDist(ROPoly, BuildsRazm)
+            if not Res['Indx'] in Indxs:
+                Indxs.append(Res['Indx'])
+                BuildsNeibor.append(Res['Pol'])
+
+        return BuildsNeibor
+
+    def FinedROpr(self, Mass: [], RectImg: [], LRM, MinW=25, MaxW=90, MaxDist=200):
+        # Проверка достаточности ЛРМ для обнаружения МЗ
+        MinWP = float(MinW / LRM)
+        if MinWP < self.MinL:
+            print("Детальности изображения недостаточно для выполнения задачи")
+            return
+
+        ProgressBar = DNProgressBar()  # Объект класса для визуализации ProgressBar
+
+        # Подготовка массива для классификации
+        NCl, H, W = np.shape(Mass)
+        ClsMass = np.zeros([W, H], dtype=np.uint8)
+        for n in range(len(Mass)):
+            P = np.column_stack(np.where(np.array(Mass[n]) == 1))
+            ClsMass[P[:, 1], P[:, 0]] = n + 1
+
+        # Определение зданий в заданном массиве
+        BuildsС = DNTheam.DetectBuild2(ClsMass, self.MinArea, self.MinL, ProgressBar)
+        StartP = RectImg[0]
+        for i in range(len(BuildsС)):
+            BuildsС[i][:, 0] = BuildsС[i][:, 0] + StartP[0]
+            BuildsС[i][:, 1] = BuildsС[i][:, 1] + StartP[1]
+
+        self.PrintConturs(BuildsС)
+
+        # Получение контуров МЗ
+        Elems = self.FinedClassElement([self.ClassNums['MZ_V'],
+                                        self.ClassNums['MZ_Ot']])
+
+        Polys = self.ElemsToPoly(Elems)
+        ContsMZ = Polys['PolysPT'].copy()
+
+        # Определение реакторного отделения
+        ROConts = DNTheam.FinedMZ_RO(BuildsС, ContsMZ, LRM, MinW, MaxW, MaxDist)
+
+        ProgressBar.FinishProc()
+        return ROConts
+
+    def FinedROCir(self, Mass: [], RectImg: [], LRM, MinR=70, MaxR=240, MaxDist=200):
+        # Проверка достаточности ЛРМ для обнаружения МЗ
+        MinWP = float(MinR / LRM)
+        if MinWP < self.MinL:
+            print("Детальности изображения недостаточно для выполнения задачи")
+            return
+
+        ProgressBar = DNProgressBar()  # Объект класса для визуализации ProgressBar
+
+        # Подготовка массива для классификации
+        NCl, H, W = np.shape(Mass)
+        ClsMass = np.zeros([W, H], dtype=np.uint8)
+        for n in range(len(Mass)):
+            P = np.column_stack(np.where(np.array(Mass[n]) == 1))
+            ClsMass[P[:, 1], P[:, 0]] = n + 1
+
+        # Определение зданий круглой формы в заданном массиве
+        BuildsС = DNTheam.DetectCircleBuild(ClsMass, self.MinArea, self.MinL, 0.2)
+        StartP = RectImg[0]
+        for i in range(len(BuildsС)):
+            BuildsС[i][:, 0] = BuildsС[i][:, 0] + StartP[0]
+            BuildsС[i][:, 1] = BuildsС[i][:, 1] + StartP[1]
+
+        # Получение контуров МЗ
+        Elems = self.FinedClassElement([self.ClassNums['MZ_V'],
+                                        self.ClassNums['MZ_Ot']])
+
+        Polys = self.ElemsToPoly(Elems)
+        ContsMZ = Polys['PolysPT'].copy()
+
+        # Определение РО круглой формы
+        ROConts = DNTheam.FinedMZ_RO(BuildsС, ContsMZ, LRM, MinR, MaxR, MaxDist)
+
+        ProgressBar.FinishProc()
+        return ROConts
+
+    def FinedBNS(self, Mass: [], RectImg: [], LRM, MinW=7, MaxW=15):
+        # Проверка достаточности ЛРМ для обнаружения МЗ
+        MinWP = float(MinW / LRM)
+        if MinWP < self.MinL:
+            print("Детальности изображения недостаточно для выполнения задачи")
+            return
+
+        ProgressBar = DNProgressBar()  # Объект класса для визуализации ProgressBar
+
+        # Подготовка массива для классификации
+        NCl, H, W = np.shape(Mass)
+        ClsMass = np.zeros([W, H], dtype=np.uint8)
+        for n in range(len(Mass)):
+            P = np.column_stack(np.where(np.array(Mass[n]) == 1))
+            ClsMass[P[:, 1], P[:, 0]] = n + 1
+
+        # Определение зданий в заданном массиве
+        BuildsС = DNTheam.DetectBuild2(ClsMass, self.MinArea, self.MinL, ProgressBar)
+        StartP = [0, 0]  # RectImg[0]
+        for i in range(len(BuildsС)):
+            BuildsС[i][:, 0] = BuildsС[i][:, 0] + StartP[0]
+            BuildsС[i][:, 1] = BuildsС[i][:, 1] + StartP[1]
+
+        # self.PrintConturs(BuildsС)
+        # C=DNToQGis.CalcOtnCoord(BuildsС,self.WImg,self.HImg)
+        # DNToQGis.WriteContursFile('D:/Beatls/NIR_S/Крамола/Пробные картинки/От Ромы/resuts/',C)
+
+        # Получение контуров градирен
+        Elems = self.FinedClassElement([self.ClassNums['Gr_b'],
+                                        self.ClassNums['Gr_V_S'],
+                                        self.ClassNums['Gr_V_P'],
+                                        self.ClassNums['Gr_B_Act']])
+
+        Polys = self.ElemsToPoly(Elems)
+        ContsGR = Polys['PolysPT'].copy()
+
+        # Определение машинного зала
+        BNSConts = DNTheam.FinedBNS(BuildsС, ContsGR, LRM, MinW, MaxW)
+
+        ProgressBar.FinishProc()
+        return BNSConts
+
+
+class DNTheamProc:
+    def __init__(self, PathToImg: str, PathToCNNRes: str, PathToModelFile: str, LRM: float, sam_model):
+        self.ToQGisObj = DNToQGis(PathToImg, PathToCNNRes, PathToModelFile)
+        self.LRM = LRM
+        self.sam_model = sam_model
+
+        self.psnt_connection = LoadPercentConnection()
+        self.info_connection = InfoConnection()
+
+    def AESProc(self, save_folder=""):
+
+        if save_folder == "":
+            save_folder = os.path.join(os.getcwd(), 'sam_results')
+            if not os.path.exists(save_folder):
+                os.makedirs(save_folder)
+
+        # Этап 1: Фильтрация элементов по площади
+        print("Фильтрация результатов распознавания по геометрическим признакам")
+        self.info_connection.info_message.emit("Фильтрация результатов распознавания по геометрическим признакам")
+        self.psnt_connection.percent.emit(0)
+        ElemsRO = self.ToQGisObj.RO_FilterArea(self.LRM)
+        ElemsMZ = self.ToQGisObj.MZ_FilterArea(self.LRM)
+
+        # Формирование списка удаленных элементов
+        # Получаем список всех РО и МЗ
+        RO_Elems = self.ToQGisObj.FinedClassElement(
+            [self.ToQGisObj.ClassNums['RO_S'], self.ToQGisObj.ClassNums['RO_P']])
+        MZ_Elems = self.ToQGisObj.FinedClassElement([self.ToQGisObj.ClassNums['MZ_V']])
+
+        # Считываем индексы элементов
+        IndxsROF = [RO_Elem['NumElem'] for RO_Elem in RO_Elems]
+        IndxsMZF = [MZ_Elem['NumElem'] for MZ_Elem in MZ_Elems]
+
+        IndxsRO = [ElemsRO['NumElem'] for ElemsRO in ElemsRO]
+        IndxsMZ = [ElemsMZ['NumElem'] for ElemsMZ in ElemsMZ]
+
+        # Вычитаем одно множество значений из другого
+        BadROIndxs = set(IndxsROF) - set(IndxsRO)
+        BadROIndxs = list(BadROIndxs)
+
+        BadMZIndxs = set(IndxsMZF) - set(IndxsMZ)
+        BadMZIndxs = list(BadMZIndxs)
+
+        BadIndxs = BadROIndxs + BadMZIndxs
+
+        print("Удаление из результатов распознавания следующих элементов: ", BadIndxs)
+        if len(BadIndxs) > 0:
+            self.info_connection.info_message.emit(f"Удаление из результатов распознавания следующих элементов: {BadIndxs}")
+        self.psnt_connection.percent.emit(10)
+        # Преобразование элементов СНС в контуры, за исключением удаленных
+
+        ElemsGood = [el for el in self.ToQGisObj.Elements if el['NumElem'] not in BadIndxs]
+        ResConts = self.ToQGisObj.ElemsToPoly(ElemsGood)['PolysPT'].copy()
+        results = [{'cls_num': k['NumCls'], 'points': points, 'cnn_found': True} for k, points in zip(ElemsGood, ResConts)]
+
+        # Этап 2: Локализация зоны интереса вокруг РО, у которых нет пары
+
+        self.psnt_connection.percent.emit(30)
+        Res = self.ToQGisObj.MZ_LocaleZone(self.LRM)
+
+        self.psnt_connection.percent.emit(50)
+
+        # Этап 3: Поиск МЗ
+        if Res['Imgs'] == None:
+            print("Для всех РО найдены МЗ")
+            self.info_connection.info_message.emit(
+                f"Для всех РО найдены МЗ")
+            self.psnt_connection.percent.emit(100)
+            return results
+
+        else:
+            print("Поиск МЗ")
+            self.info_connection.info_message.emit(
+                f"Поиск МЗ")
+            self.psnt_connection.percent.emit(60)
+            points_per_side = 20
+            generator = create_generator(self.sam_model, pred_iou_thresh=0.6, box_nms_thresh=0.6,
+                                         points_per_side=points_per_side, crop_n_points_downscale_factor=1,
+                                         crop_nms_thresh=0.7,
+                                         output_mode="binary_mask")
+
+            Imgs = Res['Imgs']
+            MZConts = []
+            crop_names = []
+            for i in range(len(Imgs['Imgs'])):
+                Img = Imgs['Imgs'][i]
+
+                crop_name = os.path.join(save_folder, f'crop{i}.jpg')
+                crop_names.append(crop_name)
+                Img.save(crop_name)
+
+                pkl_name = os.path.join(save_folder, f'crop{i}.pkl')
+
+                create_masks(generator, crop_name, output_path=None,
+                             one_image_name=os.path.join(save_folder, f'crop{i}_sam.jpg'),
+                             pickle_name=pkl_name)
+
+                with open(pkl_name, 'rb') as f:
+
+                    Mass = pickle.load(f)
+
+                    # Поиск Машинного зала в локализованной области
+                    MZContsImg = self.ToQGisObj.MZ_Fined(Mass, Res['PolysPT'], Imgs['Coords'][i], self.LRM)
+
+                    if MZContsImg == None:
+                        print("ЛРМ изображения недостаточно для поиска МЗ")
+                        self.info_connection.info_message.emit(
+                            f"ЛРМ изображения недостаточно для поиска МЗ")
+
+                        continue
+
+                    elif not len(MZContsImg) == 0:
+                        for MZContImg in MZContsImg:
+                            MZConts.append(MZContImg)
+
+            self.psnt_connection.percent.emit(90)
+            if len(MZConts) == 0:
+                print("МЗ не найдены")
+                self.info_connection.info_message.emit(
+                    f"МЗ не найдены")
+                return results
+
+            else:
+                for cont in MZConts:
+                    results.append({'cls_num': self.ToQGisObj.ClassNums['MZ_V'], 'points': cont, 'cnn_found': False})
+                return results

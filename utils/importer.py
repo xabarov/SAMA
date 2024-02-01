@@ -138,35 +138,42 @@ class Importer(QtCore.QThread):
 
     def import_from_yolo_yaml(self):
         yaml_data = self.yaml_data
-        dataset = self.dataset
+
         alpha = self.alpha
         is_seg = self.is_seg
         copy_images_path = self.copy_images_path
 
-        path_to_labels = os.path.join(yaml_data["path"], "labels", dataset)
-
-        if copy_images_path:
-            path_to_images = os.path.join(yaml_data["path"], "images", dataset)
-            images = [im for im in os.listdir(path_to_images) if hf.is_im_path(im)]
-
-            # copy images
-            for i, im in enumerate(images):
-                shutil.copy(os.path.join(path_to_images, im), os.path.join(copy_images_path, im))
-                self.load_percent_conn.percent.emit(int(i * 100.0 / len(images)))
-
-            path_to_images = copy_images_path
-
+        if self.dataset == 'all':
+            datasets = ['train', 'val', 'test']
         else:
-            path_to_images = os.path.join(yaml_data["path"], "images", dataset)
+            datasets = [self.dataset]
 
-        labels_names = yaml_data["names"]
-        label_colors = hf.get_label_colors(labels_names, alpha=alpha)
+        for ds in datasets:
 
-        if is_seg:
-            self.import_from_yolo_seg(path_to_labels, path_to_images, labels_names, label_colors)
-        else:
-            self.import_from_yolo_box(path_to_labels, path_to_images, labels_names, label_colors,
-                                      convert_to_masks=self.convert_to_masks, sam_predictor=self.sam_predictor)
+            path_to_labels = os.path.join(yaml_data["path"], "labels", ds)
+
+            if copy_images_path:
+                path_to_images = os.path.join(yaml_data["path"], "images", ds)
+                images = [im for im in os.listdir(path_to_images) if hf.is_im_path(im)]
+
+                # copy images
+                for i, im in enumerate(images):
+                    shutil.copy(os.path.join(path_to_images, im), os.path.join(copy_images_path, im))
+                    self.load_percent_conn.percent.emit(int(i * 100.0 / len(images)))
+
+                path_to_images = copy_images_path
+
+            else:
+                path_to_images = os.path.join(yaml_data["path"], "images", ds)
+
+            labels_names = yaml_data["names"]
+            label_colors = hf.get_label_colors(labels_names, alpha=alpha)
+
+            if is_seg:
+                self.import_from_yolo_seg(path_to_labels, path_to_images, labels_names, label_colors)
+            else:
+                self.import_from_yolo_box(path_to_labels, path_to_images, labels_names, label_colors,
+                                          convert_to_masks=self.convert_to_masks, sam_predictor=self.sam_predictor)
 
     def import_from_yolo_box(self, path_to_labels, path_to_images, labels_names, labels_color, convert_to_masks=False,
                              sam_predictor=None):

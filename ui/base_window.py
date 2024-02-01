@@ -960,6 +960,19 @@ class MainWindow(QtWidgets.QMainWindow):
         self.is_seg_import = False
         self.import_dialog.show()
 
+    def importFromYOLOSeg(self):
+        self.close_project()
+
+        self.import_dialog = ImportFromYOLODialog(self, on_ok_clicked=self.on_import_yolo_clicked)
+        self.is_seg_import = True
+        self.import_dialog.show()
+
+    def importFromCOCO(self):
+        self.close_project()
+
+        self.import_dialog = ImportFromCOCODialog(self, on_ok_clicked=self.on_import_coco_clicked)
+        self.import_dialog.show()
+
     def on_import_yolo_clicked(self):
         yaml_data = self.import_dialog.getData()
         self.new_import_project_name = yaml_data['import_project_path']
@@ -989,19 +1002,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def on_import_percent_change(self, percent):
         self.import_dialog.set_progress(percent)
-
-    def importFromYOLOSeg(self):
-        self.close_project()
-
-        self.import_dialog = ImportFromYOLODialog(self, on_ok_clicked=self.on_import_yolo_clicked)
-        self.is_seg_import = True
-        self.import_dialog.show()
-
-    def importFromCOCO(self):
-        self.close_project()
-
-        self.import_dialog = ImportFromCOCODialog(self, on_ok_clicked=self.on_import_coco_clicked)
-        self.import_dialog.show()
 
     def on_import_coco_clicked(self):
 

@@ -272,6 +272,8 @@ class ImportFromYOLODialog(QWidget):
                     if t in yaml_data:
                         combo_vars.append(t)
 
+                combo_vars.append('all')
+
                 self.dataset_combo.addItems(np.array(combo_vars))
 
                 self.data = yaml_data

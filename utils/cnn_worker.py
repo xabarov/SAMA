@@ -1,14 +1,14 @@
-from PySide2 import QtCore
-from .detect_yolo8 import predict_and_return_masks, predict_and_return_mask_openvino
-from utils.edges_from_mask import yolo8masks2points
-from ui.signals_and_slots import LoadPercentConnection
-
-import os
-import torch
-import cv2
-from . import help_functions as hf
 import math
-from copy import deepcopy
+import os
+
+import cv2
+import torch
+from PySide2 import QtCore
+
+import utils.help_functions as hf
+from ui.signals_and_slots import LoadPercentConnection
+from utils.detect_yolo8 import predict_and_return_masks, predict_and_return_mask_openvino
+from utils.edges_from_mask import yolo8masks2points
 from utils.project import create_blank_image
 
 
@@ -93,7 +93,7 @@ class CNN_worker(QtCore.QThread):
                 for res in results:
                     for i, mask in enumerate(res['masks']):
                         points_mass = yolo8masks2points(mask, simplify_factor=self.simplify_factor, width=image_width,
-                                                   height=image_height)
+                                                        height=image_height)
                         for points in points_mass:
                             cls_num = res['classes'][i]
 
@@ -109,7 +109,7 @@ class CNN_worker(QtCore.QThread):
 
         self.psnt_connection.percent.emit(100)
 
-    def run_yolo8(self, img_path_full, is_scanning, is_progress_show=True):
+    def run_yolo8(self, img_path_full, is_scanning, is_progress_show=True, filter_obj_on_edges=True):
         img = cv2.imread(img_path_full)
         shape = img.shape
 
@@ -152,6 +152,14 @@ class CNN_worker(QtCore.QThread):
 
                     for idx, (*xyxy, conf, lbl) in enumerate(boxes):
                         points = masks[idx].astype(int)
+
+                        if filter_obj_on_edges:
+                            points_filtered = hf.filter_edged_points(points, x_max - x_min, y_max - y_min, 5)
+                            if len(points_filtered) != len(points):
+                                continue
+                            else:
+                                points = points_filtered
+
                         points_shifted = []
                         for x, y in points:
                             points_shifted.append([x + x_min, y + y_min])
@@ -170,7 +178,16 @@ class CNN_worker(QtCore.QThread):
                             points_mass = yolo8masks2points(mask, simplify_factor=self.simplify_factor,
                                                             width=x_max - x_min,
                                                             height=y_max - y_min)
+
                             for points in points_mass:
+
+                                if filter_obj_on_edges:
+                                    points_filtered = hf.filter_edged_points(points, x_max - x_min, y_max - y_min, 5)
+                                    if len(points_filtered) != len(points):
+                                        continue
+                                    else:
+                                        points = points_filtered
+
                                 points_shifted = []
                                 for x, y in points:
                                     points_shifted.append([x + x_min, y + y_min])

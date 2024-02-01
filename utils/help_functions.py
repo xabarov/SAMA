@@ -18,6 +18,7 @@ from skimage.morphology import binary_opening, binary_closing, remove_small_obje
 from utils import cls_settings
 from utils import config
 from utils import coords_calc
+from rasterio import features
 
 
 def save_mask_as_image(mask, save_name):
@@ -542,6 +543,63 @@ def convert_image_name_to_txt_name(image_name):
     return txt_name + ".txt"
 
 
+def sort_shapes_by_area(shapes, desc=True):
+    """
+    shapes - List({'points': List([x1,y1], [x2,y2], ...), 'cls_num' : Int, 'id': Int})
+    desc - порядок. По умолчанию - по убыванию площади
+    Нужно для нанесения сегментов на маску. Сперва большие сегменты, затем маленькие.
+    Возвращает сортированный список shapes по площади
+    """
+    if desc:
+        areas = [-Polygon(shape["points"]).area for shape in shapes]
+    else:
+        areas = [Polygon(shape["points"]).area for shape in shapes]
+    idx = np.argsort(areas)
+    return [shapes[i] for i in idx]
+
+
+def paint_shape_to_mask(mask, points, cls_num):
+    """
+    Добавляет на mask - np.zeros((img_height, img_width))
+    points:[ [x1,y1], ...] - точки граней маски
+    cls_num - номер класса
+    """
+    img_height, img_width = mask.shape
+
+    pol = Polygon(points)
+
+    mask_image = features.rasterize([pol], out_shape=(img_height, img_width),
+                                    fill=0,
+                                    default_value=cls_num)
+
+    mask[mask_image == cls_num] = cls_num
+
+
+def filter_edged_points(points, width, height, tol=5):
+    """
+    points = List([x1,y1], [x2, y2] ... )
+    """
+
+    points_int = [[int(p[0]), int(p[1])] for p in points]
+    points_new = []
+
+    for p in points_int:
+        x = p[0]
+        y = p[1]
+        if x > tol and x < width-tol and y > tol and y < height-tol:
+            points_new.append([x, y])
+    return points_new
+
+
+def convert_image_name_to_png_name(image_name):
+    splitted_name = image_name.split('.')
+    txt_name = ""
+    for i in range(len(splitted_name) - 1):
+        txt_name += splitted_name[i]
+
+    return txt_name + ".png"
+
+
 def calc_rows_cols(size):
     rows = min(1, math.ceil(math.sqrt(size)))
     cols = int(size / rows)
@@ -644,6 +702,7 @@ if __name__ == '__main__':
     # for i, part in enumerate(split_into_fragments(img, 450)):
     #     cv2.imshow(f'frag {i}', part)
     #     cv2.waitKey(0)
-    coords = Polygon([[0, 1], [2, 3], [4, 5]]).exterior.coords
-    for p in coords:
-        print(p)
+
+    points = [[100, 121], [200, 345], [0, 346]]
+
+    print(filter_edged_points(points))

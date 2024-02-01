@@ -1,7 +1,7 @@
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
-from segment_anything import SamPredictor, build_sam, build_sam_hq
+from segment_anything import SamPredictor, build_sam, build_sam_hq, build_sam_hq_vit_b, build_sam_hq_vit_l
 
 from utils.edges_from_mask import mask_to_polygons_layer
 
@@ -31,12 +31,17 @@ def show_box(box, ax):
     ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='green', facecolor=(0, 0, 0, 0), lw=2))
 
 
-def load_model(model_path, device="cuda", use_sam_hq=True):
+def load_model(model_path, device="cuda", use_sam_hq=True, hq_type='h'):
     sam_checkpoint = model_path
 
     # initialize SAM
     if use_sam_hq:
-        predictor = SamPredictor(build_sam_hq(checkpoint=sam_checkpoint).to(device))
+        if hq_type == 'h':
+            predictor = SamPredictor(build_sam_hq(checkpoint=sam_checkpoint).to(device))
+        elif hq_type == 'l':
+            predictor = SamPredictor(build_sam_hq_vit_l(checkpoint=sam_checkpoint).to(device))
+        else:
+            predictor = SamPredictor(build_sam_hq_vit_b(checkpoint=sam_checkpoint).to(device))
     else:
         predictor = SamPredictor(build_sam(checkpoint=sam_checkpoint).to(device))
 

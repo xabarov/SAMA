@@ -332,11 +332,11 @@ class Annotator(MainWindow):
                           self.lang == 'RU' else "<p>Labeling Data for Object Detection and Instance Segmentation "
                                                  "with Segment Anything Model (SAM) and GroundingDINO.</p>")
 
-    def handle_sam_model(self):
+    def handle_sam_model(self, hq_type='h'):
         """
         Загрузка модели SAM
         """
-        self.sam = self.load_sam()
+        self.sam = self.load_sam(hq_type)
         self.image_setter = SAMImageSetter()
         self.image_setter.set_predictor(self.sam)
         self.image_setter.finished.connect(self.on_image_set)
@@ -606,17 +606,23 @@ class Annotator(MainWindow):
 
         return gd_load_model(config_file, grounded_checkpoint, device=self.settings.read_platform())
 
-    def load_sam(self):
+    def load_sam(self, hq_type='h'):
         """
         Загрузка модели SAM
         """
         use_hq = self.settings.read_sam_hq()
         if use_hq == 1:
-            sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_HQ_CHECKPOINT)
+            if hq_type == 'h':
+                sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_HQ_CHECKPOINT)
+            elif hq_type == 'l':
+                sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_HQ_L_CHECKPOINT)
+            else:
+                sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_HQ_B_CHECKPOINT)
         else:
             sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_CHECKPOINT)
+            hq_type = 'h'
 
-        return sam_load_model(sam_model_path, device=self.settings.read_platform(), use_sam_hq=use_hq)
+        return sam_load_model(sam_model_path, device=self.settings.read_platform(), use_sam_hq=use_hq, hq_type=hq_type)
 
     def queue_image_to_sam(self, image_name):
         """
@@ -898,7 +904,6 @@ class Annotator(MainWindow):
         """
         yaml_data = self.import_dialog.getData()
         self.new_import_project_name = yaml_data['import_project_path']
-
 
         if self.sam and not self.is_seg_import:
             convert_to_masks = self.import_dialog.convert_to_mask_checkbox.isChecked()
