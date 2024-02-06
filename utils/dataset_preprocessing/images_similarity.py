@@ -36,7 +36,8 @@ def get_images_similarity(path, model_path="openai/clip-vit-large-patch14", perc
         conn.percent.connect(percent_hook)
 
     model = CLIPModel.from_pretrained(model_path)
-    model.to('cuda')
+    if torch.cuda.is_available():
+        model.to('cuda')
 
     # Get the image features
     processor = AutoProcessor.from_pretrained(model_path)
@@ -54,14 +55,16 @@ def get_images_similarity(path, model_path="openai/clip-vit-large-patch14", perc
     for i in tqdm(range(len(images_pil))):
         image = images_pil[i]
         input = processor(images=image, return_tensors="pt")
-        input.to('cuda')
+        if torch.cuda.is_available():
+            input.to('cuda')
         emb = model.get_image_features(**input)
         embeddings.append(emb.detach().cpu().numpy().tolist()[0])
         if percent_hook:
             conn.percent.emit(50 + int(50.0 * i / len(images_pil)))
 
     emb = torch.tensor(embeddings)
-    emb.to('cuda')
+    if torch.cuda.is_available():
+        emb.to('cuda')
     print("calc cos similarities...")
     cosine_similarity_score = util.pytorch_cos_sim(emb, emb)
     return cosine_similarity_score.detach().cpu().numpy()

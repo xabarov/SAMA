@@ -37,7 +37,8 @@ class DetectorNuclear(Detector):
 
         self.mask_res = []
 
-        self.cuda_model_clear(self.sam.model)
+        if self.settings.read_platform() == 'cuda':
+            self.cuda_model_clear(self.sam.model)
         self.use_hq_before = self.settings.read_sam_hq()
         self.settings.write_sam_hq(1)
 
@@ -148,8 +149,9 @@ class DetectorNuclear(Detector):
             edges_stats = os.path.join(basedir, 'nuclear_power', 'out_rebra.csv')
 
             # before SAM - move other models to CPU and del
-            for m in [self.yolo, self.gd_model]:
-                self.cuda_model_clear(m)
+            if self.settings.read_platform() == 'cuda':
+                for m in [self.yolo, self.gd_model]:
+                    self.cuda_model_clear(m)
 
             self.post_worker = PostProcessingWorker(self.sam.model, yolo_txt_name=yolo_txt_name,
                                                     tek_image_path=tek_image_path,

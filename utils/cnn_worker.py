@@ -44,7 +44,8 @@ class CNN_worker(QtCore.QThread):
 
     def run(self):
 
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         if self.image_list:
             self.run_yolo8_image_list(self.image_list)

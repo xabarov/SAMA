@@ -6,6 +6,7 @@ from PyQt5.QtGui import QFont
 
 from utils import config
 from utils.config import DOMEN_NAME
+from torch import cuda
 
 shortcuts = {'change_polygon_label': {'appearance': 'Ctrl+E', 'modifier': ['Ctrl'], 'name_eng': 'Change polygon label',
                                       'name_ru': 'Изменить имя метки полигона', 'shortcut_key_eng': 84,
@@ -175,10 +176,14 @@ class AppSettings:
         return icon_folder
 
     def write_platform(self, platform):
+        if platform == 'cuda' and not cuda.is_available():
+            platform = 'cpu'
         self.qt_settings.setValue("main/platform", platform)
 
     def read_platform(self):
         platform = self.qt_settings.value("main/platform", 'cuda')
+        if platform == 'cuda' and not cuda.is_available():
+            platform = 'cpu'
         return platform
 
     def write_alpha(self, alpha):

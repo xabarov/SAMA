@@ -201,7 +201,7 @@ class Detector(Annotator):
         classes = cls_settings.CLASSES_SEG
         self.seg_worker = SegmenterWorker(image_path=im, config_path=config, checkpoint_path=checkpoint,
                                           palette=palette,
-                                          classes=classes, device='cuda')
+                                          classes=classes, device=self.settings.read_platform())
 
         self.seg_worker.started.connect(self.on_segment_start)
         self.seg_worker.finished.connect(self.on_segment_finished)

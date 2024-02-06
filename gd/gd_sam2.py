@@ -145,10 +145,11 @@ def predict(predictor, image_path, text_prompt, output_dir=None, grounded_checkp
     )
 
     # Free GroundingDINO model memory
-    model.cpu()
-    del model, grounded_checkpoint
-    gc.collect()
-    torch.cuda.empty_cache()
+    if device == 'cuda':
+        model.cpu()
+        del model, grounded_checkpoint
+        gc.collect()
+        torch.cuda.empty_cache()
     # initialize SAM
 
     size = image_pil.size
