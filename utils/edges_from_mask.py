@@ -523,20 +523,20 @@ def show_mask(mask_path, pallete):
 
 
 if __name__ == '__main__':
-    mask_path = "F:\\python\\datasets\\nuclear_power_stations\\mmseg\\ann_dir\\train\\usa_catawba_13.png"
+    mask_path = "F:\\git_test\\33dep_dataset\\nuclear_power_stations\\mmseg\\ann_dir\\train\\france_belleville_1.png"
 
     labels = ["reactor_sq", "reactor", "engine_room", "pipe", "turbine", "switchgear", "pump", "cooltower",
-              "ct_vent_circle", "cl_vent_sq", "ct_active", "discharge", "ISFSI", "tank", "diesel", "sea", "parking",
-              "waste_water_cil"]
-    labels_colors = {"discharge": [255, 215, 64, 120], "ISFSI": [255, 170, 127, 58], "reactor_sq": [170, 0, 255, 58],
-                     "reactor": [0, 255, 127, 120], "engine_room": [255, 0, 127, 58], "pipe": [255, 255, 0, 58],
-                     "turbine": [255, 170, 0, 120], "switchgear": [255, 0, 0, 58], "pump": [85, 255, 0, 58],
+              "ct_vent_circle", "cl_vent_sq", "ct_active", "discharge", "ISFSI", "tank", "sea", "parking", 'splash_border']
+    labels_colors = {"discharge": [255, 0, 164, 120], "ISFSI": [255, 170, 127, 58], "reactor_sq": [170, 0, 255, 58],
+                     "reactor": [100, 10, 127, 120], "engine_room": [155, 0, 0, 58], "pipe": [155, 255, 220, 58],
+                     "turbine": [255, 170, 0, 120], "switchgear": [255, 255, 0, 58], "pump": [85, 255, 0, 58],
                      "cooltower": [85, 0, 0, 120], "ct_vent_circle": [85, 85, 127, 58], "cl_vent_sq": [13, 45, 85, 120],
-                     "ct_active": [178, 255, 191, 120], "tank": [0, 85, 255, 120], "diesel": [255, 85, 0, 120],
-                     "sea": [69, 255, 209, 58], "parking": [255, 85, 255, 58], "waste_water_cil": [170, 0, 3, 50]}
+                     "ct_active": [178, 155, 191, 120], "tank": [110, 85, 155, 120], "diesel": [255, 85, 0, 120],
+                     "sea": [100, 54, 0, 58], "parking": [255, 85, 255, 58], "waste_water_cil": [170, 0, 3, 50],
+                     'splash_border':[200,200,0,15]}
 
     pallete = {}
     for i, lbl in enumerate(labels):
-        pallete[i] = labels_colors[lbl][:-1]
+        pallete[i+1] = labels_colors[lbl][:-1]
 
     show_mask(mask_path, pallete)

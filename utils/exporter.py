@@ -369,7 +369,7 @@ class Exporter(QtCore.QThread):
 
                     else:
                         # наносим полигон в виде маски на image_name.png
-                        hf.paint_shape_to_mask(final_mask, points, cls_num + 1)  # Нумерация классов начинается с 1. 0 - фон
+                        hf.paint_shape_to_mask(final_mask, points, export_cls_num + 1)  # Нумерация классов начинается с 1. 0 - фон
 
                 # Сохраняем маску {png_ann_name} в директорию ann_dir/{split_folder}/
                 png_ann_name = hf.convert_image_name_to_png_name(filename)

@@ -49,7 +49,7 @@ class ExportLabelsList(QWidget):
         self.table.setColumnWidth(0, self.col_width)
         self.table.setColumnWidth(1, self.col_width)
         self.table.setHorizontalHeaderLabels(list(self.headers))
-        self.table.cellChanged.connect(self.cell_changed)
+        self.table.cellClicked.connect(self.cell_changed)
 
     def cell_clicked(self, row, col):
         print(self.get_labels_map())
@@ -102,29 +102,30 @@ class ExportLabelsList(QWidget):
 
                 self.crete_combo(i, 1, labels, is_active=True, current_state=current_state)
 
+
     def cell_changed(self, row, col):
-        if col == 0:
-            # clicked on label
-            item = self.table.item(row, col)
-            label_name = item.text()
-            last_state = item.data(LastStateRole)
-            current_state = item.checkState()
-            if current_state != last_state:
-                if current_state == Qt.Checked:
-                    self.export_labels.append(label_name)
-                    labels = [""]
-                    self.crete_combo(row, 1, labels, is_active=False, current_state=0)
+        # clicked on label
+        item = self.table.item(row, 0)
+        label_name = item.text()
+        last_state = item.data(LastStateRole)
+        current_state = item.checkState()
+        if current_state != last_state:
+            if current_state == Qt.Checked:
+                self.export_labels.append(label_name)
+                labels = [""]
+                self.crete_combo(row, 1, labels, is_active=False, current_state=0)
 
-                else:
-                    self.export_labels = [label for label in self.export_labels if label != label_name]
+            else:
+                self.export_labels = [label for label in self.export_labels if label != label_name]
 
-                self.update_cells()
-                item.setData(LastStateRole, current_state)
-
+            self.update_cells()
+            item.setData(LastStateRole, current_state)
+        print(self.get_labels_map())
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    labels = ['F-16', 'F-35', 'C-130', 'C-17']
+    labels = [x for x in 'ABCDEFG']
     export_list = ExportLabelsList(labels)
     export_list.show()
+
     sys.exit(app.exec_())
