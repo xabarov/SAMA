@@ -17,7 +17,7 @@ from ui.base_window import MainWindow
 from ui.custom_widgets.edit_with_button import EditWithButton
 from ui.settings_window_client import SettingsWindowClient
 from ui.show_image_widget import ShowImgWindow
-from utils import cls_settings
+from utils import ml_config
 from utils import config
 from utils.cnn_worker_client import CNNWorkerClient
 from utils.sam_predictor_client import SAMImageSetterClient, SAMPredictByPointsClient, SAMPredictByMaskClient
@@ -126,7 +126,7 @@ class DetectorClient(MainWindow):
         img_path - путь к изображению
         """
 
-        self.started_cnn = self.settings.read_cnn_model()
+        self.started_cnn = self.settings.read_detector_model()
 
         conf_thres = self.settings.read_conf_thres()
         iou_thres = self.settings.read_iou_thres()
@@ -184,7 +184,7 @@ class DetectorClient(MainWindow):
             if label:
                 color = self.project_data.get_label_color(label)
             if not color:
-                color = cls_settings.PALETTE[cls_num]
+                color = ml_config.PALETTE[cls_num]
 
             shape_id = self.view.add_polygon_to_scene(cls_num, points, color=color, alpha=alpha_tek,
                                                       alpha_edge=alpha_edge)

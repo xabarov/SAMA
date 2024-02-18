@@ -27,9 +27,9 @@ The project also contains an object detector, a segmenter with SAM, YOLO and Gro
 
 ### YOLOv8 for detector
 
-1. Replace `weights` and `config` in CNN_DICT for 'YOLOv8' in `utils/cls_settings.py` to your model weight and YAML
+1. Replace `weights` and `config` in CNN_DICT for 'YOLOv8' in `utils/ml_config.py` to your model weight and YAML
    config paths
-2. Replace CLASSES_ENG and CLASSES_RU in `utils/cls_settings.py` for your classes names
+2. Replace CLASSES_ENG and CLASSES_RU in `utils/ml_config.py` for your classes names
 
 
 

@@ -7,7 +7,7 @@ from qt_material import apply_stylesheet
 
 import utils.help_functions as hf
 from detector import Detector
-from utils import cls_settings
+from utils import ml_config
 from utils import config
 from utils.edges_from_mask import mask_results_to_yolo_txt
 from utils.nuclear_post_processing import PostProcessingWorker
@@ -37,12 +37,11 @@ class DetectorNuclear(Detector):
 
         self.mask_res = []
 
-        if self.settings.read_platform() == 'cuda':
+        if self.settings.read_detector_platform() == 'cuda':
             self.cuda_model_clear(self.sam.model)
-        self.use_hq_before = self.settings.read_sam_hq()
-        self.settings.write_sam_hq(1)
 
-        self.sam = self.load_sam('b')
+        self.settings.write_sam_model('SAM_HQ_VIT_B')
+        self.sam = self.load_sam()
         self.setWindowTitle("Nuclear power station detector")
 
         self.names = self.yolo.names
@@ -51,7 +50,6 @@ class DetectorNuclear(Detector):
             self.names = {k: v for k, v in self.names.items() if k not in hide_classes}
 
     def hide(self) -> bool:
-        self.settings.write_sam_hq(self.use_hq_before)
         super().hide()
         return True
 
@@ -79,7 +77,7 @@ class DetectorNuclear(Detector):
                 if label:
                     color = self.project_data.get_label_color(label)
                 if not color:
-                    color = cls_settings.PALETTE[cls_num]
+                    color = ml_config.PALETTE[cls_num]
                 alpha_edge_tek = alpha_edge
             else:
                 alpha_edge_tek = 1.0
@@ -149,9 +147,11 @@ class DetectorNuclear(Detector):
             edges_stats = os.path.join(basedir, 'nuclear_power', 'out_rebra.csv')
 
             # before SAM - move other models to CPU and del
-            if self.settings.read_platform() == 'cuda':
-                for m in [self.yolo, self.gd_model]:
-                    self.cuda_model_clear(m)
+            if self.settings.read_detector_platform() == 'cuda':
+                self.cuda_model_clear(self.yolo)
+
+            if self.settings.read_zero_shot_platform() == 'cuda':
+                self.cuda_model_clear(self.gd_model)
 
             self.post_worker = PostProcessingWorker(self.sam.model, yolo_txt_name=yolo_txt_name,
                                                     tek_image_path=tek_image_path,
@@ -200,7 +200,7 @@ class DetectorNuclear(Detector):
             if label:
                 color = self.project_data.get_label_color(label)
             if not color:
-                color = cls_settings.PALETTE[cls_num]
+                color = ml_config.PALETTE[cls_num]
 
             cls_name = self.cls_combo.itemText(cls_num)
 

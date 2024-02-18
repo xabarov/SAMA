@@ -19,7 +19,7 @@ from ui.base_window import MainWindow
 from ui.dialogs.import_dialogs import ImportFromYOLODialog
 from ui.dialogs.input_dialog import PromptInputDialog
 from ui.settings_window import SettingsWindow
-from utils import cls_settings
+from utils import ml_config
 from utils import config
 from utils.cnn_worker import CNN_worker
 from utils.importer import Importer
@@ -27,6 +27,9 @@ from utils.predictor import SAMImageSetter
 from utils.sam_predictor import load_model as sam_load_model
 from utils.sam_predictor import mask_to_seg, predict_by_points, predict_by_box
 from utils.states import DrawState
+from utils.ml_config import SAM_DICT
+from utils.segmenter_worker import SegmenterWorker
+from utils.edges_from_mask import segmentation_to_points
 
 
 class Annotator(MainWindow):
@@ -40,10 +43,12 @@ class Annotator(MainWindow):
         self.setWindowTitle("AI Annotator")
 
         # Current CUDA model
-        self.last_platform = None
+        self.last_detector_platform = None
         self.try_to_set_platform('cuda')
-        self.last_sam_use_hq = self.settings.read_sam_hq()
-        self.last_cnn = self.settings.read_cnn_model()
+
+        self.last_cnn = self.settings.read_detector_model()
+        self.last_sam = self.settings.read_sam_model()
+        self.last_sam_platform = self.settings.read_sam_platform()
 
         # Detector
         self.started_cnn = None
@@ -75,7 +80,7 @@ class Annotator(MainWindow):
         lang = self.lang
 
         if platform in ['cuda', 'Auto'] and torch.cuda.is_available():
-            self.last_platform = 'cuda'
+            self.last_detector_platform = 'cuda'
             print("CUDA is available")
             if lang == 'RU':
                 self.info_message(
@@ -84,7 +89,7 @@ class Annotator(MainWindow):
                 self.info_message(
                     "NVIDIA CUDA is found. Neural networks will use it for acceleration")
         else:
-            self.last_platform = 'cpu'
+            self.last_detector_platform = 'cpu'
             if lang == 'RU':
                 self.info_message(
                     "Нейросеть будет использовать ресурсы процессора")
@@ -148,6 +153,11 @@ class Annotator(MainWindow):
             triggered=self.grounding_sam_pressed,
             checkable=True)
 
+        self.segmentImage = QAction(
+            "Сегментация" if self.settings.read_lang() == 'RU' else "Segment image",
+            self, enabled=False,
+            triggered=self.segment_image)
+
         super(Annotator, self).createActions()
 
     def read_detection_model_names(self):
@@ -157,10 +167,10 @@ class Annotator(MainWindow):
             - YOLOv8 pt
             - YOLOv8 OpenVino
         """
-        detection_model = self.settings.read_cnn_model()
+        detection_model = self.settings.read_detector_model()
 
         if detection_model == 'YOLOv8_openvino':
-            cfg, weights = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8_openvino')
+            cfg, weights = ml_config.get_cfg_and_weights_by_cnn_name('YOLOv8_openvino')
 
             if os.path.exists(weights):
                 with open(cfg, 'r') as f:
@@ -185,10 +195,10 @@ class Annotator(MainWindow):
             if not names:
                 if self.lang == 'RU':
                     self.info_message(
-                        f"Неизвестное имя модели {self.settings.read_cnn_model()}")
+                        f"Неизвестное имя модели {self.settings.read_detector_model()}")
                 else:
                     self.info_message(
-                        f"Unknown detection model {self.settings.read_cnn_model()}")
+                        f"Unknown detection model {self.settings.read_detector_model()}")
                 return
 
             self.cls_combo.clear()
@@ -219,6 +229,7 @@ class Annotator(MainWindow):
         self.balanceAct.setEnabled(is_active)
         self.detectAllImagesAct.setEnabled(is_active)
         self.detectAct.setEnabled(is_active)
+        self.segmentImage.setEnabled(is_active)
 
     def createMenus(self):
         super(Annotator, self).createMenus()
@@ -235,6 +246,8 @@ class Annotator(MainWindow):
         self.classifierMenu.addAction(self.detectAct)
         self.classifierMenu.addAction(self.detectAllImagesAct)
         self.classifierMenu.addAction(self.syncLabelsAct)
+        self.classifierMenu.addAction(self.segmentImage)
+
         self.datasetMenu.addAction(self.balanceAct)
 
         self.menuBar().clear()
@@ -259,6 +272,8 @@ class Annotator(MainWindow):
 
         # classifier
         self.detectAct.setIcon(QIcon(self.icon_folder + "/detect.png"))
+        # segmenter
+        self.segmentImage.setIcon(QIcon(self.icon_folder + "/seg.png"))
 
     def open_image(self, image_name):
         """
@@ -332,11 +347,11 @@ class Annotator(MainWindow):
                           self.lang == 'RU' else "<p>Labeling Data for Object Detection and Instance Segmentation "
                                                  "with Segment Anything Model (SAM) and GroundingDINO.</p>")
 
-    def handle_sam_model(self, hq_type='h'):
+    def handle_sam_model(self):
         """
         Загрузка модели SAM
         """
-        self.sam = self.load_sam(hq_type)
+        self.sam = self.load_sam()
         self.image_setter = SAMImageSetter()
         self.image_setter.set_predictor(self.sam)
         self.image_setter.finished.connect(self.on_image_set)
@@ -347,19 +362,19 @@ class Annotator(MainWindow):
         """
         Загрузка модели для обнаружения объектов
         """
-        cnn_model = self.settings.read_cnn_model()
+        cnn_model = self.settings.read_detector_model()
 
         if cnn_model == "YOLOv8_openvino":
             core = Core()
 
-            cfg_path, weights_path = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8_openvino')
+            cfg_path, weights_path = ml_config.get_cfg_and_weights_by_cnn_name('YOLOv8_openvino')
 
             if os.path.exists(weights_path):
                 # Обнаружены веса модели
                 print(f"YOLOv8 OepnVINO weights {weights_path} found")
                 seg_ov_model = core.read_model(cfg_path)
 
-                if self.settings.read_platform() == "cuda":
+                if self.settings.read_detector_platform() == "cuda":
                     device = "GPU"
                     seg_ov_model.reshape({0: [1, 3, 1280, 1280]})
                 else:
@@ -371,13 +386,13 @@ class Annotator(MainWindow):
 
                 self.yolo = YOLO("yolov8x-seg.pt")
                 dev_set = 'cpu'
-                if self.settings.read_platform() == "cuda":
+                if self.settings.read_detector_platform() == "cuda":
                     dev_set = 0
 
                 self.yolo.to(dev_set)
 
         elif cnn_model == "YOLOv8":
-            cfg_path, weights_path = cls_settings.get_cfg_and_weights_by_cnn_name('YOLOv8')
+            cfg_path, weights_path = ml_config.get_cfg_and_weights_by_cnn_name('YOLOv8')
             config_path = os.path.join(os.getcwd(), cfg_path)
             model_path = os.path.join(os.getcwd(), weights_path)
 
@@ -391,7 +406,7 @@ class Annotator(MainWindow):
                     self.yolo.data = config_path
 
                 dev_set = 'cpu'
-                if self.settings.read_platform() == "cuda":
+                if self.settings.read_detector_platform() == "cuda":
                     dev_set = 0
 
                 self.yolo.to(dev_set)
@@ -401,7 +416,7 @@ class Annotator(MainWindow):
 
                 self.yolo = YOLO("yolov8x-seg.pt")
                 dev_set = 'cpu'
-                if self.settings.read_platform() == "cuda":
+                if self.settings.read_detector_platform() == "cuda":
                     dev_set = 0
 
                 self.yolo.to(dev_set)
@@ -436,16 +451,20 @@ class Annotator(MainWindow):
         """
         super(Annotator, self).on_settings_closed()
 
-        sam_hq = self.settings.read_sam_hq()
-        if sam_hq != self.last_sam_use_hq:
+        sam_model = self.settings.read_sam_model()
+        sam_platform = self.settings.read_sam_platform()
+
+        if sam_model != self.last_sam or self.last_sam_platform != sam_platform:
+            self.last_sam = sam_model
+            self.last_sam_platform = sam_platform
             self.handle_sam_model()
 
-        platform = self.settings.read_platform()
+        platform = self.settings.read_detector_platform()
 
-        if platform != self.last_platform:
+        if platform != self.last_detector_platform:
             self.try_to_set_platform(platform)
 
-        cnn_model = self.settings.read_cnn_model()
+        cnn_model = self.settings.read_detector_model()
 
         if cnn_model != self.last_cnn:
             self.last_cnn = cnn_model
@@ -515,6 +534,36 @@ class Annotator(MainWindow):
 
             self.save_view_to_project()
 
+    def add_sam_shapes_to_view(self, shapes):
+        cls_num = self.cls_combo.currentIndex()
+        alpha_tek = self.settings.read_alpha()
+        alpha_edge = self.settings.read_edges_alpha()
+
+        points_mass = []
+
+        for shape in shapes:
+            points = shape['points']
+            points_mass.append(points)
+
+        color = None
+        label = self.project_data.get_label_name(cls_num)
+        if label:
+            color = self.project_data.get_label_color(label)
+        if not color:
+            color = ml_config.PALETTE[cls_num]
+
+        cls_name = self.cls_combo.itemText(cls_num)
+
+        label_text_params = self.settings.read_label_text_params()
+        if label_text_params['hide']:
+            text = None
+        else:
+            text = f"{cls_name}"
+
+        self.view.add_polygons_group_to_scene(cls_num, points_mass, color=color, text=text,
+                                       alpha=alpha_tek,
+                                       alpha_edge=alpha_edge)
+
     def ai_mask_end_drawing(self):
         """
         Завершение рисования прямоугольной области SAM
@@ -526,8 +575,14 @@ class Annotator(MainWindow):
 
         if len(input_box):
             if self.image_set and not self.image_setter.isRunning():
-                mask = predict_by_box(self.sam, input_box)
-                self.add_sam_polygon_to_scene(mask)
+                sam_model = self.settings.read_sam_model()
+                if 'Fast' in sam_model:
+                    shapes = self.sam.box_prompt(self.cv2_image, input_box)
+                    self.add_sam_shapes_to_view(shapes)
+
+                else:
+                    masks = predict_by_box(self.sam, input_box)
+                    self.add_sam_polygon_to_scene(masks)
 
         self.view.end_drawing()
         self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
@@ -562,9 +617,18 @@ class Annotator(MainWindow):
 
             if len(input_label):
                 if self.image_set and not self.image_setter.isRunning():
-                    masks = predict_by_points(self.sam, input_point, input_label, multi=False)
-                    for mask in masks:
-                        self.add_sam_polygon_to_scene(mask)
+
+                    sam_model = self.settings.read_sam_model()
+
+                    if 'Fast' in sam_model:
+                        shapes = self.sam.point_prompt(self.cv2_image, input_point, input_label)
+                        self.add_sam_shapes_to_view(shapes)
+
+                    else:
+
+                        masks = predict_by_points(self.sam, input_point, input_label, multi=False)
+                        for mask in masks:
+                            self.add_sam_polygon_to_scene(mask)
 
             else:
                 self.view.remove_items_from_active_group()
@@ -604,25 +668,19 @@ class Annotator(MainWindow):
         grounded_checkpoint = os.path.join(os.getcwd(),
                                            config.PATH_TO_GROUNDING_DINO_CHECKPOINT)
 
-        return gd_load_model(config_file, grounded_checkpoint, device=self.settings.read_platform())
+        return gd_load_model(config_file, grounded_checkpoint, device=self.settings.read_zero_shot_platform())
 
-    def load_sam(self, hq_type='h'):
+    def load_sam(self):
         """
         Загрузка модели SAM
         """
-        use_hq = self.settings.read_sam_hq()
-        if use_hq == 1:
-            if hq_type == 'h':
-                sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_HQ_CHECKPOINT)
-            elif hq_type == 'l':
-                sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_HQ_L_CHECKPOINT)
-            else:
-                sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_HQ_B_CHECKPOINT)
-        else:
-            sam_model_path = os.path.join(os.getcwd(), config.PATH_TO_SAM_CHECKPOINT)
-            hq_type = 'h'
+        sam_model = self.settings.read_sam_model()
+        device = self.settings.read_sam_platform()
+        weights = SAM_DICT[sam_model]['weights']
+        sam_type = SAM_DICT[sam_model]['type']
+        sam_model_path = os.path.join(os.getcwd(), weights)
 
-        return sam_load_model(sam_model_path, device=self.settings.read_platform(), use_sam_hq=use_hq, hq_type=hq_type)
+        return sam_load_model(sam_model_path, device, sam_model, sam_type)
 
     def queue_image_to_sam(self, image_name):
         """
@@ -664,7 +722,7 @@ class Annotator(MainWindow):
 
         self.open_polygons_and_off_hand()
 
-        self.started_cnn = self.settings.read_cnn_model()
+        self.started_cnn = self.settings.read_detector_model()
         self.detected_image = self.tek_image_name
 
         conf_thres_set = self.settings.read_conf_thres()
@@ -682,7 +740,7 @@ class Annotator(MainWindow):
 
         self.CNN_worker = CNN_worker(model=self.yolo, conf_thres=conf_thres_set, iou_thres=iou_thres_set,
                                      img_name=img_name, img_path=img_path,
-                                     scanning=self.scanning_mode, model_name=self.settings.read_cnn_model(),
+                                     scanning=self.scanning_mode, model_name=self.settings.read_detector_model(),
                                      linear_dim=self.lrm, simplify_factor=simplify_factor, nc=len(names.keys()))
 
         self.CNN_worker.started.connect(self.on_cnn_started)
@@ -733,7 +791,7 @@ class Annotator(MainWindow):
             if label:
                 color = self.project_data.get_label_color(label)
             if not color:
-                color = cls_settings.PALETTE[cls_num]
+                color = ml_config.PALETTE[cls_num]
 
             cls_name = self.cls_combo.itemText(cls_num)
 
@@ -849,7 +907,7 @@ class Annotator(MainWindow):
         """
         self.open_polygons_and_off_hand()
 
-        self.started_cnn = self.settings.read_cnn_model()
+        self.started_cnn = self.settings.read_detector_model()
 
         conf_thres_set = self.settings.read_conf_thres()
         iou_thres_set = self.settings.read_iou_thres()
@@ -864,7 +922,7 @@ class Annotator(MainWindow):
 
         self.CNN_worker = CNN_worker(model=self.yolo, conf_thres=conf_thres_set, iou_thres=iou_thres_set,
                                      img_name=None, img_path=None, simplify_factor=self.settings.read_simplify_factor(),
-                                     images_list=images_list, model_name=self.settings.read_cnn_model(),
+                                     images_list=images_list, model_name=self.settings.read_detector_model(),
                                      scanning=None, nc=len(names.keys()))
 
         self.CNN_worker.started.connect(self.on_cnn_started)
@@ -920,6 +978,94 @@ class Annotator(MainWindow):
 
         self.start_importer()
 
+    def on_segment_start(self):
+        self.progress_toolbar.show_progressbar()
+        self.info_message(
+            f"Начинаю сегментацию изображения..." if self.lang == 'RU' else f"Start semantic segmentation...")
+
+    def on_segment_finished(self):
+        predictions = self.seg_worker.results['predictions']
+
+        labels_names = self.project_data.get_labels()
+
+        seg_model = self.settings.read_seg_model()
+        seg_classes = ml_config.SEG_DICT[seg_model]["classes"]
+
+        for cls_num, cls_name in enumerate(seg_classes):
+            if cls_name == 'background':
+                continue
+
+            if cls_name not in labels_names:
+                self.set_labels_color()  # сохранение информации о цветах масок
+                self.set_color_to_cls(cls_name)  # Добавляем новый цвет в proj_data
+                self.add_new_name_to_combobox(cls_name)
+                # Сохраняем проект
+                self.fill_project_labels()
+
+                labels_names = self.project_data.get_labels()
+
+            points_mass = segmentation_to_points(predictions, cls_num)
+            for points in points_mass:
+                self.add_segment_polygon_to_scene(points, labels_names.index(cls_name))
+
+            self.progress_toolbar.set_percent(50 + cls_num * 100.0 / len(seg_classes))
+
+        self.progress_toolbar.hide()
+
+    def add_segment_polygon_to_scene(self, points, cls_num):
+
+        if len(points) > 0:
+            shapely_pol = Polygon(points)
+            area = shapely_pol.area
+            if area > config.POLYGON_AREA_THRESHOLD:
+
+                cls_name = self.cls_combo.itemText(cls_num)
+                alpha_tek = self.settings.read_alpha()
+                alpha_edge = self.settings.read_edges_alpha()
+                color = self.project_data.get_label_color(cls_name)
+
+                label_text_params = self.settings.read_label_text_params()
+                if label_text_params['hide']:
+                    text = None
+                else:
+                    text = f"{cls_name}"
+
+                self.view.add_polygon_to_scene(cls_num, points, color, alpha=alpha_tek, text=text,
+                                               alpha_edge=alpha_edge)
+                self.save_view_to_project()
+
+            else:
+                if self.settings.read_lang() == 'RU':
+                    self.statusBar().showMessage(
+                        f"Метку сделать не удалось. Площадь маски слишком мала {area:0.3f}. Попробуйте еще раз", 3000)
+                else:
+                    self.statusBar().showMessage(
+                        f"Can't create label. Area of label is too small {area:0.3f}. Try again", 3000)
+
+        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
+
+    def segment_image(self):
+
+        seg_model = self.settings.read_seg_model()
+        config = os.path.join(os.getcwd(), ml_config.SEG_DICT[seg_model]['config'])
+        checkpoint = os.path.join(os.getcwd(), ml_config.SEG_DICT[seg_model]['weights'])
+
+        im = self.cv2_image
+
+        palette = ml_config.SEG_DICT[seg_model]['palette']
+        classes = ml_config.SEG_DICT[seg_model]['classes']
+
+        self.seg_worker = SegmenterWorker(image_path=im, config_path=config, checkpoint_path=checkpoint,
+                                          palette=palette,
+                                          classes=classes, device=self.settings.read_segmentation_platform())
+
+        self.seg_worker.started.connect(self.on_segment_start)
+        self.progress_toolbar.set_signal(self.seg_worker.psnt_connection.percent)
+        self.seg_worker.finished.connect(self.on_segment_finished)
+
+        if not self.seg_worker.isRunning():
+            self.seg_worker.start()
+
 
 if __name__ == '__main__':
     import sys
@@ -929,7 +1075,7 @@ if __name__ == '__main__':
     from utils.settings_handler import AppSettings
 
     app_settings = AppSettings()
-    download_sam(app_settings.read_sam_hq())
+    download_sam(app_settings.read_sam_model())
     download_gd()
 
     app = QtWidgets.QApplication(sys.argv)

@@ -4,7 +4,8 @@ import numpy as np
 from segment_anything import SamPredictor, build_sam, build_sam_hq, build_sam_hq_vit_b, build_sam_hq_vit_l
 
 from utils.edges_from_mask import mask_to_polygons_layer
-
+from utils.ml_config import SAM_DICT
+from utils.efficient_sam import FastSAMPredictor
 
 def show_mask(mask, ax, random_color=False):
     if random_color:
@@ -31,19 +32,24 @@ def show_box(box, ax):
     ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='green', facecolor=(0, 0, 0, 0), lw=2))
 
 
-def load_model(model_path, device="cuda", use_sam_hq=True, hq_type='h'):
-    sam_checkpoint = model_path
+def load_model(sam_checkpoint, device='cuda', sam_model='SAM_HQ_VIT_H', sam_type='SAM_HQ'):
 
     # initialize SAM
-    if use_sam_hq:
-        if hq_type == 'h':
+    if 'HQ' in sam_type:
+        hq_type = sam_model[-1]
+        if hq_type == 'H':
             predictor = SamPredictor(build_sam_hq(checkpoint=sam_checkpoint).to(device))
-        elif hq_type == 'l':
+        elif hq_type == 'L':
             predictor = SamPredictor(build_sam_hq_vit_l(checkpoint=sam_checkpoint).to(device))
         else:
             predictor = SamPredictor(build_sam_hq_vit_b(checkpoint=sam_checkpoint).to(device))
-    else:
+    elif sam_type == 'SAM':
         predictor = SamPredictor(build_sam(checkpoint=sam_checkpoint).to(device))
+    elif sam_type == 'FastSAM':
+        predictor = FastSAMPredictor(checkpoint_path=sam_checkpoint)
+    else:
+        print(f"Error in SAM load model. Unknown type {sam_type} of {sam_model}")
+        return None
 
     return predictor
 

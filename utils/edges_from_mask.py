@@ -244,15 +244,25 @@ def segmentation_to_polygons(mm_seg_predicitons, cls_num):
     return points_mass
 
 
-def segmentation_to_points(mm_seg_predicitons, cls_num):
+def segmentation_to_points(mm_seg_predicitons, cls_num, simplify_factor=0.1):
     mask = mm_seg_predicitons == cls_num
-    points_xx_yy = np.asarray(np.where(mask == True))
-    yy = points_xx_yy[0]
-    xx = points_xx_yy[1]
-    points = []
-    for x, y in zip(xx, yy):
-        points.append([x, y])
-    return points
+    polygons = mask_to_polygons_layer(mask)
+
+    results = []
+    for pol in polygons:
+        pol_simplified = pol.simplify(simplify_factor, preserve_topology=True)
+        points = []
+        try:
+            xy = np.asarray(pol_simplified.boundary.xy, dtype="float")
+            x_mass = xy[0].tolist()
+            y_mass = xy[1].tolist()
+            for x, y in zip(x_mass, y_mass):
+                points.append([x, y ])
+            results.append(points)
+        except:
+            pass
+
+    return results
 
 
 def mask_results_to_yolo_txt(mask_results, image_path, yolo_txt_file_name, with_conf=False):

@@ -49,6 +49,9 @@ def create_mmseg_like_yolo_names(yolo_path: str, mmseg_path: str, save_path='dat
                 if ann_or_img_folder == 'img_dir':
                     source_full_name = os.path.join(yolo_path, "images", folder, name)
                     dest_name = os.path.join(cur_save_path, name)
+                    png_name = convert_image_name_to_png_name(name)
+                    if png_name not in mm_names['ann_dir']['train'] and png_name not in mm_names['ann_dir']['val']:
+                        continue
                 else:
                     png_name = convert_image_name_to_png_name(name)
                     if png_name in mm_names['ann_dir']['train']:
@@ -96,7 +99,7 @@ def get_mmseg_names(path):
 
 
 if __name__ == '__main__':
-    y_path = "D:\\python\\mmseg_last\\mmsegmentation\\data\\dataset_11_01_2024"
-    m_path = "D:\\python\\mmseg_last\\mmsegmentation\\data\\aes_mmseg"
-    save_path = ''
-    create_mmseg_like_yolo_names(y_path, m_path)
+    y_path = "D:\\python\\mm_seg2\\data\\dataset_11_01_2024"
+    m_path = "D:\\python\\datasets\\aes_mmseg_wo_turbines"
+    save_path = "D:\\python\\mm_seg2\\data\\aes_mmseg_without_turbine"
+    create_mmseg_like_yolo_names(y_path, m_path, save_path)

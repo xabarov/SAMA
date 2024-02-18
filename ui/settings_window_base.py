@@ -24,7 +24,7 @@ class SettingsWindowBase(QWidget):
 
         self.stack_layouts()
 
-        self.resize(500, 500)
+        self.resize(800, 600)
 
     def stack_layouts(self):
         """

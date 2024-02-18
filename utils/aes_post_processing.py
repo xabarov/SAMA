@@ -1,4 +1,4 @@
-from utils import cls_settings
+from utils import ml_config
 
 
 def find_missed_objects(detected_shapes):
@@ -6,13 +6,13 @@ def find_missed_objects(detected_shapes):
     # Rule 1. If RO nums == MZ_nums
     ro_nums = 0
     for res in detected_shapes:
-        cls_eng = cls_settings.CLASSES_ENG[int(res['cls_num'])]
+        cls_eng = ml_config.CLASSES_ENG[int(res['cls_num'])]
         if cls_eng == "ro_pf" or cls_eng == "ro_sf":
             ro_nums += 1
 
     mz_nums = 0
     for res in detected_shapes:
-        cls_eng = cls_settings.CLASSES_ENG[int(res['cls_num'])]
+        cls_eng = ml_config.CLASSES_ENG[int(res['cls_num'])]
         if cls_eng == "mz_v" or cls_eng == "mz_ot":
             mz_nums += 1
 

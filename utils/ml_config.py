@@ -19,15 +19,6 @@ PALETTE = [
     (23, 190, 207, 255), (31, 119, 180, 255),  # tab10 without gray
 ]
 
-PALETTE_SEG = [
-    [0, 0, 0],  # фон
-    [69, 170, 242],  # вода, голубой
-    [235, 77, 75]  # пар, красный
-
-]
-
-CLASSES_SEG = ('background', 'water', 'vapor')
-
 CLASSES_RU = ["РО кв", "РО", "МЗ", "Турбина", "РУ", "БНС", "Градирня пасс", "Град.вент.кр", "Град.вент.пр",
               "Градирня акт", "БСС", "ДГС"]
 
@@ -91,7 +82,7 @@ CNN_DICT = {
     #              "type": "YOLO5"},
     # 'YOLOv5x6': {'weights': 'yolo//yolo_weights//v5x6_640//best.pt', 'config': "yolo//yamls//aes.yaml",
     #              "type": "YOLO5"},
-    'YOLOv8': {'weights': 'yolov8//weights_11_01_2024//best.pt', 'config': "yolov8//aes_yolo_seg.yaml",
+    'YOLOv8': {'weights': 'yolov8//weights//best.pt', 'config': "yolov8//aes_yolo_seg.yaml",
                "type": "YOLO8"},
     # 'YOLOv8': {'weights': 'yolov8//weights//yolov8x-seg.pt', 'config': "yolov8//yolov8-seg.yaml",
     #            "type": "YOLO8"},
@@ -173,8 +164,43 @@ CNN_DICT = {
 }
 
 SEG_DICT = {
-    "PSPNet": {"weights": "mm_segmentation\checkpoints\iter_52000_83_59.pth",
-               "config": "mm_segmentation\configs\psp_aes.py"}
+    "PSPNetR50": {"weights": "mm_segmentation\checkpoints\iter_52000_83_59.pth",
+                  "config": "mm_segmentation\configs\psp_aes.py",
+                  "classes": ['background', 'water', 'vapor'],
+                  "palette": [
+                      [0, 0, 0],  # фон
+                      [69, 170, 242],  # вода, голубой
+                      [235, 77, 75]  # пар, красный
+                  ]},
+    "SegFormerMiTB5": {"weights": "mm_segmentation\checkpoints\segformer_mit_b5_160k_aes_iter_81000.pth",
+                       "config": "mm_segmentation\configs\segformer_mit_b5_160k_aes.py",
+                       "classes": ['background', 'reactor_sq', 'reactor', 'engine_room', 'pipe', 'switchgear', 'pump',
+                                   'cooltower', 'ct_vent_circle', 'ct_vent_sq', 'ct_active', 'discharge', 'ISFSI',
+                                   'tank', 'sea', 'parking', 'splash_pool'],
+                       "palette": [
+                           [0, 0, 0],  # фон
+                           [219, 108, 110], [255, 140, 142], [255, 157, 92],
+                           [26, 26, 26], [255, 255, 127], [106, 255, 83],
+                           [255, 85, 255], [255, 85, 255], [255, 85, 255],
+                           [255, 85, 255], [0, 255, 200], [91, 22, 23],
+                           [129, 129, 0], [189, 201, 255], [0, 0, 255],
+                           [220, 0, 216]
+
+                       ]},
+
+}
+
+SAM_DICT = {
+    'SAM_HQ_VIT_B': {'weights': 'sam_models//sam_hq_vit_b.pth', 'config': "",
+                     "type": "SAM_HQ"},
+    'SAM_HQ_VIT_H': {'weights': 'sam_models//sam_hq_vit_h.pth', 'config': "",
+                     "type": "SAM_HQ"},
+    'SAM_HQ_VIT_L': {'weights': 'sam_models//sam_hq_vit_l.pth', 'config': "",
+                     "type": "SAM_HQ"},
+    'SAM_VIT_H': {'weights': 'sam_models//sam_vit_h_4b8939.pth', 'config': "",
+                  "type": "SAM"},
+    'FastSAM': {'weights': 'sam_models/FastSAM-x.pt', 'config': "",
+                "type": "FastSAM"}
 }
 
 

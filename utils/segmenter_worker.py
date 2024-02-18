@@ -2,7 +2,7 @@ from PySide2 import QtCore
 
 from utils.run_mm_seg import segment
 from utils.edges_from_mask import segmentation_to_points
-
+from ui.signals_and_slots import LoadPercentConnection
 
 class SegmenterWorker(QtCore.QThread):
 
@@ -17,15 +17,8 @@ class SegmenterWorker(QtCore.QThread):
         self.device = device
 
         self.results = None
-        # self.mask_results = None
+        self.psnt_connection = LoadPercentConnection()
 
-        # Example
-        # print(result['visualization'].shape)
-        # (512, 683, 3)
-
-        # 'predictions' includes segmentation mask with label indices
-        # print(result['predictions'].shape)
-        # (512, 683)
 
     def set_image_path(self, image_path):
         self.image_path = image_path
@@ -43,18 +36,12 @@ class SegmenterWorker(QtCore.QThread):
         self.classes = classes
 
     def run(self):
+        self.psnt_connection.percent.emit(0)
         self.results = segment(image_path=self.image_path, config_path=self.config_path,
                                checkpoint_path=self.checkpoint_path, palette=self.palette, classes=self.classes,
                                device=self.device)
+        self.psnt_connection.percent.emit(50)
 
-        # mask_results = []
-        # predictions = self.results['predictions']
-        # for i in range(len(self.classes)):
-        #     points_mass = segmentation_to_points(predictions, i)
-        #     mask_result = {'class_name': self.classes[i], 'cls_num': i, 'points': points_mass}
-        #     mask_results.append(mask_result)
-        #
-        # self.mask_results = mask_results
 
 
 if __name__ == '__main__':

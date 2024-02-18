@@ -74,14 +74,7 @@ class AppSettings:
             app_name = config.QT_SETTINGS_APP
         self.qt_settings = QSettings(config.QT_SETTINGS_COMPANY, app_name)
 
-    def write_sam_hq(self, use_hq):
-        if use_hq:
-            self.qt_settings.setValue("cnn/sam_hq", 1)
-        else:
-            self.qt_settings.setValue("cnn/sam_hq", 0)
 
-    def read_sam_hq(self):
-        return self.qt_settings.value("cnn/sam_hq", 1)
 
     def read_clear_sam_size(self):
         return self.qt_settings.value("sam/clear_sam_size", 80)
@@ -175,13 +168,52 @@ class AppSettings:
             return os.path.join("icons/", theme_type)
         return icon_folder
 
-    def write_platform(self, platform):
+    def write_detector_platform(self, platform):
         if platform == 'cuda' and not cuda.is_available():
             platform = 'cpu'
-        self.qt_settings.setValue("main/platform", platform)
+        self.qt_settings.setValue("main/detector_platform", platform)
 
-    def read_platform(self):
-        platform = self.qt_settings.value("main/platform", 'cuda')
+    def read_detector_platform(self):
+        platform = self.qt_settings.value("main/detector_platform", 'cuda')
+        if platform == 'cuda' and not cuda.is_available():
+            platform = 'cpu'
+        return platform
+
+    def write_sam_platform(self, platform):
+        if platform == 'cuda' and not cuda.is_available():
+            platform = 'cpu'
+        self.qt_settings.setValue("main/sam_platform", platform)
+
+    def read_sam_platform(self):
+        platform = self.qt_settings.value("main/sam_platform", 'cuda')
+        if platform == 'cuda' and not cuda.is_available():
+            platform = 'cpu'
+        return platform
+
+    def write_segmentation_platform(self, platform):
+        if platform == 'cuda' and not cuda.is_available():
+            platform = 'cpu'
+        self.qt_settings.setValue("main/segmentation", platform)
+
+    def read_segmentation_platform(self):
+        platform = self.qt_settings.value("main/segmentation", 'cuda')
+        if platform == 'cuda' and not cuda.is_available():
+            platform = 'cpu'
+        return platform
+
+    def write_zero_shot_platform(self, platform):
+        """
+        Zero-Shot means Grounding DINO, or YOLO World
+        """
+        if platform == 'cuda' and not cuda.is_available():
+            platform = 'cpu'
+        self.qt_settings.setValue("main/zero_shot_platform", platform)
+
+    def read_zero_shot_platform(self):
+        """
+        Zero-Shot means Grounding DINO, or YOLO World
+        """
+        platform = self.qt_settings.value("main/zero_shot_platform", 'cuda')
         if platform == 'cuda' and not cuda.is_available():
             platform = 'cpu'
         return platform
@@ -210,11 +242,23 @@ class AppSettings:
     def read_density(self):
         return self.qt_settings.value("main/density", 50)
 
-    def write_cnn_model(self, model_name):
-        self.qt_settings.setValue("cnn/model_name", model_name)
+    def write_detector_model(self, model_name):
+        self.qt_settings.setValue("detector/model_name", model_name)
 
-    def read_cnn_model(self):
-        return self.qt_settings.value("cnn/model_name", 'YOLOv8')
+    def read_detector_model(self):
+        return self.qt_settings.value("detector/model_name", 'YOLOv8')
+
+    def write_sam_model(self, model_name):
+        self.qt_settings.setValue("sam/model_name", model_name)
+
+    def read_sam_model(self):
+        return self.qt_settings.value("sam/model_name", 'SAM_HQ_VIT_H')
+
+    def write_seg_model(self, model_name):
+        self.qt_settings.setValue("seg/model_name", model_name)
+
+    def read_seg_model(self):
+        return self.qt_settings.value("seg/model_name", 'PSPNetR50')
 
     def write_conf_thres(self, conf_thres):
         self.qt_settings.setValue("cnn/conf_thres", conf_thres)

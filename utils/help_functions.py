@@ -15,7 +15,7 @@ from PyQt5.QtGui import QPolygonF
 from shapely import Polygon, unary_union
 from skimage.morphology import binary_opening, binary_closing, remove_small_objects, square, label
 
-from utils import cls_settings
+from utils import ml_config
 from utils import config
 from utils import coords_calc
 from rasterio import features
@@ -261,7 +261,7 @@ def convert_shapes_to_esri(shapes, image_name, crs='epsg:4326', out_shapefile='e
 
     gdf = gpd.GeoDataFrame()
     gdf["geometry"] = None
-    cls_names = cls_settings.CLASSES_ENG
+    cls_names = ml_config.CLASSES_ENG
     for i, shape in enumerate(shapes):
         geo_polygon = []
         polygon = shape["points"]
@@ -680,8 +680,8 @@ def filter_results_by_areas(det_results, areas, stat):
     det_results_filtered = []
     for i, res in enumerate(det_results):
 
-        cls_eng = cls_settings.CLASSES_ENG[int(res.cls)]
-        cls_dic = cls_settings.CLASSES_RU[int(res.cls)]
+        cls_eng = ml_config.CLASSES_ENG[int(res.cls)]
+        cls_dic = ml_config.CLASSES_RU[int(res.cls)]
 
         if cls_eng in stat:
             area = areas[i]

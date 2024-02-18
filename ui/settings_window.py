@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QLabel, QGroupBox, QFormLayout, QCheckBox
 
-from utils import cls_settings
+from utils import ml_config
 from ui.settings_window_base import SettingsWindowBase
 from ui.custom_widgets.styled_widgets import StyledComboBox, StyledDoubleSpinBox, StyledSpinBox
 import numpy as np
@@ -14,20 +14,101 @@ class SettingsWindow(SettingsWindowBase):
     def __init__(self, parent, test_mode=False):
         super().__init__(parent, test_mode=test_mode)
         self.create_cnn_layout()
+        self.create_sam_layout()
+        self.create_segmentation_layout()
 
         self.tabs.addTab(self.classifierGroupBox, "Обнаружение" if self.lang == 'RU' else 'Detection')
+        self.tabs.addTab(self.samGroupBox, "SAM" if self.lang == 'RU' else 'SAM')
+        self.tabs.addTab(self.segmentationGroupBox, "Сегментация" if self.lang == 'RU' else 'Segmentation')
+
+    def create_sam_layout(self):
+        theme = self.settings.read_theme()
+
+        self.where_sam_calc_combo = StyledComboBox(self, theme=theme)
+        self.where_sam_vars = np.array(["cpu", "cuda", 'Auto'])
+        self.where_sam_calc_combo.addItems(self.where_sam_vars)
+        where_label = QLabel("Платформа:" if self.lang == 'RU' else 'Platform:')
+
+        self.where_sam_calc_combo.setCurrentIndex(0)
+        idx = np.where(self.where_sam_vars == self.settings.read_sam_platform())[0][0]
+        self.where_sam_calc_combo.setCurrentIndex(idx)
+
+        # Настройки обнаружения
+        self.samGroupBox = QGroupBox()
+
+        sam_layout = QFormLayout()
+
+        self.sam_combo = StyledComboBox(self, theme=theme)
+        sam_list = list(ml_config.SAM_DICT.keys())
+        self.sams = np.array(sam_list)
+        self.sam_combo.addItems(self.sams)
+
+        sam_label = QLabel("Модель:" if self.lang == 'RU' else "Model:")
+
+        sam_layout.addRow(sam_label, self.sam_combo)
+        sam_layout.addRow(where_label, self.where_sam_calc_combo)
+
+        self.sam_combo.setCurrentIndex(0)
+        idx = np.where(self.sams == self.settings.read_sam_model())[0][0]
+        self.sam_combo.setCurrentIndex(idx)
+
+        self.clear_sam_spin = StyledSpinBox(self, theme=theme)
+        clear_sam_size = self.settings.read_clear_sam_size()
+        self.clear_sam_spin.setValue(int(clear_sam_size))
+
+        self.clear_sam_spin.setMinimum(1)
+        self.clear_sam_spin.setMaximum(500)
+        sam_layout.addRow(QLabel(
+            "Размер удаляемых мелких областей, px:" if self.lang == 'RU' else "Remove small objects size, px"),
+                                 self.clear_sam_spin)
+
+        self.samGroupBox.setLayout(sam_layout)
+
+
+    def create_segmentation_layout(self):
+        theme = self.settings.read_theme()
+
+        self.where_segmentation_calc_combo = StyledComboBox(self, theme=theme)
+        self.where_segmentation_vars = np.array(["cpu", "cuda", 'Auto'])
+        self.where_segmentation_calc_combo.addItems(self.where_segmentation_vars)
+        where_label = QLabel("Платформа:" if self.lang == 'RU' else 'Platform:')
+
+        self.where_segmentation_calc_combo.setCurrentIndex(0)
+        idx = np.where(self.where_segmentation_vars == self.settings.read_segmentation_platform())[0][0]
+        self.where_segmentation_calc_combo.setCurrentIndex(idx)
+
+        # Настройки обнаружения
+        self.segmentationGroupBox = QGroupBox()
+
+        segmentation_layout = QFormLayout()
+
+        self.segmentation_combo = StyledComboBox(self, theme=theme)
+        segmentation_list = list(ml_config.SEG_DICT.keys())
+        self.segmentations = np.array(segmentation_list)
+        self.segmentation_combo.addItems(self.segmentations)
+
+        segmentation_label = QLabel("Модель:" if self.lang == 'RU' else "Model:")
+
+        segmentation_layout.addRow(segmentation_label, self.segmentation_combo)
+        segmentation_layout.addRow(where_label, self.where_segmentation_calc_combo)
+
+        self.segmentation_combo.setCurrentIndex(0)
+        idx = np.where(self.segmentations == self.settings.read_seg_model())[0][0]
+        self.segmentation_combo.setCurrentIndex(idx)
+
+        self.segmentationGroupBox.setLayout(segmentation_layout)
 
     def create_cnn_layout(self):
         theme = self.settings.read_theme()
 
-        self.where_calc_combo = StyledComboBox(self, theme=theme)
-        self.where_vars = np.array(["cpu", "cuda", 'Auto'])
-        self.where_calc_combo.addItems(self.where_vars)
-        where_label = QLabel("Платформа для ИИ" if self.lang == 'RU' else 'Platform for AI')
+        self.where_detector_calc_combo = StyledComboBox(self, theme=theme)
+        self.where_detector_vars = np.array(["cpu", "cuda", 'Auto'])
+        self.where_detector_calc_combo.addItems(self.where_detector_vars)
+        where_label = QLabel("Платформа:" if self.lang == 'RU' else 'Platform:')
 
-        self.where_calc_combo.setCurrentIndex(0)
-        idx = np.where(self.where_vars == self.settings.read_platform())[0][0]
-        self.where_calc_combo.setCurrentIndex(idx)
+        self.where_detector_calc_combo.setCurrentIndex(0)
+        idx = np.where(self.where_detector_vars == self.settings.read_detector_platform())[0][0]
+        self.where_detector_calc_combo.setCurrentIndex(idx)
 
         # Настройки обнаружения
         self.classifierGroupBox = QGroupBox()
@@ -35,17 +116,17 @@ class SettingsWindow(SettingsWindowBase):
         classifier_layout = QFormLayout()
 
         self.cnn_combo = StyledComboBox(self, theme=theme)
-        cnn_list = list(cls_settings.CNN_DICT.keys())
+        cnn_list = list(ml_config.CNN_DICT.keys())
         self.cnns = np.array(cnn_list)
         self.cnn_combo.addItems(self.cnns)
 
-        cnn_label = QLabel("Модель СНС:" if self.lang == 'RU' else "Classifier model")
+        cnn_label = QLabel("Модель:" if self.lang == 'RU' else "Model:")
 
         classifier_layout.addRow(cnn_label, self.cnn_combo)
-        classifier_layout.addRow(where_label, self.where_calc_combo)
+        classifier_layout.addRow(where_label, self.where_detector_calc_combo)
 
         self.cnn_combo.setCurrentIndex(0)
-        idx = np.where(self.cnns == self.settings.read_cnn_model())[0][0]
+        idx = np.where(self.cnns == self.settings.read_detector_model())[0][0]
         self.cnn_combo.setCurrentIndex(idx)
 
         self.conf_thres_spin = StyledDoubleSpinBox(self, theme=theme)
@@ -80,34 +161,26 @@ class SettingsWindow(SettingsWindowBase):
         classifier_layout.addRow(QLabel("Коэффициент упрощения полигонов:" if self.lang == 'RU' else "Simplify factor"),
                                  self.simplify_spin)
 
-        self.clear_sam_spin = StyledSpinBox(self, theme=theme)
-        clear_sam_size = self.settings.read_clear_sam_size()
-        self.clear_sam_spin.setValue(int(clear_sam_size))
-
-        self.clear_sam_spin.setMinimum(1)
-        self.clear_sam_spin.setMaximum(500)
-        classifier_layout.addRow(QLabel("Размер удаляемых мелких областей SAM, px:" if self.lang == 'RU' else "SAM remove small objects size, px"),
-                                 self.clear_sam_spin)
-
-        self.SAM_HQ_checkbox = QCheckBox()
-        self.SAM_HQ_checkbox.setChecked(bool(self.settings.read_sam_hq()))
-        sam_hq_label = QLabel('Использовать SAM HQ' if self.lang == 'RU' else 'Use SAM HQ')
-        classifier_layout.addRow(sam_hq_label, self.SAM_HQ_checkbox)
-
         self.classifierGroupBox.setLayout(classifier_layout)
 
     def on_ok_clicked(self):
         super(SettingsWindow, self).on_ok_clicked()
 
-        self.settings.write_platform(self.where_vars[self.where_calc_combo.currentIndex()])
+        self.settings.write_detector_platform(self.where_detector_vars[self.where_detector_calc_combo.currentIndex()])
+        self.settings.write_sam_platform(self.where_sam_vars[self.where_sam_calc_combo.currentIndex()])
+        self.settings.write_segmentation_platform(self.where_segmentation_vars[self.where_segmentation_calc_combo.currentIndex()])
 
-        self.settings.write_cnn_model(self.cnns[self.cnn_combo.currentIndex()])
+        self.settings.write_detector_model(self.cnns[self.cnn_combo.currentIndex()])
+        self.settings.write_sam_model(self.sams[self.sam_combo.currentIndex()])
+        self.settings.write_seg_model(self.segmentations[self.segmentation_combo.currentIndex()])
+
         self.settings.write_iou_thres(self.IOU_spin.value())
         self.settings.write_conf_thres(self.conf_thres_spin.value())
         self.settings.write_simplify_factor(self.simplify_spin.value())
+
         self.settings.write_clear_sam_size(self.clear_sam_spin.value())
 
-        self.settings.write_sam_hq(int(self.SAM_HQ_checkbox.isChecked()))
+
 
 
 if __name__ == '__main__':

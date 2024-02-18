@@ -1,22 +1,13 @@
-from PyQt5 import QtCore, QtWidgets, QtGui
-from PyQt5.QtWidgets import QAction, QMessageBox, QToolBar, QToolButton
-from PyQt5.QtGui import QIcon, QCursor
-
-from annotator import Annotator
-from utils import config
-
-from ui.custom_widgets.edit_with_button import EditWithButton
-
-from utils import cls_settings
-from utils.segmenter_worker import SegmenterWorker
-
-from shapely import Polygon
-
-import utils.help_functions as hf
-import cv2
 import os
 
-import numpy as np
+from PyQt5 import QtCore, QtWidgets
+from PyQt5.QtGui import QIcon, QCursor
+from PyQt5.QtWidgets import QAction, QMessageBox, QToolBar, QToolButton
+
+import utils.help_functions as hf
+from annotator import Annotator
+from ui.custom_widgets.edit_with_button import EditWithButton
+from utils import config
 from utils.pil_translate import GeoTIFF
 
 
@@ -47,11 +38,6 @@ class Detector(Annotator):
             self, enabled=False,
             triggered=self.detect_scan)
 
-        self.segmentImage = QAction(
-            "Сегментация" if self.settings.read_lang() == 'RU' else "Segment image",
-            self, enabled=False,
-            triggered=self.segment_image)
-
         self.exportToESRIAct = QAction(
             "Экспорт в ESRI shapefile" if self.settings.read_lang() == 'RU' else "Export to ESRI shapefile", self,
             enabled=False,
@@ -63,9 +49,6 @@ class Detector(Annotator):
         super(Detector, self).createMenus()
 
         self.classifierMenu.addAction(self.detectScanAct)
-
-        self.classifierMenu.addAction(self.segmentImage)
-
         self.datasetMenu.addAction(self.exportToESRIAct)
 
     def createToolbar(self):
@@ -104,7 +87,6 @@ class Detector(Annotator):
         super(Detector, self).set_icons()
         # AI
         self.detectScanAct.setIcon(QIcon(self.icon_folder + "/slide.png"))
-        self.segmentImage.setIcon(QIcon(self.icon_folder + "/seg.png"))
         self.exportToESRIAct.setIcon(QIcon(self.icon_folder + "/esri_shp.png"))
 
     def get_jpg_path(self, image_name):
@@ -142,72 +124,6 @@ class Detector(Annotator):
         super(Detector, self).open_image(jpg_path)
 
         self.view.setCursor(QCursor(QtCore.Qt.ArrowCursor))
-
-    def on_segment_start(self):
-        self.view.start_circle_progress()
-
-    def on_segment_finished(self):
-        predictions = self.seg_worker.results['predictions']
-        shape = predictions.shape
-
-        for cls_num, cls_name in enumerate(cls_settings.CLASSES_SEG):
-            if cls_name == 'background':
-                continue
-            mask = predictions == cls_num
-
-            segment_np = np.zeros((shape[0], shape[1], 3))
-            segment_np[:, :] = [0, 0, 0]
-            segment_np[mask, :] = cls_settings.PALETTE_SEG[cls_num]
-            temp_folder = hf.handle_temp_folder(os.getcwd())
-            segment_name = os.path.join(temp_folder, f'segment_{cls_name}.jpg')
-            cv2.imwrite(segment_name, segment_np)
-            self.view.add_segment_pixmap(QtGui.QPixmap(segment_name), opacity=0.5, z_value=100 + cls_num)
-
-        self.view.stop_circle_progress()
-
-    def add_segment_polygon_to_scene(self, points, cls_num):
-
-        if len(points) > 0:
-            shapely_pol = Polygon(points)
-            area = shapely_pol.area
-            if area > config.POLYGON_AREA_THRESHOLD:
-
-                cls_name = self.cls_combo.itemText(cls_num)
-                alpha_tek = self.settings.read_alpha()
-                alpha_edge = self.settings.read_edges_alpha()
-                color = self.project_data.get_label_color(cls_name)
-
-                self.view.add_polygon_to_scene(cls_num, points, color, alpha=alpha_tek, alpha_edge=alpha_edge)
-                self.save_view_to_project()
-
-            else:
-                if self.settings.read_lang() == 'RU':
-                    self.statusBar().showMessage(
-                        f"Метку сделать не удалось. Площадь маски слишком мала {area:0.3f}. Попробуйте еще раз", 3000)
-                else:
-                    self.statusBar().showMessage(
-                        f"Can't create label. Area of label is too small {area:0.3f}. Try again", 3000)
-
-        self.labels_count_conn.on_labels_count_change.emit(self.labels_on_tek_image.count())
-
-    def segment_image(self):
-
-        config = os.path.join(os.getcwd(), cls_settings.SEG_DICT['PSPNet']['config'])
-        checkpoint = os.path.join(os.getcwd(), cls_settings.SEG_DICT['PSPNet']['weights'])
-
-        im = self.cv2_image
-
-        palette = cls_settings.PALETTE_SEG
-        classes = cls_settings.CLASSES_SEG
-        self.seg_worker = SegmenterWorker(image_path=im, config_path=config, checkpoint_path=checkpoint,
-                                          palette=palette,
-                                          classes=classes, device=self.settings.read_platform())
-
-        self.seg_worker.started.connect(self.on_segment_start)
-        self.seg_worker.finished.connect(self.on_segment_finished)
-
-        if not self.seg_worker.isRunning():
-            self.seg_worker.start()
 
     def export_to_esri(self):
 
@@ -274,9 +190,6 @@ class Detector(Annotator):
         super(Detector, self).toggle_act(is_active)
 
         self.detectScanAct.setEnabled(is_active)
-
-        self.segmentImage.setEnabled(is_active)
-
         self.exportToESRIAct.setEnabled(is_active)
 
     def about(self):

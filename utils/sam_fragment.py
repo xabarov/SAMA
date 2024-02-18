@@ -181,23 +181,4 @@ def calc_points_per_side(self, min_obj_width_meters):
 
 
 if __name__ == '__main__':
-    from utils.sam_predictor import load_model as sam_load_model
-
-    folder_path = "F:\python\datasets\\aes_dist\images"
-
-    points_per_side = 32
-
-    use_hq = False
-    if use_hq:
-        sam_model_path = os.path.join(os.getcwd(), "..", config.PATH_TO_SAM_HQ_CHECKPOINT)
-    else:
-        sam_model_path = os.path.join(os.getcwd(), "..", config.PATH_TO_SAM_CHECKPOINT)
-
-    sam = sam_load_model(sam_model_path, device="cuda", use_sam_hq=use_hq)
-
-    generator = create_generator(sam.model, pred_iou_thresh=0.88, box_nms_thresh=0.7,
-                                 points_per_side=points_per_side, crop_n_points_downscale_factor=1,
-                                 crop_nms_thresh=0.7,
-                                 output_mode="binary_mask")
-
-    create_segments_for_folder(generator, folder_path, is_pickle=True)
+    pass
